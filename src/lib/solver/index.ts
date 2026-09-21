@@ -16,3 +16,4 @@ export function generateSchedule(config: Config): ScheduleResult {
     score: result.score
   };
 }
+export * from "./defaultConfig";
