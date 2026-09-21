@@ -8,18 +8,63 @@ interface ScheduleGridProps {
   escala: Escala;
   violacoes: Violacao[];
   dias: string[];
+  onUpdateEscala?: (novaEscala: Escala) => void;
 }
 
-export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, dias }) => {
+export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, dias, onUpdateEscala }) => {
+  const { isAdmin, isCoordenador } = useAuth();
   const getViolacoes = (turno: string, sitio: string, d: number) => {
     return violacoes.filter(v => v.turno === turno && canon(v.sitio) === canon(sitio) && v.d === d);
   };
 
+  
   const renderTurno = (turno: 'manha' | 'tarde' | 'noite', titulo: string) => {
     // Treat noite as a dummy for UI if solver doesn't output it natively
     const isNoite = turno === 'noite';
     const sourceData = isNoite ? {} : (escala[turno as 'manha' | 'tarde'] || {});
     const sitios = Object.keys(sourceData);
+    const canEdit = isAdmin || isCoordenador;
+
+    const handleDragStart = (e: React.DragEvent, nome: string, sourceTurno: string, sourceSitio: string, sourceD: number) => {
+      e.dataTransfer.setData('application/json', JSON.stringify({ nome, sourceTurno, sourceSitio, sourceD }));
+    };
+
+    const handleDrop = (e: React.DragEvent, targetTurno: string, targetSitio: string, targetD: number) => {
+      e.preventDefault();
+      if (!onUpdateEscala) return;
+      
+      try {
+        const data = JSON.parse(e.dataTransfer.getData('application/json'));
+        const { nome, sourceTurno, sourceSitio, sourceD } = data;
+        
+        if (sourceTurno === targetTurno && sourceSitio === targetSitio && sourceD === targetD) {
+          return;
+        }
+
+        const novaEscala = JSON.parse(JSON.stringify(escala));
+        
+        // Remover da origem
+        const sourceList = novaEscala[sourceTurno][sourceSitio][sourceD] || [];
+        novaEscala[sourceTurno][sourceSitio][sourceD] = sourceList.filter((n: string) => n !== nome);
+
+        // Adicionar no destino
+        if (!novaEscala[targetTurno]) novaEscala[targetTurno] = {};
+        if (!novaEscala[targetTurno][targetSitio]) novaEscala[targetTurno][targetSitio] = [];
+        if (!novaEscala[targetTurno][targetSitio][targetD]) novaEscala[targetTurno][targetSitio][targetD] = [];
+        
+        if (!novaEscala[targetTurno][targetSitio][targetD].includes(nome)) {
+          novaEscala[targetTurno][targetSitio][targetD].push(nome);
+        }
+
+        onUpdateEscala(novaEscala);
+      } catch (err) {
+        console.error('Error handling drop', err);
+      }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+      e.preventDefault();
+    };
 
     if (isNoite) {
       // Just for UI requirement "M, T, N"
@@ -72,9 +117,19 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
                   const bgClass = isHard ? 'bg-red-100' : (isSoft ? 'bg-yellow-100' : '');
 
                   return (
-                    <td key={d} className={`border border-slate-200 p-2 ${bgClass}`}>
+                    <td 
+                      key={d} 
+                      className={`border border-slate-200 p-2 ${bgClass}`}
+                      onDrop={canEdit ? (e) => handleDrop(e, turno, s, d) : undefined}
+                      onDragOver={canEdit ? handleDragOver : undefined}
+                    >
                       {nomes.map((nome, i) => (
-                        <div key={i} className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded m-0.5">
+                        <div 
+                          key={i} 
+                          className={`inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded m-0.5 ${canEdit ? 'cursor-move' : ''}`}
+                          draggable={canEdit}
+                          onDragStart={canEdit ? (e) => handleDragStart(e, nome, turno, s, d) : undefined}
+                        >
                           {nome}
                         </div>
                       ))}
@@ -93,8 +148,6 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
       </div>
     );
   };
-
-  const { isAdmin, isCoordenador } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
