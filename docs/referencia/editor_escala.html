@@ -1,0 +1,1195 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Editor de Escala de Sítio</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#1b1f24; --muted:#6b7480;
+    --line:#dfe3e8; --line-strong:#c6ccd4;
+    --head:#dce6f4; --sitecol:#f0f2f5;
+    --enf:#e8f0fe; --enf-ink:#1a4b8c;
+    --tec:#eaf6ec; --tec-ink:#1f6b35;
+    --err:#c8342b; --err-bg:#fdecea;
+    --warn:#9a6b00; --warn-bg:#fff6e0;
+    --ok:#1f7a45;
+    --accent:#2f5cd6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+  header{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 16px;
+    display:flex;gap:12px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:20}
+  header h1{font-size:15px;margin:0 12px 0 0;font-weight:650;letter-spacing:-.01em}
+  .semana-inp{font:inherit;padding:5px 8px;border:1px solid var(--line-strong);border-radius:6px;width:330px}
+  button{font:inherit;padding:6px 11px;border:1px solid var(--line-strong);background:#fff;
+    border-radius:6px;cursor:pointer;color:var(--ink)}
+  button:hover{background:#f2f4f7}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.primary:hover{filter:brightness(1.08)}
+  .spacer{flex:1}
+  main{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;padding:14px 16px 40px;align-items:start}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+  .card>h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+    margin:0;padding:10px 12px;border-bottom:1px solid var(--line);font-weight:650}
+  table.grade{border-collapse:collapse;width:100%;table-layout:fixed}
+  table.grade th,table.grade td{border:1px solid var(--line);vertical-align:top}
+  table.grade thead th{background:var(--head);font-size:12px;padding:6px 4px;text-align:center}
+  table.grade thead th.turno{text-align:left;padding-left:10px;font-size:13px}
+  td.sitio{background:var(--sitecol);font-size:11px;font-weight:600;padding:6px 8px;width:168px;line-height:1.3;word-break:break-word}
+  td.cel{padding:3px 3px 4px;min-height:32px;cursor:copy}
+  td.cel.drop{outline:2px dashed var(--accent);outline-offset:-3px;background:#eef3ff}
+  td.cel.bad{background:var(--err-bg)}
+  td.cel.warn{background:var(--warn-bg)}
+  td.cel.vazio::after{content:"—";color:#c3c9d1;font-size:12px;padding-left:4px}
+  .chip{display:inline-flex;align-items:center;gap:4px;margin:1px;padding:2px 6px;border-radius:5px;
+    font-size:11.5px;cursor:grab;border:1px solid transparent;white-space:nowrap;user-select:none}
+  .chip.enf{background:var(--enf);color:var(--enf-ink);border-color:#c5d8f5}
+  .chip.tec{background:var(--tec);color:var(--tec-ink);border-color:#c6e4cd}
+  .chip .x{opacity:.35;font-weight:700;cursor:pointer;padding:0 1px}
+  .chip .x:hover{opacity:1;color:var(--err)}
+  .chip.dragging{opacity:.4}
+  .chip .tag{font-size:9.5px;opacity:.7;font-weight:700}
+  .pool{padding:8px 10px 12px}
+  .pool .dia{margin-bottom:9px}
+  .pool .dia b{font-size:11px;color:var(--muted);display:block;margin-bottom:3px;font-weight:650}
+  .rep{padding:4px 0 10px;max-height:460px;overflow:auto}
+  .rep .item{padding:7px 12px;border-bottom:1px solid #f0f1f3;font-size:12px;line-height:1.4}
+  .rep .item:last-child{border-bottom:0}
+  .rep .item b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  .rep .hard b{color:var(--err)} .rep .soft b{color:var(--warn)}
+  .rep .item .loc{color:var(--muted);font-size:11px}
+  .rep .item:hover{background:#fafbfc;cursor:pointer}
+  .empty{padding:14px 12px;color:var(--ok);font-size:12px}
+  .stats{display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .pill{font-size:11px;padding:3px 8px;border-radius:20px;background:#eef0f3;color:var(--muted);font-weight:600}
+  .pill.bad{background:var(--err-bg);color:var(--err)}
+  .pill.warn{background:var(--warn-bg);color:var(--warn)}
+  .pill.ok{background:#e7f6ed;color:var(--ok)}
+  .rodape{padding:10px 12px}
+  .rodape textarea{width:100%;min-height:76px;font:12px/1.5 inherit;padding:8px;
+    border:1px solid var(--line-strong);border-radius:6px;resize:vertical}
+  dialog{border:1px solid var(--line-strong);border-radius:12px;padding:0;max-width:680px;width:92vw}
+  dialog::backdrop{background:rgba(15,20,28,.45)}
+  dialog .dh{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:650}
+  dialog .db{padding:14px 16px;max-height:64vh;overflow:auto}
+  dialog .df{padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+  dialog textarea{width:100%;min-height:220px;font:11.5px/1.4 ui-monospace,Menlo,Consolas,monospace;
+    padding:8px;border:1px solid var(--line-strong);border-radius:6px}
+  .rules label{display:flex;gap:9px;align-items:flex-start;padding:6px 0;border-bottom:1px solid #f2f3f5;font-size:12.5px}
+  .rules input{margin-top:2px}
+  .rules .rt{color:var(--muted);font-size:11.5px}
+  .legenda{padding:8px 12px;font-size:11px;color:var(--muted);border-top:1px solid var(--line)}
+  @media print{
+    header,aside,.legenda{display:none}
+    main{display:block;padding:0}
+    .card{border:0}
+    body{background:#fff}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Escala de Sítio</h1>
+  <input class="semana-inp" id="titulo" value="Escala de enfermagem semana 03 a 07 de agosto/26">
+  <button class="primary" id="btnGerar">Gerar automático</button>
+  <button id="btnLimpar">Limpar</button>
+  <span class="spacer"></span>
+  <button id="btnXlsx">Importar planilha</button>
+  <button id="btnDisp">Disponibilidade</button>
+  <button id="btnRegras">Regras</button>
+  <button id="btnImportar">Abrir semana</button>
+  <button id="btnJson">Salvar semana</button>
+  <button class="primary" id="btnDocx">Baixar .docx</button>
+</header>
+
+<main>
+  <section>
+    <div class="card">
+      <table class="grade" id="grade"></table>
+      <div class="legenda">
+        Arraste os nomes entre as células. Clique no <b>×</b> para remover. Clique numa célula vazia para escolher da lista.
+        Azul = enfermeiro, verde = técnico. Célula vermelha = regra rígida violada; amarela = alerta.
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>Rodapé da escala (férias, trocas, substituições)</h2>
+      <div class="rodape"><textarea id="rodape"></textarea></div>
+    </div>
+  </section>
+
+  <aside>
+    <div class="card">
+      <h2>Conferência</h2>
+      <div class="stats" id="stats"></div>
+      <div class="rep" id="rep"></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>Quem está livre (não escalado)</h2>
+      <div class="pool" id="pool"></div>
+    </div>
+  </aside>
+</main>
+
+<dialog id="dlg">
+  <div class="dh" id="dlgTit"></div>
+  <div class="db" id="dlgBody"></div>
+  <div class="df" id="dlgFoot"></div>
+</dialog>
+
+<script>
+/* =====================================================================
+   1. DADOS DE CONFIGURAÇÃO  (o que muda quando a equipe/regra muda)
+   ===================================================================== */
+
+let DIAS = ["Segunda 03","Terça 04","Quarta 05","Quinta 06","Sexta 07"];
+
+// turno: manha | tarde | noite(=entra 16h, só tarde)
+let EQUIPE = [
+  {n:"May",        c:"enf", t:"manha"},
+  {n:"Shana",      c:"enf", t:"manha"},
+  {n:"Ana Claudia",c:"enf", t:"manha"},
+  {n:"Sandra",     c:"enf", t:"manha"},
+  {n:"Michele",    c:"enf", t:"tarde"},
+  {n:"Fernanda",   c:"enf", t:"tarde"},
+  {n:"Carolina K", c:"enf", t:"tarde"},
+  {n:"Carol V",    c:"enf", t:"noite"},
+  {n:"Leticia",    c:"enf", t:"ambos", fixo:"Ensino"},
+  {n:"Allan",      c:"enf", t:"ambos"},
+  {n:"Vanessa",    c:"tec", t:"manha"},
+  {n:"Maria",      c:"tec", t:"manha"},
+  {n:"Andressa",   c:"tec", t:"manha"},
+  {n:"Dani P",     c:"tec", t:"manha"},
+  {n:"Luciana",    c:"tec", t:"manha"},
+  {n:"Fabiano",    c:"tec", t:"tarde"},
+  {n:"Dani J",     c:"tec", t:"tarde"},
+  {n:"Nicole",     c:"tec", t:"tarde"},
+  {n:"Paula",      c:"tec", t:"tarde"},
+  {n:"Regina",     c:"tec", t:"noite"},
+  {n:"Jomalba",    c:"tec", t:"noite"},
+];
+let PESSOA = {};
+const reindexar = ()=>{ PESSOA = Object.fromEntries(EQUIPE.map(p=>[p.n,p])); };
+reindexar();
+
+const ACOES = "Ações de vigilância/VD/PSE/Ensino/cursos/grupos";
+const SITIOS = {
+  manha:[
+    {n:"Consultas - Sala 1",      quem:"enf"},
+    {n:"Consultas - Sala 5",      quem:"enf"},
+    {n:"Supervisão",              quem:"enf"},
+    {n:"Ensino",                  quem:"enf"},
+    {n:"Procedim. de enfermagem", quem:"tec"},
+    {n:"Vacina",                  quem:"tec"},
+    {n:"Acolhimento",             quem:"tec"},
+    {n:"Curativo",                quem:"tec"},
+    {n:ACOES,                     quem:"ambos"},
+  ],
+  tarde:[
+    {n:"Consultas - Sala 1",      quem:"enf"},
+    {n:"Consultas - Sala 5",      quem:"enf"},
+    {n:"Supervisão",              quem:"enf"},
+    {n:"Ensino",                  quem:"enf"},
+    {n:"Procedim. de enfermagem", quem:"tec"},
+    {n:"Vacina",                  quem:"tec"},
+    {n:"Acolhimento",             quem:"tec"},
+    {n:"Curativo- CME 16h",       quem:"tec"},
+    {n:ACOES,                     quem:"ambos"},
+  ],
+};
+// "chave canônica" do sítio, para comparar manhã x tarde e semana anterior
+const canon = s => s.replace("Curativo- CME 16h","Curativo").trim();
+const SITIOS_TEC = ["Procedim. de enfermagem","Vacina","Acolhimento","Curativo"];
+
+// Colocações fixas: pessoa -> [{dia(0-4), turno, sitio}]
+const FIXAS = [
+  {p:"Dani P",   d:1, t:"manha", s:ACOES},
+  {p:"Dani P",   d:3, t:"tarde", s:ACOES},
+  {p:"Luciana",  d:3, t:"manha", s:ACOES},
+  {p:"Regina",   d:0, t:"tarde", s:ACOES},
+  {p:"Regina",   d:2, t:"tarde", s:ACOES},
+  {p:"Sandra",   d:4, t:"manha", s:ACOES},
+  {p:"Sandra",   d:3, t:"tarde", s:ACOES},
+  {p:"Vanessa",  d:2, t:"tarde", s:ACOES},
+  {p:"Fabiano",  d:2, t:"manha", s:ACOES},
+  {p:"Paula",    d:1, t:"tarde", s:ACOES},
+  {p:"Dani J",   d:3, t:"tarde", s:ACOES},
+];
+// Pessoa deve estar escalada nesse dia/turno, mas NUNCA em Ações
+const FIXAS_NAO_ACOES = [
+  {p:"Paula",  d:1, t:"manha"},
+  {p:"Dani J", d:3, t:"manha"},
+];
+
+// Regras que podem ser ligadas/desligadas (para descobrir quais são flexíveis de verdade)
+const REGRAS = {
+  disponibilidade:{on:true,  hard:true,  txt:"Não escalar quem está de F / FC / FE / AT no dia"},
+  turnoBase:      {on:true,  hard:true,  txt:"Cada um só no seu turno-base (exceto plantão P). Quem é 16h nunca de manhã"},
+  categoria:      {on:true,  hard:true,  txt:"Sala 1/5, Supervisão e Ensino só enfermeiro; Procedimento→Curativo só técnico"},
+  mariaVacina:    {on:true,  hard:true,  txt:"Maria nunca na Vacina"},
+  plantaoMesmo:   {on:true,  hard:true,  txt:"Quem está de plantão não fica no mesmo sítio de manhã e de tarde"},
+  diasSeguidos:   {on:true,  hard:true,  txt:"Não repetir o mesmo sítio em dias seguidos (vale para Ações)"},
+  sextaSegunda:   {on:true,  hard:true,  txt:"Não repetir o sítio da sexta anterior na segunda"},
+  duplaProibida:  {on:true,  hard:true,  txt:"Vanessa e Dani P não ficam juntas no mesmo sítio"},
+  fixas:          {on:true,  hard:true,  txt:"Respeitar as colocações fixas de grupos/atividades"},
+  acoesSemana:    {on:true,  hard:false, txt:"Cada profissional passa ao menos 1x por semana em Ações"},
+  cobertura:      {on:true,  hard:false, txt:"Todo sítio deve ter alguém em todos os dias"},
+  alternancia16h: {on:true,  hard:false, txt:"Regina/Jomalba dividem sítio após as 16h, alternando o sítio a cada dia"},
+};
+
+/* Disponibilidade da semana — sai do parse_mensal.py (status por dia).
+   OK = disponível | P = plantão | F/FC = folga | FE = férias | AT = atestado */
+let DISP = {
+  "May":        ["OK","P","OK","OK","OK"],
+  "Sandra":     ["OK","OK","OK","P","OK"],
+  "Shana":      ["FC","OK","P","OK","OK"],
+  "Ana Claudia":["P","OK","OK","OK","OK"],
+  "Dani P":     ["OK","OK","OK","P","OK"],
+  "Luciana":    ["P","OK","OK","OK","OK"],
+  "Maria":      ["OK","P","OK","OK","OK"],
+  "Andressa":   ["OK","OK","OK","OK","OK"],
+  "Vanessa":    ["OK","OK","P","OK","OK"],
+  "Fernanda":   ["OK","P","OK","OK","OK"],
+  "Carolina K": ["OK","OK","P","OK","OK"],
+  "Michele":    ["OK","OK","OK","OK","P"],
+  "Fabiano":    ["OK","OK","P","OK","OK"],
+  "Nicole":     ["OK","OK","FE","FE","FE"],
+  "Dani J":     ["FE","FE","OK","P","OK"],
+  "Paula":      ["OK","P","OK","OK","FC"],
+  "Carol V":    ["OK","OK","P","OK","OK"],
+  "Jomalba":    ["OK","OK","OK","OK","P"],
+  "Regina":     ["OK","OK","P","OK","OK"],
+  "Leticia":    ["OK","OK","OK","OK","OK"],
+  "Allan":      ["OK","OK","OK","OK","OK"],
+};
+
+/* Sexta da semana ANTERIOR — alimenta a regra sexta↔segunda.
+   (extraída da escala 20 a 24/jul que já existe na pasta) */
+let SEXTA_ANTERIOR = {
+  manha:{ "Consultas - Sala 1":["Carolina K"], "Consultas - Sala 5":["Leticia"],
+          "Supervisão":["May"], "Ensino":[],
+          "Procedim. de enfermagem":["Maria"], "Vacina":["Luciana"],
+          "Acolhimento":["Nicole"], "Curativo":["Vanessa"],
+          [ACOES]:["Jomalba","Sandra","Nicole","Allan"] },
+  tarde:{ "Consultas - Sala 1":["Leticia","Allan"], "Consultas - Sala 5":["Carol V"],
+          "Supervisão":["Ana Claudia"], "Ensino":[],
+          "Procedim. de enfermagem":["Nicole"], "Vacina":["Fabiano"],
+          "Acolhimento":["Jomalba"], "Curativo- CME 16h":["Paula"],
+          [ACOES]:["Carolina K","Dani J"] },
+};
+
+/* =====================================================================
+   2. ESTADO
+   ===================================================================== */
+const col = () => Array.from({length:DIAS.length}, ()=>[]);
+const vazio = () => ({
+  manha:Object.fromEntries(SITIOS.manha.map(s=>[s.n,col()])),
+  tarde:Object.fromEntries(SITIOS.tarde.map(s=>[s.n,col()])),
+});
+let escala = vazio();
+
+const st = (n,d) => (DISP[n]||[])[d] || "OK";
+const fora = (n,d) => ["F","FC","FE","AT","ATM"].includes(st(n,d));
+const plantao = (n,d) => st(n,d)==="P";
+
+// pode trabalhar neste turno/dia?
+function podeTurno(n,d,turno){
+  const p = PESSOA[n]; if(!p) return true;
+  if(p.t==="ambos") return true;
+  if(p.t==="noite") return turno==="tarde";      // 16h nunca de manhã, nem de plantão
+  if(p.t===turno) return true;
+  return plantao(n,d);                            // turno cruzado só no plantão
+}
+function disponivel(n,d,turno){
+  if(REGRAS.disponibilidade.on && fora(n,d)) return false;
+  if(REGRAS.turnoBase.on && !podeTurno(n,d,turno)) return false;
+  return true;
+}
+function cabe(n,sitio,turno){
+  const s = SITIOS[turno].find(x=>x.n===sitio); if(!s) return false;
+  const c = PESSOA[n]?.c || "tec";
+  if(!REGRAS.categoria.on) return true;
+  return s.quem==="ambos" || s.quem===c;
+}
+function ondeEsteve(esc,n,d,turno){
+  const out=[];
+  for(const s of SITIOS[turno]) if((esc[turno][s.n][d]||[]).includes(n)) out.push(s.n);
+  return out;
+}
+
+/* =====================================================================
+   3. VALIDADOR  (o "juiz" — roda a cada alteração)
+   ===================================================================== */
+function validar(esc){
+  const v=[];
+  const add=(hard,regra,turno,sitio,d,msg)=>v.push({hard,regra,turno,sitio,d,msg});
+
+  for(const turno of ["manha","tarde"]){
+    for(const s of SITIOS[turno]){
+      for(let d=0; d<DIAS.length; d++){
+        const nomes = esc[turno][s.n][d]||[];
+        for(const n of nomes){
+          if(REGRAS.disponibilidade.on && fora(n,d))
+            add(true,"disponibilidade",turno,s.n,d,`${n} está de ${st(n,d)} nesse dia`);
+          if(REGRAS.turnoBase.on && !podeTurno(n,d,turno)){
+            const p=PESSOA[n];
+            add(true,"turnoBase",turno,s.n,d, p?.t==="noite"
+              ? `${n} entra só depois das 16h — não pode de manhã`
+              : `${n} é do turno da ${p?.t} e não está de plantão`);
+          }
+          if(REGRAS.categoria.on && !cabe(n,s.n,turno))
+            add(true,"categoria",turno,s.n,d,`${n} é ${PESSOA[n]?.c==="enf"?"enfermeiro":"técnico"} e este sítio é de ${s.quem==="enf"?"enfermeiros":"técnicos"}`);
+          if(REGRAS.mariaVacina.on && n==="Maria" && s.n==="Vacina")
+            add(true,"mariaVacina",turno,s.n,d,"Maria não fica na Vacina");
+          // mesmo sítio manhã e tarde estando de plantão
+          if(REGRAS.plantaoMesmo.on && plantao(n,d) && turno==="tarde"){
+            if(ondeEsteve(esc,n,d,"manha").map(canon).includes(canon(s.n)))
+              add(true,"plantaoMesmo",turno,s.n,d,`${n} está de plantão e já ficou em ${canon(s.n)} de manhã`);
+          }
+          // dias seguidos no mesmo sítio
+          if(REGRAS.diasSeguidos.on && s.n!=="Ensino" && d>0 && (esc[turno][s.n][d-1]||[]).includes(n))
+            add(true,"diasSeguidos",turno,s.n,d,`${n} já estava em ${canon(s.n)} no dia anterior`);
+          // sexta anterior -> segunda
+          if(REGRAS.sextaSegunda.on && d===0){
+            const ant = SEXTA_ANTERIOR[turno]?.[s.n]||[];
+            if(ant.includes(n)) add(true,"sextaSegunda",turno,s.n,d,`${n} estava em ${canon(s.n)} na sexta passada`);
+          }
+        }
+        if(REGRAS.duplaProibida.on && nomes.includes("Vanessa") && nomes.includes("Dani P"))
+          add(true,"duplaProibida",turno,s.n,d,"Vanessa e Dani P não podem ficar juntas");
+        if(REGRAS.cobertura.on && nomes.length===0 && s.n!=="Ensino" && s.n!=="Consultas - Sala 5")
+          add(false,"cobertura",turno,s.n,d,"sítio sem ninguém");
+      }
+    }
+  }
+  // colocações fixas
+  if(REGRAS.fixas.on){
+    for(const f of FIXAS){
+      if(!PESSOA[f.p] || fora(f.p,f.d)) continue;
+      if(!(esc[f.t][f.s][f.d]||[]).includes(f.p))
+        add(true,"fixas",f.t,f.s,f.d,`${f.p} tem colocação fixa em ${canon(f.s)} (grupo/atividade)`);
+    }
+    for(const f of FIXAS_NAO_ACOES){
+      if(!PESSOA[f.p] || fora(f.p,f.d)) continue;
+      const sits = ondeEsteve(esc,f.p,f.d,f.t);
+      if(sits.length===0) add(true,"fixas",f.t,SITIOS[f.t][4].n,f.d,`${f.p} precisa estar escalada neste turno`);
+      else if(sits.includes(ACOES)) add(true,"fixas",f.t,ACOES,f.d,`${f.p} não pode ir para Ações neste turno`);
+    }
+  }
+  // Ações 1x por semana
+  if(REGRAS.acoesSemana.on){
+    for(const p of EQUIPE){
+      if(p.n==="Leticia"||p.n==="Allan") continue;
+      let tem=false, temSemana=false;
+      for(let d=0; d<DIAS.length; d++){
+        if(!fora(p.n,d)) temSemana=true;
+        for(const t of ["manha","tarde"]) if((esc[t][ACOES][d]||[]).includes(p.n)) tem=true;
+      }
+      if(temSemana && !tem)
+        add(false,"acoesSemana",p.t==="manha"?"manha":"tarde",ACOES,DIAS.length-1,`${p.n} não passou por Ações nesta semana`);
+    }
+  }
+  // alternância das 16h
+  if(REGRAS.alternancia16h.on){
+    for(const n of ["Regina","Jomalba"]){
+      let ant=null;
+      for(let d=0; d<DIAS.length; d++){
+        if(fora(n,d)) {ant=null; continue;}
+        const sits = ondeEsteve(esc,n,d,"tarde").filter(s=>SITIOS_TEC.map(canon).includes(canon(s)));
+        const s = sits[0]||null;
+        if(s && ant && canon(s)===canon(ant))
+          add(false,"alternancia16h","tarde",s,d,`${n} repetiu ${canon(s)} — precisa alternar`);
+        ant = s||ant;
+      }
+    }
+  }
+  return v;
+}
+
+/* =====================================================================
+   4. SOLVER  (preenche a semana respeitando as regras rígidas)
+   ===================================================================== */
+function jaEstaNoDia(esc,n,d,turno){ return ondeEsteve(esc,n,d,turno).length>0; }
+
+function podeColocar(esc,n,turno,sitio,d){
+  if(!disponivel(n,d,turno)) return false;
+  if(!cabe(n,sitio,turno)) return false;
+  if(jaEstaNoDia(esc,n,d,turno)) return false;
+  if(n==="Maria" && sitio==="Vacina") return false;
+  if(sitio!=="Ensino" && d>0 && (esc[turno][sitio][d-1]||[]).includes(n)) return false;
+  if(d===0 && (SEXTA_ANTERIOR[turno]?.[sitio]||[]).includes(n)) return false;
+  const cel = esc[turno][sitio][d]||[];
+  if(cel.includes("Vanessa") && n==="Dani P") return false;
+  if(cel.includes("Dani P") && n==="Vanessa") return false;
+  if(plantao(n,d) && turno==="tarde" && ondeEsteve(esc,n,d,"manha").map(canon).includes(canon(sitio))) return false;
+  return true;
+}
+
+function construir(){
+  const esc = vazio();
+  const put = (t,s,d,n)=>{ if(!esc[t][s][d].includes(n)) esc[t][s][d].push(n); };
+  const contaSitio = (n,t,s)=>{ let k=0; for(let d=0;d<DIAS.length;d++) if(esc[t][s][d].includes(n))k++; return k; };
+  const contaAcoes = n=>{ let k=0; for(let d=0;d<DIAS.length;d++) for(const t of ["manha","tarde"]) if(esc[t][ACOES][d].includes(n))k++; return k; };
+  const carga = (n,t)=>{ let k=0; for(let d=0;d<DIAS.length;d++) k+=ondeEsteve(esc,n,d,t).length; return k; };
+
+  // 4.1 Ensino: Leticia todos os dias, nos dois turnos
+  for(let d=0; d<DIAS.length; d++){
+    if(!fora("Leticia",d)){ put("manha","Ensino",d,"Leticia"); put("tarde","Ensino",d,"Leticia"); }
+  }
+  // 4.2 colocações fixas
+  for(const f of FIXAS) if(PESSOA[f.p] && !fora(f.p,f.d) && podeTurno(f.p,f.d,f.t)) put(f.t,f.s,f.d,f.p);
+
+  // 4.3 sítios normais, dia a dia
+  for(const turno of ["manha","tarde"]){
+    for(let d=0; d<DIAS.length; d++){
+      const sitios = SITIOS[turno].filter(s=>s.n!==ACOES && s.n!=="Ensino");
+      for(const s of sitios){
+        if(esc[turno][s.n][d].length>0) continue;
+        let cands = EQUIPE.filter(p=>p.n!=="Leticia" && p.t!=="noite" && podeColocar(esc,p.n,turno,s.n,d));
+        if(!cands.length)   // ninguém do turno: as de 16h assumem o sítio (cobertura depois das 16h)
+          cands = EQUIPE.filter(p=>p.t==="noite" && podeColocar(esc,p.n,turno,s.n,d));
+        if(!cands.length) continue;
+        cands.sort((a,b)=> custo(a)-custo(b));
+        put(turno,s.n,d,cands[0].n);
+        function custo(p){
+          let c = 4*contaSitio(p.n,turno,s.n) + 1.5*carga(p.n,turno);
+          if(plantao(p.n,d)) c += 2;                    // no plantão prefira Ações
+          if(p.n==="Allan") c += 3;                     // Allan é apoio
+          return c + Math.random()*1.2;
+        }
+      }
+      // 4.4 Ações: quem ainda não passou na semana, preferindo dia de plantão
+      const alvo = turno==="manha" ? 1 : 1;
+      while(esc[turno][ACOES][d].length < alvo){
+        const cands = EQUIPE.filter(p=>p.n!=="Leticia" && p.t!=="noite" && podeColocar(esc,p.n,turno,ACOES,d));
+        if(!cands.length) break;
+        cands.sort((a,b)=>{
+          const f=p=> contaAcoes(p.n)*10 + (plantao(p.n,d)?-3:0) + carga(p.n,turno)*0.5 + Math.random();
+          return f(a)-f(b);
+        });
+        put(turno,ACOES,d,cands[0].n);
+      }
+    }
+  }
+
+  // 4.5 Regina e Jomalba: dividem um sítio de técnico depois das 16h, alternando
+  for(const n of ["Regina","Jomalba"]){
+    let ant=null;
+    for(let d=0; d<DIAS.length; d++){
+      if(fora(n,d)) continue;
+      if(jaEstaNoDia(esc,n,d,"tarde")) { ant=ondeEsteve(esc,n,d,"tarde")[0]; continue; }
+      const ordem = ["Acolhimento","Vacina","Procedim. de enfermagem","Curativo- CME 16h"];
+      const opts = ordem.filter(s=> canon(s)!==canon(ant||"") && podeColocar(esc,n,"tarde",s,d));
+      const alvo = opts.find(s=> esc.tarde[s][d].length===1) || opts[0];
+      if(alvo){ esc.tarde[alvo][d].push(n); ant=alvo; }
+    }
+  }
+  // 4.6 fechar a regra "1x por semana em Ações", de preferência no dia de plantão
+  for(const p of EQUIPE){
+    if(p.n==="Leticia" || p.n==="Allan") continue;
+    if(contaAcoes(p.n)>0) continue;
+    const turno = p.t==="manha" ? "manha" : "tarde";
+    const dias = DIAS.map((_,i)=>i)
+      .filter(d=> !fora(p.n,d) && podeTurno(p.n,d,turno))
+      .filter(d=> !(esc[turno][ACOES][d]||[]).includes(p.n))
+      .filter(d=> d===0 ? !(SEXTA_ANTERIOR[turno]?.[ACOES]||[]).includes(p.n) : true)
+      .filter(d=> !(esc[turno][ACOES][d-1]||[]).includes(p.n) && !(esc[turno][ACOES][d+1]||[]).includes(p.n))
+      .sort((a,b)=> (plantao(p.n,b)?1:0)-(plantao(p.n,a)?1:0)
+                 || esc[turno][ACOES][a].length - esc[turno][ACOES][b].length);
+    if(dias.length) put(turno,ACOES,dias[0],p.n);
+  }
+  return esc;
+}
+
+function pontuar(esc){
+  const bak = escala; escala = esc;               // o validador de 16h olha o estado
+  const v = validar(esc); escala = bak;
+  return v.reduce((a,x)=>a+(x.hard?100:1),0);
+}
+
+function gerar(){
+  let best=null, bs=Infinity;
+  for(let i=0;i<350;i++){
+    const e = construir(); const s = pontuar(e);
+    if(s<bs){ bs=s; best=e; }
+    if(bs===0) break;
+  }
+  escala = best;
+  render();
+}
+
+/* =====================================================================
+   5. RENDER
+   ===================================================================== */
+const $ = id=>document.getElementById(id);
+const NOME_REGRA = {
+  disponibilidade:"Folga, férias ou atestado", turnoBase:"Turno errado",
+  categoria:"Categoria do sítio", mariaVacina:"Maria na Vacina",
+  plantaoMesmo:"Plantão no mesmo sítio", diasSeguidos:"Sítio repetido em dias seguidos",
+  sextaSegunda:"Sexta passada → segunda", duplaProibida:"Dupla proibida",
+  fixas:"Colocação fixa de grupo", acoesSemana:"Sem Ações na semana",
+  cobertura:"Sítio sem ninguém", alternancia16h:"Alternância das 16h" };
+let violacoes = [];
+
+function classe(n){ return (PESSOA[n]?.c==="enf") ? "enf" : "tec"; }
+function tag(n,d){
+  const s = st(n,d);
+  if(s==="P") return "P";
+  if(PESSOA[n]?.t==="noite") return "16h";
+  return "";
+}
+
+function render(){
+  violacoes = validar(escala);
+  const porCel = {};
+  for(const v of violacoes){ const k=`${v.turno}|${v.sitio}|${v.d}`; (porCel[k]=porCel[k]||[]).push(v); }
+
+  let h = "";
+  for(const turno of ["manha","tarde"]){
+    h += `<thead><tr><th class="turno">${turno==="manha"?"MANHÃ  07:00–13:00":"TARDE  12:30–18:30"}</th>`;
+    h += DIAS.map(d=>`<th>${d}</th>`).join("") + `</tr></thead><tbody>`;
+    for(const s of SITIOS[turno]){
+      h += `<tr><td class="sitio">${s.n}</td>`;
+      for(let d=0; d<DIAS.length; d++){
+        const vs = porCel[`${turno}|${s.n}|${d}`]||[];
+        const cls = vs.some(x=>x.hard) ? "bad" : (vs.length ? "warn" : "");
+        const nomes = escala[turno][s.n][d]||[];
+        const chips = nomes.map((n,i)=>{
+          const t = tag(n,d);
+          return `<span class="chip ${classe(n)}" draggable="true"
+            data-t="${turno}" data-s="${enc(s.n)}" data-d="${d}" data-i="${i}" data-n="${enc(n)}">
+            ${n}${t?` <span class="tag">${t}</span>`:""}<span class="x" data-del="1">×</span></span>`;
+        }).join("");
+        const title = vs.map(x=>x.msg).join(" • ");
+        h += `<td class="cel ${cls} ${nomes.length?"":"vazio"}" data-t="${turno}" data-s="${enc(s.n)}" data-d="${d}"
+              title="${enc(title)}">${chips}</td>`;
+      }
+      h += `</tr>`;
+    }
+    h += `</tbody>`;
+  }
+  $("grade").innerHTML = h;
+  ligarDnD(); renderRel(); renderPool();
+}
+const enc = s => String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+
+function renderRel(){
+  const hard = violacoes.filter(v=>v.hard), soft = violacoes.filter(v=>!v.hard);
+  $("stats").innerHTML =
+    `<span class="pill ${hard.length?"bad":"ok"}">${hard.length} regra${hard.length===1?"":"s"} rígida${hard.length===1?"":"s"}</span>`+
+    `<span class="pill ${soft.length?"warn":"ok"}">${soft.length} alerta${soft.length===1?"":"s"}</span>`+
+    (hard.length===0 ? `<span class="pill ok">pronta para revisão</span>`:"");
+  const linha = v => `<div class="item ${v.hard?"hard":"soft"}" data-t="${v.turno}" data-s="${enc(v.sitio)}" data-d="${v.d}">
+      <b>${NOME_REGRA[v.regra] || v.regra}</b>
+      ${v.msg}<div class="loc">${v.turno==="manha"?"Manhã":"Tarde"} · ${canon(v.sitio)} · ${DIAS[v.d]}</div></div>`;
+  $("rep").innerHTML = violacoes.length
+    ? hard.map(linha).join("") + soft.map(linha).join("")
+    : `<div class="empty">Nenhuma regra violada. Confira mesmo assim os plantões e os grupos antes de fechar.</div>`;
+  $("rep").querySelectorAll(".item").forEach(el=>el.onclick=()=>{
+    const c = document.querySelector(`td.cel[data-t="${el.dataset.t}"][data-s="${CSS.escape(el.dataset.s)}"][data-d="${el.dataset.d}"]`);
+    if(c){ c.scrollIntoView({block:"center",behavior:"smooth"}); c.style.transition="none";
+           c.style.boxShadow="0 0 0 3px #2f5cd6"; setTimeout(()=>c.style.boxShadow="",1200); }
+  });
+}
+
+function renderPool(){
+  let h="";
+  for(let d=0; d<DIAS.length; d++){
+    const livres=[];
+    for(const turno of ["manha","tarde"]){
+      for(const p of EQUIPE){
+        if(p.n==="Leticia") continue;
+        if(!disponivel(p.n,d,turno)) continue;
+        if(jaEstaNoDia(escala,p.n,d,turno)) continue;
+        if(livres.some(x=>x.n===p.n&&x.t===turno)) continue;
+        livres.push({n:p.n,t:turno});
+      }
+    }
+    const foraHoje = EQUIPE.filter(p=>fora(p.n,d)).map(p=>`${p.n} (${st(p.n,d)})`);
+    h += `<div class="dia"><b>${DIAS[d]}</b>`;
+    h += livres.length ? livres.map(x=>`<span class="chip ${classe(x.n)}" draggable="true"
+            data-pool="1" data-t="${x.t}" data-d="${d}" data-n="${enc(x.n)}">${x.n} <span class="tag">${x.t==="manha"?"M":"T"}</span></span>`).join("")
+        : `<span style="color:#8b939c;font-size:11.5px">todos escalados</span>`;
+    if(foraHoje.length) h += `<div style="font-size:10.5px;color:#8b939c;margin-top:3px">fora: ${foraHoje.join(", ")}</div>`;
+    h += `</div>`;
+  }
+  $("pool").innerHTML = h;
+  ligarDnD();
+}
+
+/* =====================================================================
+   6. ARRASTAR E SOLTAR + EDIÇÃO MANUAL
+   ===================================================================== */
+let arrastando = null;
+
+function ligarDnD(){
+  document.querySelectorAll(".chip[draggable]").forEach(ch=>{
+    ch.ondragstart = e=>{
+      arrastando = {...ch.dataset, nome:ch.dataset.n};
+      ch.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", ch.dataset.n);
+    };
+    ch.ondragend = ()=>{ ch.classList.remove("dragging"); arrastando=null; };
+    const x = ch.querySelector("[data-del]");
+    if(x) x.onclick = e=>{
+      e.stopPropagation();
+      const {t,s,d,i} = ch.dataset;
+      escala[t][s][+d].splice(+i,1); render();
+    };
+  });
+  document.querySelectorAll("td.cel").forEach(td=>{
+    td.ondragover = e=>{ e.preventDefault(); td.classList.add("drop"); };
+    td.ondragleave = ()=> td.classList.remove("drop");
+    td.ondrop = e=>{
+      e.preventDefault(); td.classList.remove("drop");
+      if(!arrastando) return;
+      const {t,s,d} = td.dataset, nome = arrastando.nome;
+      if(!arrastando.pool){                       // move: tira da origem
+        const o = arrastando;
+        escala[o.t][o.s][+o.d] = escala[o.t][o.s][+o.d].filter(n=>n!==nome);
+      }
+      if(!escala[t][s][+d].includes(nome)) escala[t][s][+d].push(nome);
+      arrastando = null; render();
+    };
+    td.onclick = e=>{
+      if(e.target.closest(".chip")) return;
+      abrirPicker(td.dataset.t, td.dataset.s, +td.dataset.d);
+    };
+  });
+}
+
+function abrirPicker(turno,sitio,d){
+  const lista = EQUIPE.map(p=>{
+    const ok = podeColocar(escala,p.n,turno,sitio,d);
+    const motivo = ok ? "" :
+      (!disponivel(p.n,d,turno) ? (fora(p.n,d)? `de ${st(p.n,d)}` : "fora do turno")
+       : !cabe(p.n,sitio,turno) ? "categoria não bate"
+       : jaEstaNoDia(escala,p.n,d,turno) ? `já está em ${canon(ondeEsteve(escala,p.n,d,turno)[0]||"")}`
+       : "quebra uma regra rígida");
+    return {p,ok,motivo};
+  }).sort((a,b)=> (b.ok-a.ok) || a.p.n.localeCompare(b.p.n));
+
+  dialogo(`${canon(sitio)} · ${turno==="manha"?"manhã":"tarde"} · ${DIAS[d]}`,
+    `<div style="display:flex;flex-wrap:wrap;gap:6px">` +
+    lista.map(({p,ok,motivo})=>`<button data-add="${enc(p.n)}" style="${ok?"":"opacity:.45"}"
+        title="${enc(motivo)}">${p.n}${ok?"":` <span style="font-size:10px">(${motivo})</span>`}</button>`).join("") +
+    `</div>`, [{txt:"Fechar"}]);
+  $("dlgBody").querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{
+    const n = b.dataset.add;
+    if(!escala[turno][sitio][d].includes(n)) escala[turno][sitio][d].push(n);
+    $("dlg").close(); render();
+  });
+}
+
+/* =====================================================================
+   7. DIÁLOGOS
+   ===================================================================== */
+function dialogo(titulo, html, botoes){
+  $("dlgTit").textContent = titulo;
+  $("dlgBody").innerHTML = html;
+  $("dlgFoot").innerHTML = "";
+  (botoes||[{txt:"Fechar"}]).forEach(b=>{
+    const el = document.createElement("button");
+    el.textContent = b.txt; if(b.primary) el.className="primary";
+    el.onclick = ()=>{ if(!b.fn || b.fn()!==false) $("dlg").close(); };
+    $("dlgFoot").appendChild(el);
+  });
+  $("dlg").showModal();
+}
+
+function dlgDisponibilidade(){
+  const atual = JSON.stringify({semana:$("titulo").value, dias:DIAS,
+    disponibilidade:Object.entries(DISP).map(([n,s])=>({nome:n,
+      categoria:PESSOA[n]?.c==="enf"?"enfermeiro":"tecnico", turno:PESSOA[n]?.t,
+      status:Object.fromEntries(DIAS.map((d,i)=>[d,s[i]]))}))}, null, 1);
+  dialogo("Disponibilidade da semana",
+    `<p style="margin:0 0 8px;color:#6b7480">Cole aqui o JSON gerado pelo <code>parse_mensal.py</code>
+     (ou edite o que está abaixo). É isso que define quem está de plantão, folga ou férias.</p>
+     <textarea id="txtDisp">${enc(atual)}</textarea>`,
+    [{txt:"Cancelar"},{txt:"Aplicar",primary:true,fn:()=>{
+      try{
+        const j = JSON.parse($("txtDisp").value);
+        if(j.dias?.length) DIAS = j.dias;
+        const novo = {};
+        for(const p of j.disponibilidade||[]) novo[p.nome] = DIAS.map(d=>(p.status?.[d]||"OK").toUpperCase());
+        for(const p of EQUIPE) if(!novo[p.n]) novo[p.n]=DIAS.map(()=>"OK");
+        DISP = novo;
+        if(j.semana && !j.semana.startsWith("Escala")) $("titulo").value = `Escala de enfermagem semana ${j.semana}`;
+        render();
+      }catch(err){ alert("JSON inválido: "+err.message); return false; }
+    }}]);
+}
+
+function dlgRegras(){
+  dialogo("Regras — ligar / desligar",
+    `<p style="margin:0 0 8px;color:#6b7480">Desligue uma regra para ver como a escala fica sem ela.
+     Serve para descobrir quais regras são de fato inegociáveis.</p><div class="rules">` +
+    Object.entries(REGRAS).map(([k,r])=>`<label><input type="checkbox" data-r="${k}" ${r.on?"checked":""}>
+      <span>${r.txt}<div class="rt">${r.hard?"rígida — bloqueia":"alerta — só avisa"}</div></span></label>`).join("") +
+    `</div>`, [{txt:"Fechar",primary:true,fn:()=>render()}]);
+  $("dlgBody").querySelectorAll("[data-r]").forEach(c=>c.onchange=()=>{ REGRAS[c.dataset.r].on = c.checked; });
+}
+
+/* Baixar: no arquivo local, link direto. Publicado como artefato, o download
+   passa pela permissão do visualizador (capacidade "downloads"). */
+let _downloads;
+async function baixar(nome, blob){
+  if(_downloads === undefined)
+    _downloads = (typeof window.claude?.use === "function") ? await window.claude.use("downloads") : null;
+  if(_downloads){
+    try{ await _downloads.save({filename:nome, data:blob}); }
+    catch(err){ if(err?.code && err.code!=="declined") alert("Não consegui salvar: "+(err.message||err.code)); }
+    return;
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = nome;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+}
+
+function salvarSemana(){
+  const payload = {titulo:$("titulo").value, dias:DIAS, disponibilidade:DISP,
+    escala, rodape:$("rodape").value.split("\n").filter(Boolean),
+    sexta_anterior:SEXTA_ANTERIOR, gerado_em:new Date().toISOString()};
+  baixar(($("titulo").value.replace(/[\/:]/g,"-")||"semana")+".json",
+    new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}));
+}
+
+function abrirSemana(){
+  dialogo("Abrir semana salva",
+    `<p style="margin:0 0 8px;color:#6b7480">Escolha um arquivo <code>.json</code> salvo por este editor.
+     Você também pode usar a sexta-feira dele como "semana anterior" da nova semana.</p>
+     <input type="file" id="fileIn" accept=".json">
+     <label style="display:block;margin-top:10px;font-size:12.5px">
+       <input type="checkbox" id="soAnterior"> usar só a sexta como semana anterior (não substituir a grade)</label>`,
+    [{txt:"Cancelar"},{txt:"Abrir",primary:true,fn:()=>{
+      const f = $("fileIn").files[0]; if(!f) return false;
+      const soAnt = $("soAnterior").checked;
+      f.text().then(t=>{
+        const j = JSON.parse(t);
+        const sexta = {manha:{},tarde:{}};
+        for(const turno of ["manha","tarde"]) for(const s of SITIOS[turno]) sexta[turno][s.n] = (j.escala?.[turno]?.[s.n]?.[4])||[];
+        if(soAnt){ SEXTA_ANTERIOR = sexta; }
+        else{
+          escala = j.escala || vazio(); DISP = j.disponibilidade || DISP;
+          if(j.dias?.length) DIAS = j.dias;
+          if(j.titulo) $("titulo").value = j.titulo;
+          $("rodape").value = (j.rodape||[]).join("\n");
+          if(j.sexta_anterior) SEXTA_ANTERIOR = j.sexta_anterior;
+        }
+        render();
+      }).catch(e=>alert("Não consegui ler: "+e.message));
+    }}]);
+}
+
+
+/* =====================================================================
+   7B. LER PLANILHA .XLSX  (zip + OOXML, sem biblioteca)
+   O navegador descompacta com DecompressionStream — Chrome/Edge/Opera.
+   ===================================================================== */
+async function descompactarZip(bytes){
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  // acha o End Of Central Directory (últimos 64 KB)
+  let eocd = -1;
+  for(let i=bytes.length-22; i>=Math.max(0,bytes.length-65558); i--){
+    if(dv.getUint32(i,true)===0x06054b50){ eocd=i; break; }
+  }
+  if(eocd<0) throw new Error("não parece um arquivo .xlsx (zip inválido)");
+  const total = dv.getUint16(eocd+10,true);
+  let p = dv.getUint32(eocd+16,true);
+  const td = new TextDecoder(), saida = {};
+  for(let k=0; k<total; k++){
+    if(dv.getUint32(p,true)!==0x02014b50) break;
+    const metodo   = dv.getUint16(p+10,true);
+    const compSize = dv.getUint32(p+20,true);
+    const nomeLen  = dv.getUint16(p+28,true);
+    const extraLen = dv.getUint16(p+30,true);
+    const comLen   = dv.getUint16(p+32,true);
+    const offLocal = dv.getUint32(p+42,true);
+    const nome = td.decode(bytes.subarray(p+46, p+46+nomeLen));
+    // cabeçalho local: os tamanhos de nome/extra podem diferir do central
+    const lNome  = dv.getUint16(offLocal+26,true);
+    const lExtra = dv.getUint16(offLocal+28,true);
+    const ini = offLocal + 30 + lNome + lExtra;
+    const bruto = bytes.subarray(ini, ini + compSize);
+    if(/\.(xml|rels)$/i.test(nome)){
+      if(metodo===0) saida[nome] = td.decode(bruto);
+      else if(metodo===8){
+        if(typeof DecompressionStream === "undefined")
+          throw new Error("este navegador não descompacta .xlsx — use Chrome ou Edge");
+        const ds = new DecompressionStream("deflate-raw");
+        const buf = await new Response(new Blob([bruto]).stream().pipeThrough(ds)).arrayBuffer();
+        saida[nome] = td.decode(new Uint8Array(buf));
+      }
+    }
+    p += 46 + nomeLen + extraLen + comLen;
+  }
+  return saida;
+}
+
+const colIdx = ref => { let n=0; for(const ch of ref.replace(/\d+/g,"")) n = n*26 + (ch.charCodeAt(0)-64); return n-1; };
+
+async function lerPlanilha(file){
+  const partes = await descompactarZip(new Uint8Array(await file.arrayBuffer()));
+  const dom = txt => new DOMParser().parseFromString(txt,"application/xml");
+
+  // textos compartilhados
+  let compart = [];
+  if(partes["xl/sharedStrings.xml"]){
+    compart = [...dom(partes["xl/sharedStrings.xml"]).getElementsByTagName("si")]
+      .map(si => [...si.getElementsByTagName("t")].map(t=>t.textContent).join(""));
+  }
+  // nome da aba -> arquivo
+  const rels = {};
+  if(partes["xl/_rels/workbook.xml.rels"])
+    for(const r of dom(partes["xl/_rels/workbook.xml.rels"]).getElementsByTagName("Relationship"))
+      rels[r.getAttribute("Id")] = r.getAttribute("Target").replace(/^\/?xl\//,"").replace(/^\//,"");
+
+  const abas = [];
+  for(const sh of dom(partes["xl/workbook.xml"]).getElementsByTagName("sheet")){
+    const rid = sh.getAttribute("r:id") || sh.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships","id");
+    const alvo = "xl/" + (rels[rid] || `worksheets/sheet${abas.length+1}.xml`);
+    const xml = partes[alvo]; if(!xml) continue;
+    const celulas = [];
+    for(const row of dom(xml).getElementsByTagName("row")){
+      const linha = [];
+      for(const c of row.getElementsByTagName("c")){
+        const i = colIdx(c.getAttribute("r")||"A1");
+        const tipo = c.getAttribute("t");
+        let v = "";
+        if(tipo==="s") v = compart[+(c.getElementsByTagName("v")[0]?.textContent||0)] || "";
+        else if(tipo==="inlineStr") v = [...c.getElementsByTagName("t")].map(t=>t.textContent).join("");
+        else v = c.getElementsByTagName("v")[0]?.textContent || "";
+        linha[i] = String(v).trim();
+      }
+      const rIdx = +(row.getAttribute("r") || (celulas.length+1)) - 1;   // respeita linhas em branco
+      celulas[rIdx] = linha;
+    }
+    for(let i=0;i<celulas.length;i++) if(!celulas[i]) celulas[i] = [];
+    abas.push({nome: sh.getAttribute("name"), celulas});
+  }
+  return abas;
+}
+
+/* nome como aparece na planilha -> nome curto usado na escala */
+const NOME_CURTO = [
+  ["May Britt","May"],["Sandra Rejane","Sandra"],["Shana","Shana"],
+  ["Ana Cláudia","Ana Claudia"],["Ana Claudia","Ana Claudia"],
+  ["Daniele de Souza","Dani P"],["Daniela Prado","Dani P"],["Luciana","Luciana"],
+  ["Maria Janir","Maria"],["Maria","Maria"],["Andressa","Andressa"],["Vanessa","Vanessa"],
+  ["Fernanda","Fernanda"],["Carolina Santana","Carolina K"],["Michele","Michele"],
+  ["Fabiano","Fabiano"],["Nicole","Nicole"],["Daniele Volkmer","Dani J"],
+  ["Daniela Jacobsen","Dani J"],["Paula","Paula"],["Carolina Feijó","Carol V"],
+  ["Jomalba","Jomalba"],["Regina","Regina"],["Leticia","Leticia"],["Letícia","Leticia"],["Allan","Allan"],
+];
+const semAcento = s => String(s).normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().trim();
+function nomeCurto(txt){
+  const t = semAcento(txt);
+  for(const [longo,curto] of NOME_CURTO) if(t.startsWith(semAcento(longo))) return curto;
+  const prim = txt.trim().split(/\s+/)[0];
+  return EQUIPE.find(p=>semAcento(p.n)===semAcento(prim))?.n || null;
+}
+
+/* ---------------------------------------------------------------
+   Entender a planilha: cabeçalho dos dias, seções de turno, pessoas
+   --------------------------------------------------------------- */
+const MESES = {JAN:1,FEV:2,MAR:3,ABR:4,MAI:5,JUN:6,JUL:7,AGO:8,SET:9,OUT:10,NOV:11,DEZ:12};
+const DIAS_SEMANA = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
+const numDia = v => { const n = parseFloat(String(v).replace(",",".")); 
+  return (Number.isFinite(n) && n===Math.round(n) && n>=1 && n<=31) ? n : null; };
+
+/* legenda da própria planilha: P e variantes = trabalha (plantão); M/T/N = trabalha */
+const COD_PLANTAO = ["P","PN","P4","PHE","PBH","TP"];
+const COD_TRABALHA = ["M","T","N","N1","N2"];
+function classificar(cod){
+  const c = String(cod||"").toUpperCase().trim();
+  if(!c) return "OK";
+  if(COD_PLANTAO.includes(c)) return "P";
+  if(COD_TRABALHA.includes(c)) return "OK";
+  return c;                    // FE, FC, AT, LO, DSR... = fora
+}
+
+function analisar(celulas){
+  // linha de cabeçalho = a que tem mais números de 1 a 31
+  let cab = {linha:-1, qtd:0};
+  celulas.forEach((l,i)=>{
+    const qtd = (l||[]).filter(v=>numDia(v)!==null).length;
+    if(qtd > cab.qtd) cab = {linha:i, qtd};
+  });
+  if(cab.linha < 0) return null;
+  const colDia = {};
+  (celulas[cab.linha]||[]).forEach((v,c)=>{ const n = numDia(v); if(n!==null && colDia[n]===undefined) colDia[n]=c; });
+
+  // percorre as linhas: MANHÃ/TARDE/NOITE marcam a seção; S/D marcam fim de semana
+  const pessoas = [], marcadores = {};
+  let turno = null;
+  for(let i=cab.linha+1; i<celulas.length; i++){
+    const linha = celulas[i]||[]; const a = String(linha[0]||"").toUpperCase().trim();
+    if(/^(MANH|MANHÃ|MANHA)/.test(a)) turno = "manha";
+    else if(a.startsWith("TARDE")) turno = "tarde";
+    else if(a.startsWith("NOITE")) turno = "noite";
+    if(["MANHÃ","MANHA","TARDE","NOITE"].includes(a)){
+      for(const [n,c] of Object.entries(colDia)){
+        const v = String(linha[c]||"").toUpperCase().trim();
+        if(v==="S"||v==="D") marcadores[n] = v;
+      }
+      continue;
+    }
+    const nome = String(linha[1]||"").trim(), cat = String(linha[2]||"").trim();
+    if(!nome || !cat) continue;
+    if(/^(nome|registro|legenda)/i.test(nome)) continue;
+    const horario = String(linha[4]||"").trim();
+    const c = /enferm[ae]ir/i.test(cat) ? "enf" : (/t[eé]cnic|aux/i.test(cat) ? "tec" : null);
+    if(!c) continue;
+    const status = {};
+    for(const [n,col] of Object.entries(colDia)) status[n] = String(linha[col]||"").trim();
+    pessoas.push({nome, cat, horario, c, t: /^16:/.test(horario) ? "noite" : (turno||"manha"), status});
+  }
+  return {linhaCab:cab.linha, colDia, pessoas, marcadores};
+}
+
+/* o ano sai da própria planilha: é o que faz os S/D caírem em sábado e domingo */
+function descobrirAno(mes, marcadores, sugestao){
+  const anos = [sugestao, ...[0,1,-1,2,-2,3].map(k=>new Date().getFullYear()+k)].filter(Boolean);
+  for(const ano of anos){
+    let ok = true, checados = 0;
+    for(const [dia,marca] of Object.entries(marcadores)){
+      const wd = new Date(ano, mes-1, +dia).getDay();
+      checados++;
+      if((marca==="S" && wd!==6) || (marca==="D" && wd!==0)){ ok=false; break; }
+    }
+    if(ok && checados>0) return ano;
+  }
+  return sugestao || new Date().getFullYear();
+}
+
+function semanasDoMes(ano, mes){
+  const ultimo = new Date(ano, mes, 0).getDate(), semanas = [];
+  let atual = [];
+  for(let d=1; d<=ultimo; d++){
+    const wd = new Date(ano, mes-1, d).getDay();
+    if(wd>=1 && wd<=5) atual.push(d);
+    if(wd===5 || d===ultimo){ if(atual.length){ semanas.push(atual); atual=[]; } }
+  }
+  return semanas.map(dias=>({
+    dias,
+    rotulos: dias.map(d=>`${DIAS_SEMANA[new Date(ano,mes-1,d).getDay()]} ${String(d).padStart(2,"0")}`),
+    label: `${String(dias[0]).padStart(2,"0")} a ${String(dias[dias.length-1]).padStart(2,"0")}/${String(mes).padStart(2,"0")}`,
+  }));
+}
+
+/* nome completo -> nome curto, com a regra da inicial do sobrenome quando repete */
+function nomesCurtos(pessoas){
+  const base = pessoas.map(p=> nomeCurto(p.nome) || p.nome.trim().split(/\s+/)[0]);
+  const conta = {};
+  base.forEach(n=> conta[n] = (conta[n]||0)+1);
+  return base.map((n,i)=>{
+    if(conta[n]===1) return n;
+    const partes = pessoas[i].nome.trim().split(/\s+/);
+    return `${n} ${partes[partes.length-1][0].toUpperCase()}`;
+  });
+}
+
+function dlgPlanilha(){
+  dialogo("Importar planilha (.xlsx)",
+    `<p style="margin:0 0 8px;color:#6b7480">Escolha a planilha da escala mensal. Eu leio a aba do mês,
+     as seções manhã/tarde/noite, a categoria de cada um e os códigos de plantão, folga e férias —
+     você só confere e aplica.</p>
+     <input type="file" id="xlsxIn" accept=".xlsx">
+     <div id="xlsxPasso2" style="margin-top:12px"></div>`, [{txt:"Fechar"}]);
+
+  $("xlsxIn").onchange = async e=>{
+    const f = e.target.files[0]; if(!f) return;
+    const anoArquivo = +(f.name.match(/20\d{2}/)||[])[0] || null;
+    $("xlsxPasso2").innerHTML = `<span style="color:#6b7480">lendo…</span>`;
+    let abas;
+    try{ abas = await lerPlanilha(f); }
+    catch(err){ $("xlsxPasso2").innerHTML = `<span style="color:#c8342b">${enc(err.message)}</span>`; return; }
+
+    const uteis = abas.map((a,i)=>({...a, i, info: analisar(a.celulas)}))
+                      .filter(a=> a.info && a.info.pessoas.length>=4 && Object.keys(a.info.colDia).length>=20 && MESES[a.nome.toUpperCase().slice(0,3)]);
+    if(!uteis.length){ $("xlsxPasso2").innerHTML =
+      `<span style="color:#c8342b">não achei nenhuma aba com grade de nomes × dias</span>`; return; }
+
+    const hoje = new Date();
+    let sel = uteis.findIndex(a=> MESES[a.nome.toUpperCase().slice(0,3)] === hoje.getMonth()+1);
+    if(sel<0) sel = uteis.length-1;      // sem o mês de hoje, o último mês preenchido
+    let selSemana = 0;
+
+    const desenhar = ()=>{
+      const aba = uteis[sel], info = aba.info;
+      const mes = MESES[aba.nome.toUpperCase().slice(0,3)] || hoje.getMonth()+1;
+      const ano = descobrirAno(mes, info.marcadores, anoArquivo);
+      const semanas = semanasDoMes(ano, mes);
+      if(selSemana >= semanas.length) selSemana = 0;
+      const sem = semanas[selSemana];
+      const curtos = nomesCurtos(info.pessoas);
+      const codigos = new Set();
+      const linhas = info.pessoas.map((p,i)=>{
+        const status = sem.dias.map(d=>{
+          const bruto = p.status[d] || "";
+          if(bruto) codigos.add(bruto.toUpperCase());
+          return classificar(bruto);
+        });
+        return {p, curto:curtos[i], status};
+      });
+
+      $("xlsxPasso2").innerHTML =
+        `<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:12.5px">
+           <label>Mês: <select id="xAba">${uteis.map((a,i)=>
+             `<option value="${i}" ${i===sel?"selected":""}>${enc(a.nome)}</option>`).join("")}</select></label>
+           <label>Semana: <select id="xSem">${semanas.map((w,i)=>
+             `<option value="${i}" ${i===selSemana?"selected":""}>${w.label}</option>`).join("")}</select></label>
+           <span style="color:#6b7480">${ano} · ${linhas.length} profissionais · códigos: ${
+             [...codigos].sort().join(", ") || "nenhum"}</span>
+         </div>
+         <table style="width:100%;border-collapse:collapse;font-size:11.5px;margin-top:10px">
+           <tr style="background:#f0f2f5">
+             <th style="text-align:left;padding:3px 6px">Na planilha</th>
+             <th style="text-align:left;padding:3px 6px">Vira</th>
+             <th style="padding:3px 4px">Turno</th>
+             ${sem.rotulos.map(r=>`<th style="padding:3px 4px">${r.split(" ")[1]}</th>`).join("")}</tr>
+           ${linhas.map(l=>`<tr>
+              <td style="padding:2px 6px;color:#6b7480">${enc(l.p.nome)}</td>
+              <td style="padding:2px 6px"><b>${enc(l.curto)}</b>
+                  <span style="color:#8b939c">${l.p.c==="enf"?"enf":"téc"}</span></td>
+              <td style="text-align:center;padding:2px 4px;color:#6b7480">${l.p.t==="noite"?"16h":l.p.t}</td>
+              ${l.status.map(s=>`<td style="text-align:center;padding:2px 4px;${
+                 s==="OK"?"color:#c3c9d1":(s==="P"?"color:#1f7a45;font-weight:600":"color:#c8342b;font-weight:600")
+               }">${s==="OK"?"·":enc(s)}</td>`).join("")}</tr>`).join("")}
+         </table>`;
+      $("xAba").onchange = ev=>{ sel = +ev.target.value; selSemana = 0; desenhar(); };
+      $("xSem").onchange = ev=>{ selSemana = +ev.target.value; desenhar(); };
+
+      $("dlgFoot").innerHTML = "";
+      const bc = document.createElement("button"); bc.textContent = "Cancelar";
+      bc.onclick = ()=>$("dlg").close();
+      const ba = document.createElement("button"); ba.className = "primary";
+      ba.textContent = `Aplicar semana ${sem.label}`;
+      ba.onclick = ()=>{
+        EQUIPE = linhas.map(l=>({n:l.curto, c:l.p.c, t:l.p.t, completo:l.p.nome, horario:l.p.horario}));
+        for(const extra of [{n:"Leticia",c:"enf",t:"ambos"},{n:"Allan",c:"enf",t:"ambos"}])
+          if(!EQUIPE.some(p=>p.n===extra.n)) EQUIPE.push(extra);
+        reindexar();
+        DISP = {}; for(const l of linhas) DISP[l.curto] = l.status;
+        for(const p of EQUIPE) if(!DISP[p.n]) DISP[p.n] = DIAS.map(()=>"OK");
+        DIAS = sem.rotulos;
+        $("titulo").value = `Escala de enfermagem semana ${String(sem.dias[0]).padStart(2,"0")} a ${String(sem.dias[sem.dias.length-1]).padStart(2,"0")} de ` +
+          `${["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"][mes-1]}/${String(ano).slice(2)}`;
+        $("dlg").close(); gerar();
+      };
+      $("dlgFoot").append(bc,ba);
+    };
+    desenhar();
+  };
+}
+
+/* =====================================================================
+   8. EXPORTAR .DOCX  (OOXML mínimo, zip sem compressão — sem biblioteca)
+   ===================================================================== */
+function crc32(buf){
+  let c, tabela = crc32.t;
+  if(!tabela){ tabela = crc32.t = []; for(let n=0;n<256;n++){ c=n;
+    for(let k=0;k<8;k++) c = c&1 ? 0xEDB88320^(c>>>1) : c>>>1; tabela[n]=c>>>0; } }
+  let crc = 0xFFFFFFFF;
+  for(let i=0;i<buf.length;i++) crc = (crc>>>8) ^ tabela[(crc^buf[i]) & 0xFF];
+  return (crc ^ 0xFFFFFFFF)>>>0;
+}
+function zipar(arquivos){
+  const te = new TextEncoder(), partes=[], central=[];
+  let off = 0;
+  for(const a of arquivos){
+    const nome = te.encode(a.nome), dados = te.encode(a.conteudo), crc = crc32(dados);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0x0800,true);
+    lh.setUint16(8,0,true); lh.setUint16(10,0,true); lh.setUint16(12,0,true);
+    lh.setUint32(14,crc,true); lh.setUint32(18,dados.length,true); lh.setUint32(22,dados.length,true);
+    lh.setUint16(26,nome.length,true); lh.setUint16(28,0,true);
+    partes.push(new Uint8Array(lh.buffer), nome, dados);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true);
+    ch.setUint16(8,0x0800,true); ch.setUint16(10,0,true);
+    ch.setUint32(16,crc,true); ch.setUint32(20,dados.length,true); ch.setUint32(24,dados.length,true);
+    ch.setUint16(28,nome.length,true); ch.setUint32(42,off,true);
+    central.push(new Uint8Array(ch.buffer), nome);
+    off += 30 + nome.length + dados.length;
+  }
+  const tamCentral = central.reduce((a,x)=>a+x.length,0);
+  const eo = new DataView(new ArrayBuffer(22));
+  eo.setUint32(0,0x06054b50,true); eo.setUint16(8,arquivos.length,true);
+  eo.setUint16(10,arquivos.length,true); eo.setUint32(12,tamCentral,true); eo.setUint32(16,off,true);
+  const todas = [...partes,...central,new Uint8Array(eo.buffer)];
+  const total = todas.reduce((a,x)=>a+x.length,0), out = new Uint8Array(total);
+  let p=0; for(const x of todas){ out.set(x,p); p+=x.length; }
+  return new Blob([out],{type:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+}
+const xesc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+function celulaXml(txt,{bold=false,size=18,fill=null,align="center",w=1900}={}){
+  return `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${fill?`<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>`:""}
+    <w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:spacing w:before="20" w:after="20"/>
+    <w:jc w:val="${align}"/></w:pPr><w:r><w:rPr>${bold?"<w:b/>":""}<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+    <w:sz w:val="${size}"/></w:rPr><w:t xml:space="preserve">${xesc(txt)}</w:t></w:r></w:p></w:tc>`;
+}
+function textoCelula(turno,sitio,d){
+  return (escala[turno][sitio][d]||[]).map(n=>{
+    const t = tag(n,d); return t==="16h" ? `${n} 16h` : (t==="P" ? `${n} P` : n);
+  }).join(" / ");
+}
+function docx(){
+  let linhas = "";
+  for(const turno of ["manha","tarde"]){
+    linhas += `<w:tr>` + celulaXml(turno==="manha"?"MANHÃ":"TARDE",{bold:true,size:22,fill:"D9E1F2",align:"left",w:2700})
+      + DIAS.map(d=>celulaXml(d,{bold:true,size:20,fill:"D9E1F2"})).join("") + `</w:tr>`;
+    for(const s of SITIOS[turno]){
+      linhas += `<w:tr>` + celulaXml(s.n,{bold:true,size:16,fill:"F2F2F2",align:"left",w:2700})
+        + DIAS.map((_,d)=>celulaXml(textoCelula(turno,s.n,d),{size:18})).join("") + `</w:tr>`;
+    }
+  }
+  const rod = $("rodape").value.split("\n").filter(x=>x.trim()).map(l=>
+    `<w:p><w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="18"/></w:rPr>
+     <w:t xml:space="preserve">${xesc(l)}</w:t></w:r></w:p>`).join("");
+  const doc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
+<w:p><w:r><w:rPr><w:b/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="26"/></w:rPr>
+<w:t xml:space="preserve">${xesc($("titulo").value)}</w:t></w:r></w:p>
+<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders>
+${["top","left","bottom","right","insideH","insideV"].map(b=>`<w:${b} w:val="single" w:sz="4" w:color="808080"/>`).join("")}
+</w:tblBorders></w:tblPr><w:tblGrid>${[2700,...DIAS.map(()=>Math.round(9500/DIAS.length))].map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>
+${linhas}</w:tbl><w:p/>${rod}
+<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>
+<w:pgMar w:top="567" w:right="567" w:bottom="567" w:left="567"/></w:sectPr></w:body></w:document>`;
+
+  const ct = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+  baixar(($("titulo").value.replace(/[\/:]/g,"-")||"escala")+".docx",
+    zipar([{nome:"[Content_Types].xml",conteudo:ct},{nome:"_rels/.rels",conteudo:rels},
+           {nome:"word/document.xml",conteudo:doc}]));
+}
+
+/* =====================================================================
+   9. INÍCIO
+   ===================================================================== */
+$("btnGerar").onclick   = gerar;
+$("btnLimpar").onclick  = ()=>{ escala = vazio(); render(); };
+$("btnXlsx").onclick    = dlgPlanilha;
+$("btnDisp").onclick    = dlgDisponibilidade;
+$("btnRegras").onclick  = dlgRegras;
+$("btnJson").onclick    = salvarSemana;
+$("btnImportar").onclick= abrirSemana;
+$("btnDocx").onclick    = docx;
+$("rodape").value = "Férias: Nicole (quarta a sexta), Dani J (segunda e terça)\nSubstituições: \nTrocas: ";
+gerar();
+</script>
+</body>
+</html>
