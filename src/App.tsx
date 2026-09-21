@@ -21,23 +21,32 @@ import {
 import { fetchEquipe } from './lib/fetchData';
 import { generateSchedule, defaultConfig, Escala, Violacao } from './lib/solver';
 import { ScheduleGrid } from './components/ScheduleGrid';
+import { ExcelImportModal } from './components/ExcelImportModal';
+import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
 
 export const App: React.FC = () => {
   const { user, profile, role, isAdmin, isCoordenador, signOut, isSupabaseConfigured } = useAuth();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'grade' | 'equipe' | 'regras' | 'historico'>('grade');
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+  const [equipeOverride, setEquipeOverride] = useState<Pessoa[] | null>(null);
+  const [dispOverride, setDispOverride] = useState<Record<string, StatusDisponibilidade[]> | null>(null);
+  const [diasOverride, setDiasOverride] = useState<string[] | null>(null);
 
   const [escala, setEscala] = useState<Escala | null>(null);
   const [violacoes, setViolacoes] = useState<Violacao[]>([]);
   const [score, setScore] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleGerarGrade = async () => {
+  const handleGerarGrade = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[]) => {
     setIsGenerating(true);
     try {
-      const { equipe, disp } = await fetchEquipe(isSupabaseConfigured);
-      const config = { ...defaultConfig, equipe, disp };
+      const { equipe: fEq, disp: fDp } = await fetchEquipe(isSupabaseConfigured);
+      const equipe = eq || equipeOverride || fEq;
+      const disp = dp || dispOverride || fDp;
+      const dias = ds || diasOverride || defaultConfig.dias;
+      const config = { ...defaultConfig, equipe, disp, dias };
       const result = generateSchedule(config);
       setEscala(result.escala);
       setViolacoes(result.violacoes);
@@ -221,13 +230,14 @@ export const App: React.FC = () => {
               <>
                 <button 
                   className="flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors border border-slate-300"
+                  onClick={() => setIsExcelModalOpen(true)}
                 >
                   <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
                   <span>Importar Planilha (.xlsx)</span>
                 </button>
 
                 <button 
-                  onClick={handleGerarGrade}
+                  onClick={() => handleGerarGrade()}
                   disabled={isGenerating}
                   className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-50"
                 >
@@ -287,7 +297,7 @@ export const App: React.FC = () => {
                 </p>
               </div>
             ) : (
-              <ScheduleGrid escala={escala} violacoes={violacoes} dias={defaultConfig.dias} />
+              <ScheduleGrid escala={escala} violacoes={violacoes} dias={diasOverride || defaultConfig.dias} />
             )}
           </div>
         )}
@@ -356,6 +366,18 @@ export const App: React.FC = () => {
       <UserManagementModal
         isOpen={isUserManagementOpen}
         onClose={() => setIsUserManagementOpen(false)}
+      />
+
+      <ExcelImportModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        baseEquipe={defaultConfig.equipe}
+        onApply={(equipe, disp, dias) => {
+          setEquipeOverride(equipe);
+          setDispOverride(disp);
+          setDiasOverride(dias);
+          handleGerarGrade(equipe, disp, dias);
+        }}
       />
     </div>
   );
