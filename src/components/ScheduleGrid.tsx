@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Escala, Violacao } from '../lib/solver/types';
 import { canon } from '../lib/solver/utils';
+import { useAuth } from '../context/AuthContext';
+import { saveSchedule } from '../lib/db';
 
 interface ScheduleGridProps {
   escala: Escala;
@@ -92,11 +94,41 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
     );
   };
 
+  const { isAdmin, isCoordenador } = useAuth();
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const dataInicio = new Date().toISOString().split('T')[0];
+      const dataFim = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      await saveSchedule({ escala, violacoes, score: 0 }, `Semana salva em ${new Date().toLocaleDateString()}`, dataInicio, dataFim);
+      alert('Escala salva com sucesso!');
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao salvar escala.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div>
       {renderTurno('manha', 'Manhã (M)')}
       {renderTurno('tarde', 'Tarde (T)')}
       {renderTurno('noite', 'Noite (N)')}
+
+      {(isAdmin || isCoordenador) && (
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-50"
+          >
+            {isSaving ? 'Salvando...' : 'Salvar e Publicar'}
+          </button>
+        </div>
+      )}
     </div>
   );
 };
