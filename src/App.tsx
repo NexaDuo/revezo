@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 import { fetchEquipe } from './lib/fetchData';
-import { generateSchedule, defaultConfig, Escala, Violacao } from './lib/solver';
+import { generateSchedule, defaultConfig, Escala, Violacao, validar } from './lib/solver';
 import { ScheduleGrid } from './components/ScheduleGrid';
 import { ExcelImportModal } from './components/ExcelImportModal';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
@@ -36,12 +36,25 @@ export const App: React.FC = () => {
   const [diasOverride, setDiasOverride] = useState<string[] | null>(null);
 
   const [escala, setEscala] = useState<Escala | null>(null);
+  const [currentConfig, setCurrentConfig] = useState<any>(null);
   const [violacoes, setViolacoes] = useState<Violacao[]>([]);
   const [score, setScore] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [schedules, setSchedules] = useState<any[]>([]);
 
+
+  const handleUpdateEscala = (novaEscala: Escala) => {
+    setEscala(novaEscala);
+    if (currentConfig) {
+      const novasViolacoes = validar(currentConfig, novaEscala);
+      setViolacoes(novasViolacoes);
+      const novoScore = novasViolacoes.reduce((a, x) => a + (x.hard ? 100 : 1), 0);
+      setScore(novoScore);
+    }
+  };
+
   React.useEffect(() => {
+
     if (activeTab === 'historico') {
       loadSchedules().then(setSchedules).catch(console.error);
     }
@@ -59,6 +72,7 @@ export const App: React.FC = () => {
       setEscala(result.escala);
       setViolacoes(result.violacoes);
       setScore(result.score);
+      setCurrentConfig(config);
     } catch (e) {
       console.error(e);
     } finally {
@@ -305,7 +319,7 @@ export const App: React.FC = () => {
                 </p>
               </div>
             ) : (
-              <ScheduleGrid escala={escala} violacoes={violacoes} dias={diasOverride || defaultConfig.dias} />
+              <ScheduleGrid escala={escala} violacoes={violacoes} dias={diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala} />
             )}
           </div>
         )}
