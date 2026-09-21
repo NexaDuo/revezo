@@ -23,6 +23,7 @@ import { generateSchedule, defaultConfig, Escala, Violacao } from './lib/solver'
 import { ScheduleGrid } from './components/ScheduleGrid';
 import { ExcelImportModal } from './components/ExcelImportModal';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
+import { loadSchedules } from './lib/db';
 
 export const App: React.FC = () => {
   const { user, profile, role, isAdmin, isCoordenador, signOut, isSupabaseConfigured } = useAuth();
@@ -38,6 +39,13 @@ export const App: React.FC = () => {
   const [violacoes, setViolacoes] = useState<Violacao[]>([]);
   const [score, setScore] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [schedules, setSchedules] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    if (activeTab === 'historico') {
+      loadSchedules().then(setSchedules).catch(console.error);
+    }
+  }, [activeTab]);
 
   const handleGerarGrade = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[]) => {
     setIsGenerating(true);
@@ -350,9 +358,25 @@ export const App: React.FC = () => {
             <p className="text-xs text-slate-500">
               Semanas persistidas na nuvem via Supabase. A escala anterior alimenta a regra sexta-para-segunda automaticamente.
             </p>
-            <div className="p-6 text-center text-xs text-slate-400 border border-slate-100 rounded-xl">
-              Nenhuma outra semana arquivada ainda.
-            </div>
+            {schedules.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-400 border border-slate-100 rounded-xl">
+                Nenhuma outra semana arquivada ainda.
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {schedules.map((sched, index) => (
+                  <li key={sched.id || index} className="p-4 border border-slate-200 rounded-xl flex justify-between items-center bg-slate-50">
+                    <div>
+                      <h3 className="font-semibold text-sm text-slate-800">{sched.titulo}</h3>
+                      <p className="text-xs text-slate-500">Início: {sched.data_inicio} | Fim: {sched.data_fim}</p>
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      Criado em {new Date(sched.created_at).toLocaleDateString()}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
       </main>
