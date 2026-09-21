@@ -104,9 +104,9 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
       const dataFim = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       await saveSchedule({ escala, violacoes, score: 0 }, `Semana salva em ${new Date().toLocaleDateString()}`, dataInicio, dataFim);
       alert('Escala salva com sucesso!');
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('Erro ao salvar escala.');
+      alert('Erro ao salvar escala: ' + (e.message || JSON.stringify(e)));
     } finally {
       setIsSaving(false);
     }
