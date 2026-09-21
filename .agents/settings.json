@@ -1,5 +1,6 @@
 {
   "enabledPlugins": {
-    "marc": true
+    "marc": true,
+    "supabase-mcp": true
   }
 }
