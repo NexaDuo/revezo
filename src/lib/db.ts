@@ -6,7 +6,7 @@ export async function saveSchedule(escala: ScheduleResult, titulo: string, dataI
     titulo,
     data_inicio: dataInicio,
     data_fim: dataFim,
-    grade_json: escala,
+    grade: escala,
   };
 
   if (isSupabaseConfigured) {
