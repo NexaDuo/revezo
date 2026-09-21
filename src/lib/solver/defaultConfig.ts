@@ -1,0 +1,78 @@
+import { Config, Regras, Sitio, ColocacaoFixa, ColocacaoFixaNaoAcoes } from "./types";
+
+export const DIAS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+
+export const ACOES = "Ações de vigilância/VD/PSE/Ensino/cursos/grupos";
+
+export const SITIOS_MANHA: Sitio[] = [
+  { n: "Consultas - Sala 1", quem: "enf" },
+  { n: "Consultas - Sala 5", quem: "enf" },
+  { n: "Supervisão", quem: "enf" },
+  { n: "Ensino", quem: "enf" },
+  { n: "Procedim. de enfermagem", quem: "tec" },
+  { n: "Vacina", quem: "tec" },
+  { n: "Acolhimento", quem: "tec" },
+  { n: "Curativo", quem: "tec" },
+  { n: ACOES, quem: "ambos" },
+];
+
+export const SITIOS_TARDE: Sitio[] = [
+  { n: "Consultas - Sala 1", quem: "enf" },
+  { n: "Consultas - Sala 5", quem: "enf" },
+  { n: "Supervisão", quem: "enf" },
+  { n: "Ensino", quem: "enf" },
+  { n: "Procedim. de enfermagem", quem: "tec" },
+  { n: "Vacina", quem: "tec" },
+  { n: "Acolhimento", quem: "tec" },
+  { n: "Curativo- CME 16h", quem: "tec" },
+  { n: ACOES, quem: "ambos" },
+];
+
+export const SITIOS_TEC = ["Procedim. de enfermagem", "Vacina", "Acolhimento", "Curativo"];
+
+export const REGRAS_DEFAULT: Regras = {
+  disponibilidade: { on: true, hard: true, txt: "Não escalar quem está de F / FC / FE / AT no dia" },
+  turnoBase: { on: true, hard: true, txt: "Cada um só no seu turno-base (exceto plantão P)." },
+  categoria: { on: true, hard: true, txt: "Sala 1/5, Supervisão e Ensino só enfermeiro; Procedimento→Curativo só técnico" },
+  mariaVacina: { on: true, hard: true, txt: "Maria nunca na Vacina" },
+  plantaoMesmo: { on: true, hard: true, txt: "Quem está de plantão não fica no mesmo sítio de manhã e de tarde" },
+  diasSeguidos: { on: true, hard: true, txt: "Não repetir o mesmo sítio em dias seguidos (vale para Ações)" },
+  sextaSegunda: { on: true, hard: true, txt: "Não repetir o sítio da sexta anterior na segunda" },
+  duplaProibida: { on: true, hard: true, txt: "Vanessa e Dani P não ficam juntas no mesmo sítio" },
+  fixas: { on: true, hard: true, txt: "Respeitar as colocações fixas de grupos/atividades" },
+  acoesSemana: { on: true, hard: false, txt: "Cada profissional passa ao menos 1x por semana em Ações" },
+  cobertura: { on: true, hard: false, txt: "Todo sítio deve ter alguém em todos os dias" },
+  alternancia16h: { on: true, hard: false, txt: "Regina/Jomalba dividem sítio após as 16h, alternando o sítio a cada dia" },
+};
+
+export const FIXAS: ColocacaoFixa[] = [
+  { p: "Dani P", d: 1, t: "manha", s: ACOES },
+  { p: "Dani P", d: 3, t: "tarde", s: ACOES },
+  { p: "Luciana", d: 3, t: "manha", s: ACOES },
+  { p: "Regina", d: 0, t: "tarde", s: ACOES },
+  { p: "Regina", d: 2, t: "tarde", s: ACOES },
+  { p: "Sandra", d: 4, t: "manha", s: ACOES },
+  { p: "Sandra", d: 3, t: "tarde", s: ACOES },
+  { p: "Vanessa", d: 2, t: "tarde", s: ACOES },
+  { p: "Fabiano", d: 2, t: "manha", s: ACOES },
+  { p: "Paula", d: 1, t: "tarde", s: ACOES },
+  { p: "Dani J", d: 3, t: "tarde", s: ACOES },
+];
+
+export const FIXAS_NAO_ACOES: ColocacaoFixaNaoAcoes[] = [
+  { p: "Paula", d: 1, t: "manha" },
+  { p: "Dani J", d: 3, t: "manha" },
+];
+
+export const defaultConfig: Config = {
+  dias: DIAS,
+  equipe: [],
+  acoes: ACOES,
+  sitios: { manha: SITIOS_MANHA, tarde: SITIOS_TARDE },
+  sitiosTec: SITIOS_TEC,
+  fixas: FIXAS,
+  fixasNaoAcoes: FIXAS_NAO_ACOES,
+  regras: REGRAS_DEFAULT,
+  disp: {},
+  sextaAnterior: { manha: {}, tarde: {} },
+};
