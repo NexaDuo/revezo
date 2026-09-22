@@ -7,7 +7,9 @@ import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter>
+    {/* Sem basename, num site servido em /revezo/ todo <Link to="/x">
+        aponta para a raiz do domínio em vez de /revezo/x. */}
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <AuthProvider>
         <App />
       </AuthProvider>
