@@ -91,7 +91,7 @@ export const RegrasManager: React.FC = () => {
         </div>
       )}
 
-      {loading ? (
+      {loading || unidadeCarregando ? (
         <div className="text-center py-8 text-slate-500 text-sm">Carregando...</div>
       ) : regras.length === 0 ? (
         <div className="p-6 text-center text-xs text-slate-500 border border-dashed border-slate-300 rounded-xl">
@@ -134,13 +134,19 @@ export const RegrasManager: React.FC = () => {
                     onClick={() => alternar(r, 'ativa')}
                     disabled={!canEdit || salvando === r.id}
                     aria-pressed={r.ativa}
+                    data-testid={`regra-toggle-${r.chave}`}
                     className={`relative w-11 h-6 rounded-full transition-colors disabled:cursor-not-allowed ${
                       r.ativa ? 'bg-emerald-500' : 'bg-slate-300'
                     }`}
                   >
+                    {/* `left-0.5` fixa a posição de repouso dentro da trilha —
+                        sem ela, o span parte do centro do botão (conteúdo
+                        vazio, sem largura própria) e o translate-x-5 (20px)
+                        empurra o polegar para fora da trilha de 44px. */}
                     <span
-                      className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        r.ativa ? 'translate-x-5' : 'translate-x-0.5'
+                      data-testid={`regra-toggle-knob-${r.chave}`}
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                        r.ativa ? 'translate-x-5' : 'translate-x-0'
                       }`}
                     />
                   </button>

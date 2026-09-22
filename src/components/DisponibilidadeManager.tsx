@@ -188,7 +188,7 @@ export const DisponibilidadeManager: React.FC = () => {
         </div>
       )}
 
-      {loading ? (
+      {loading || unidadeCarregando ? (
         <div className="text-center py-8 text-slate-500 text-sm">Carregando...</div>
       ) : !atual ? (
         <div className="p-8 text-center border border-dashed border-slate-300 rounded-xl space-y-2">

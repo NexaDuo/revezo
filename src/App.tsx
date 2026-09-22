@@ -102,19 +102,26 @@ export const App: React.FC = () => {
       let disp = dp || dispOverride;
       let dias = ds || diasOverride;
 
-      // Garante um roster para trabalhar antes de olhar para a disponibilidade:
-      // em modo demonstração (e em qualquer unidade nova sem Equipe cadastrada)
-      // `base.config.equipe` é vazio de propósito. Usa só a LISTA de nomes do
-      // exemplo do caso-origem — nunca a disponibilidade dele, que é de uma
-      // semana fixa (03–07/08) sem relação com a semana em contexto.
+      // Sem Equipe cadastrada: em modo demonstração `base.config.equipe` é
+      // vazio de propósito, e usar a lista de nomes do exemplo do caso-origem
+      // é seguro (fixture estática, sem rede). Com Supabase configurado, NÃO
+      // dá para usar `fetchEquipe` aqui: ela lê `profiles` sem filtrar por
+      // unidade (a policy `profiles_select` é `using(true)`), então o roster
+      // sairia com gente de OUTRAS unidades — vazamento de nome entre
+      // hospitais, e pior, uma escala salva e impressa com esses nomes.
+      // Bloqueia em vez disso, como na falta de disponibilidade.
       if (!equipe.length) {
+        if (isSupabaseConfigured) {
+          msgs.push(
+            'Geração bloqueada: esta unidade não tem Equipe cadastrada. Cadastre a equipe da unidade ' +
+            '(aba Equipe) antes de gerar a grade.'
+          );
+          setAvisos(msgs);
+          return;
+        }
         const f = await fetchEquipe(isSupabaseConfigured);
         equipe = f.equipe;
-        msgs.push(
-          isSupabaseConfigured
-            ? 'Nenhuma equipe cadastrada para esta unidade: usando os nomes do exemplo do caso-origem só para navegar.'
-            : 'Modo demonstração: a equipe vem do exemplo do caso-origem, não de dados reais.'
-        );
+        msgs.push('Modo demonstração: a equipe vem do exemplo do caso-origem, não de dados reais.');
       }
 
       // Sem disponibilidade em memória, usar a semana EM CONTEXTO — não mais

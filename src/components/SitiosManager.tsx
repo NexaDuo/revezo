@@ -98,7 +98,7 @@ export const SitiosManager: React.FC = () => {
         </div>
       )}
 
-      {loading ? (
+      {loading || unidadeCarregando ? (
         <div className="text-sm text-slate-500">Carregando...</div>
       ) : (
         <div className="overflow-x-auto">
