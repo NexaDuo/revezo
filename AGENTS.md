@@ -80,7 +80,14 @@ e publica `dist/` no GitHub Pages em https://nexaduo.com/revezo/. **Não existe 
 
 Definição de pronto:
 1. `npm run build` passa (o `tsc -b` é o type-check real).
-2. `npx playwright test` verde — também roda em PR via `playwright.yml`.
+2. `npx playwright test` verde **com e sem `.env`**. O CI roda sem credenciais, o
+   que muda o comportamento do app: `isSupabaseConfigured` fica falso, as consultas
+   voltam vazias na hora e o modo demonstração entra como coordenador, fazendo
+   aparecer botões que não existem quando você está deslogado. Teste que passa só
+   de um lado quebra no outro — já aconteceu duas vezes:
+   ```bash
+   npx playwright test && mv .env .env.bak && npx playwright test; mv .env.bak .env
+   ```
 3. Migração de schema vai por `supabase/migrations/` (`supabase-migrations.yml`), nunca
    por alteração manual no painel.
 4. Smoke na URL pública após o deploy.
@@ -113,6 +120,15 @@ Definição de pronto:
   específicas (proibição pessoa×sítio, dupla proibida, posto fixo, isenção de Ações,
   pessoal das 16h) de `if` para dados custou uma tarde e a escala do caso-origem passou
   a fechar com score 0. O que parecia "regra de negócio complexa" era tabela.
+- **Migração aplicada pelo MCP ganha a versão que o servidor decidir.** O
+  `apply_migration` carimba o próprio timestamp; nomear o arquivo local com um
+  timestamp chutado faz o `supabase db push` recusar por divergência de histórico.
+  Aplicou pelo MCP? Rode `list_migrations` e nomeie o arquivo com a versão que
+  voltou de lá.
+- **Em teste de RLS, ausência de erro não prova bloqueio.** `INSERT` barrado
+  devolve erro, mas `UPDATE` e `DELETE` são *filtrados* pelo `USING` da policy: o
+  PostgREST responde sucesso com zero linhas afetadas. Medir só `error` dá falso
+  negativo de segurança — conte as linhas afetadas com `.select()`.
 - **Reescrita porta o motor, esquece o produto.** A migração POC→React trouxe solver e
   validador íntegros e deixou para trás justamente o que fazia o POC ser usado: painel de
   candidatos com motivo, quem está livre, regras ligadas ao solver, salvar/abrir semana,
