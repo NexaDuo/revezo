@@ -24,6 +24,7 @@ import { ScheduleGrid } from './components/ScheduleGrid';
 import { ExcelImportModal } from './components/ExcelImportModal';
 import { EquipeManager } from './components/EquipeManager';
 import { SitiosManager } from './components/SitiosManager';
+import { exportToWord } from './lib/exportWord';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
 import { loadSchedules } from './lib/db';
 
@@ -85,7 +86,7 @@ export const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       {/* Barra superior de navegação */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo & Marca */}
           <div className="flex items-center gap-3">
@@ -227,7 +228,7 @@ export const App: React.FC = () => {
 
       {/* Alerta de Status do Supabase */}
       {!isSupabaseConfigured && (
-        <div className="bg-amber-500 text-white text-xs py-2 px-4 text-center font-medium flex items-center justify-center gap-2">
+        <div className="bg-amber-500 text-white text-xs py-2 px-4 text-center font-medium flex items-center justify-center gap-2 print:hidden">
           <Database className="w-4 h-4" />
           <span>
             <strong>Projeto Supabase criado:</strong> Adicione as credenciais no arquivo <code>.env</code> (VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY) para ativar a sincronização na nuvem e o Google OAuth oficial.
@@ -259,7 +260,7 @@ export const App: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5 print:hidden">
             {/* Ações permitidas para Coordenador ou Admin */}
             {isCoordenador ? (
               <>
@@ -280,8 +281,19 @@ export const App: React.FC = () => {
                   <span>{isGenerating ? 'Gerando...' : 'Gerar Grade'}</span>
                 </button>
 
+                <button
+                  onClick={() => window.print()}
+                  disabled={!escala}
+                  className="flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-50"
+                >
+                  <Download className="w-4 h-4 text-slate-300" />
+                  <span>Baixar PDF</span>
+                </button>
+
                 <button 
-                  className="flex items-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors"
+                  onClick={() => escala && exportToWord(escala, diasOverride || defaultConfig.dias)}
+                  disabled={!escala}
+                  className="flex items-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-50"
                 >
                   <Download className="w-4 h-4 text-blue-200" />
                   <span>Baixar Word (.docx)</span>
@@ -299,7 +311,7 @@ export const App: React.FC = () => {
         {/* Exibição da Aba Ativa */}
         {activeTab === 'grade' && (
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 print:hidden">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <span>Grade Interativa (Manhã & Tarde)</span>
                 <span className="text-xs font-normal text-slate-500">Arrastar & Soltar ativo</span>
