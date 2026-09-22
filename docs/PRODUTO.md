@@ -3,7 +3,12 @@
 Registro de decisão do projeto. Serve para **não refazer caminho já testado**.
 Contexto técnico e regras de negócio: `CLAUDE.md`.
 
-Escopo: single-tenant, caso Michele. O "produto" aqui significa *isso virar rotina
+> **NOTA DE ESCOPO (22/09/2026):** o produto deixou de ser single-tenant. O objetivo
+> agora é gerar escalas para hospitais, com o caso Michele como primeiro cliente.
+> As lições de engenharia abaixo seguem válidas; onde o texto disser "não generalizar",
+> leia como o que era verdade antes do pivô. A autoridade é o `AGENTS.md` na raiz.
+
+Escopo original: single-tenant, caso Michele. O "produto" aqui significa *isso virar rotina
 semanal dela, sem a gente no meio* — não virar SaaS multi-unidade.
 
 Última atualização: setembro/2026.

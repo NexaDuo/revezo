@@ -11,15 +11,24 @@ function podeColocar(escala: Escala, config: Config, pessoaMap: Record<string, P
   if (!disponivel(config, pessoaMap, n, d, turno)) return false;
   if (!cabeNoSitio(config, pessoaMap, n, sitio, turno)) return false;
   if (jaEstaNoDia(escala, config, n, d, turno)) return false;
-  if (sitioProibido(config, n, sitio)) return false;
-  if (!ehPostoFixo(pessoaMap, n, sitio) && d > 0 && (escala[turno][sitio][d - 1] || []).includes(n)) return false;
-  if (d === 0 && (config.sextaAnterior[turno]?.[sitio] || []).includes(n)) return false;
-  
+  // Cada restrição respeita o seu interruptor: desligar a regra no painel tem
+  // de mudar a GERAÇÃO, não só a conferência. Sem isto o painel é enfeite.
+  const r = config.regras;
+
+  if (r.mariaVacina.on && sitioProibido(config, n, sitio)) return false;
+
+  if (r.diasSeguidos.on && !ehPostoFixo(pessoaMap, n, sitio)
+      && d > 0 && (escala[turno][sitio][d - 1] || []).includes(n)) return false;
+
+  if (r.sextaSegunda.on && d === 0
+      && (config.sextaAnterior[turno]?.[sitio] || []).includes(n)) return false;
+
   const cel = escala[turno][sitio][d] || [];
-  if (formariaDuplaProibida(config, cel, n)) return false;
-  
-  if (ehPlantao(config.disp, n, d) && turno === "tarde" && ondeEsteve(escala, config, n, d, "manha").map(canon).includes(canon(sitio))) return false;
-  
+  if (r.duplaProibida.on && formariaDuplaProibida(config, cel, n)) return false;
+
+  if (r.plantaoMesmo.on && ehPlantao(config.disp, n, d) && turno === "tarde"
+      && ondeEsteve(escala, config, n, d, "manha").map(canon).includes(canon(sitio))) return false;
+
   return true;
 }
 

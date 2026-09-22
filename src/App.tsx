@@ -28,6 +28,7 @@ import { SitiosManager } from './components/SitiosManager';
 import { RegrasManager } from './components/RegrasManager';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
 import { loadSchedules } from './lib/db';
+import { carregarConfigUnidade } from './lib/loadConfig';
 
 export const App: React.FC = () => {
   const { user, profile, role, isAdmin, isCoordenador, signOut, isSupabaseConfigured } = useAuth();
@@ -46,6 +47,19 @@ export const App: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [schedules, setSchedules] = useState<any[]>([]);
   const [avisos, setAvisos] = useState<string[]>([]);
+
+  // rótulo da semana corrente (segunda a sexta). Era uma string literal
+  // "Semana 03 a 07 de Agosto / 2026" no meio do JSX.
+  const tituloSemana = React.useMemo(() => {
+    const hoje = new Date();
+    const segunda = new Date(hoje);
+    segunda.setDate(hoje.getDate() - ((hoje.getDay() + 6) % 7));
+    const sexta = new Date(segunda);
+    sexta.setDate(segunda.getDate() + 4);
+    const dd = (d: Date) => String(d.getDate()).padStart(2, '0');
+    const mes = sexta.toLocaleDateString('pt-BR', { month: 'long' });
+    return `Semana ${dd(segunda)} a ${dd(sexta)} de ${mes} / ${sexta.getFullYear()}`;
+  }, []);
 
 
   const handleUpdateEscala = (novaEscala: Escala) => {
@@ -67,14 +81,25 @@ export const App: React.FC = () => {
   const handleGerarGrade = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[]) => {
     setIsGenerating(true);
     try {
-      const { equipe: fEq, disp: fDp, avisos: fAv } = await fetchEquipe(isSupabaseConfigured);
-      const equipe = eq || equipeOverride || fEq;
-      const disp = dp || dispOverride || fDp;
-      // se a chamada trouxe equipe/disp próprios (importação), os avisos do
-      // fallback não se aplicam
-      setAvisos(eq || dp ? [] : fAv);
-      const dias = ds || diasOverride || defaultConfig.dias;
-      const config = { ...defaultConfig, equipe, disp, dias };
+      // A configuração (equipe, sítios, regras ligadas/desligadas, proibições,
+      // duplas e fixas) vem da unidade. É isto que faz o painel de Regras
+      // valer de verdade: desligar uma regra ali muda a geração aqui.
+      const base = await carregarConfigUnidade(isSupabaseConfigured);
+      const msgs = [...base.avisos];
+
+      let equipe = eq || equipeOverride || base.config.equipe;
+      let disp = dp || dispOverride;
+
+      if (!disp) {
+        const f = await fetchEquipe(isSupabaseConfigured);
+        disp = f.disp;
+        if (!equipe.length) equipe = f.equipe;
+        if (!base.doBanco) msgs.push(...f.avisos);
+      }
+
+      const dias = ds || diasOverride || base.config.dias;
+      const config = { ...base.config, equipe, disp, dias };
+      setAvisos(msgs);
       const result = generateSchedule(config);
       setEscala(result.escala);
       setViolacoes(result.violacoes);
@@ -141,7 +166,7 @@ export const App: React.FC = () => {
               }`}
             >
               <Users className="w-3.5 h-3.5 text-emerald-600" />
-              Equipe (21)
+              Equipe{currentConfig?.equipe?.length ? ` (${currentConfig.equipe.length})` : ''}
             </Link>
             <Link
               to="/sitios"
@@ -247,7 +272,7 @@ export const App: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold text-slate-900">
-                Semana 03 a 07 de Agosto / 2026
+                {tituloSemana}
               </h1>
               {score !== null ? (
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${score === 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
