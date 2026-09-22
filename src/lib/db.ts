@@ -45,3 +45,60 @@ export async function loadSchedules() {
     return data.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
 }
+export async function getEquipes() {
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase.from('equipe').select('*').order('nome');
+    if (error) throw error;
+    return data || [];
+  }
+  return [];
+}
+export async function addEquipe(item: any) {
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase.from('equipe').insert([item]).select();
+    if (error) throw error;
+    return data?.[0];
+  }
+}
+export async function updateEquipe(id: string, item: any) {
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase.from('equipe').update(item).eq('id', id).select();
+    if (error) throw error;
+    return data?.[0];
+  }
+}
+export async function deleteEquipe(id: string) {
+  if (isSupabaseConfigured) {
+    const { error } = await supabase.from('equipe').delete().eq('id', id);
+    if (error) throw error;
+  }
+}
+
+export async function getSitios() {
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase.from('sitios').select('*').order('nome');
+    if (error) throw error;
+    return data || [];
+  }
+  return [];
+}
+export async function addSitio(item: any) {
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase.from('sitios').insert([item]).select();
+    if (error) throw error;
+    return data?.[0];
+  }
+}
+export async function updateSitio(id: string, item: any) {
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase.from('sitios').update(item).eq('id', id).select();
+    if (error) throw error;
+    return data?.[0];
+  }
+}
+export async function deleteSitio(id: string) {
+  if (isSupabaseConfigured) {
+    const { error } = await supabase.from('sitios').delete().eq('id', id);
+    if (error) throw error;
+  }
+}
