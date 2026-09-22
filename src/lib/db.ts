@@ -102,3 +102,31 @@ export async function deleteSitio(id: string) {
     if (error) throw error;
   }
 }
+export async function getRegras() {
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase.from('regras_config').select('*').order('nome');
+    if (error) throw error;
+    return data || [];
+  }
+  return [];
+}
+export async function addRegra(item: any) {
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase.from('regras_config').insert([item]).select();
+    if (error) throw error;
+    return data?.[0];
+  }
+}
+export async function updateRegra(id: string, item: any) {
+  if (isSupabaseConfigured) {
+    const { data, error } = await supabase.from('regras_config').update(item).eq('id', id).select();
+    if (error) throw error;
+    return data?.[0];
+  }
+}
+export async function deleteRegra(id: string) {
+  if (isSupabaseConfigured) {
+    const { error } = await supabase.from('regras_config').delete().eq('id', id);
+    if (error) throw error;
+  }
+}
