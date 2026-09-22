@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation, Routes, Route, Link } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { RoleBadge } from './components/auth/RoleBadge';
 import { LoginModal } from './components/auth/LoginModal';
@@ -33,7 +34,7 @@ export const App: React.FC = () => {
   const { user, profile, role, isAdmin, isCoordenador, signOut, isSupabaseConfigured } = useAuth();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'grade' | 'equipe' | 'sitios' | 'regras' | 'historico'>('grade');
+  const location = useLocation();
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [equipeOverride, setEquipeOverride] = useState<Pessoa[] | null>(null);
   const [dispOverride, setDispOverride] = useState<Record<string, StatusDisponibilidade[]> | null>(null);
@@ -58,11 +59,10 @@ export const App: React.FC = () => {
   };
 
   React.useEffect(() => {
-
-    if (activeTab === 'historico') {
+    if (location.pathname === '/historico') {
       loadSchedules().then(setSchedules).catch(console.error);
     }
-  }, [activeTab]);
+  }, [location.pathname]);
 
   const handleGerarGrade = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[]) => {
     setIsGenerating(true);
@@ -107,61 +107,61 @@ export const App: React.FC = () => {
 
           {/* Abas de Navegação */}
           <nav className="hidden md:flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-            <button
-              onClick={() => setActiveTab('grade')}
+            <Link
+              to="/"
               className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === 'grade'
+                location.pathname === '/'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Calendar className="w-3.5 h-3.5 text-emerald-600" />
               Grade da Semana
-            </button>
-            <button
-              onClick={() => setActiveTab('regras')}
+            </Link>
+            <Link
+              to="/regras"
               className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === 'regras'
+                location.pathname === '/regras'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
               Regras & Conferência
-            </button>
-            <button
-              onClick={() => setActiveTab('equipe')}
+            </Link>
+            <Link
+              to="/equipe"
               className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === 'equipe'
+                location.pathname === '/equipe'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Users className="w-3.5 h-3.5 text-emerald-600" />
               Equipe (21)
-            </button>
-            <button
-              onClick={() => setActiveTab('sitios')}
+            </Link>
+            <Link
+              to="/sitios"
               className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === 'sitios'
+                location.pathname === '/sitios'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <MapPin className="w-3.5 h-3.5 text-emerald-600" />
               Sítios
-            </button>
-            <button
-              onClick={() => setActiveTab('historico')}
+            </Link>
+            <Link
+              to="/historico"
               className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                activeTab === 'historico'
+                location.pathname === '/historico'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Layers className="w-3.5 h-3.5 text-emerald-600" />
               Histórico
-            </button>
+            </Link>
           </nav>
 
           {/* Área de Autenticação & Perfil */}
@@ -310,88 +310,82 @@ export const App: React.FC = () => {
         </div>
 
         {/* Exibição da Aba Ativa */}
-        {activeTab === 'grade' && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 print:hidden">
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span>Grade Interativa (Manhã & Tarde)</span>
-                <span className="text-xs font-normal text-slate-500">Arrastar & Soltar ativo</span>
-              </h2>
-              <div className="flex items-center gap-3 text-xs">
-                <span className="flex items-center gap-1.5 text-slate-600">
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                  Regra Rígida (Bloqueia)
-                </span>
-                <span className="flex items-center gap-1.5 text-slate-600">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                  Alerta
-                </span>
-                <span className="flex items-center gap-1.5 text-slate-600">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                  Conforme
-                </span>
-              </div>
-            </div>
-
-            {/* Aviso de integração do solver ou Grade renderizada */}
-            {!escala ? (
-              <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center font-bold">
-                  <Calendar className="w-6 h-6" />
+        <Routes>
+          <Route path="/" element={
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 print:hidden">
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <span>Grade Interativa (Manhã & Tarde)</span>
+                  <span className="text-xs font-normal text-slate-500">Arrastar & Soltar ativo</span>
+                </h2>
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="flex items-center gap-1.5 text-slate-600">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                    Regra Rígida (Bloqueia)
+                  </span>
+                  <span className="flex items-center gap-1.5 text-slate-600">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                    Alerta
+                  </span>
+                  <span className="flex items-center gap-1.5 text-slate-600">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    Conforme
+                  </span>
                 </div>
-                <h3 className="text-sm font-bold text-slate-900">Módulo de Grade Semanal Pronto para Port</h3>
-                <p className="text-xs text-slate-600 max-w-lg mx-auto">
-                  Clique em "Gerar Grade" para visualizar a escala gerada pelo solver.
-                </p>
               </div>
-            ) : (
-              <ScheduleGrid escala={escala} violacoes={violacoes} dias={diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala} />
-            )}
-          </div>
-        )}
 
-        {activeTab === 'regras' && (
-          <RegrasManager />
-        )}
+              {/* Aviso de integração do solver ou Grade renderizada */}
+              {!escala ? (
+                <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center font-bold">
+                    <Calendar className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900">Módulo de Grade Semanal Pronto para Port</h3>
+                  <p className="text-xs text-slate-600 max-w-lg mx-auto">
+                    Clique em "Gerar Grade" para visualizar a escala gerada pelo solver.
+                  </p>
+                </div>
+              ) : (
+                <ScheduleGrid escala={escala} violacoes={violacoes} dias={diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala} />
+              )}
+            </div>
+          } />
 
-        {activeTab === 'equipe' && (
-          <EquipeManager />
-        )}
-
-        {activeTab === 'sitios' && (
-          <SitiosManager />
-        )}
-
-        {activeTab === 'historico' && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-            <h2 className="text-base font-bold text-slate-900">Histórico de Escalas Salvas</h2>
-            <p className="text-xs text-slate-500">
-              Semanas persistidas na nuvem via Supabase. A escala anterior alimenta a regra sexta-para-segunda automaticamente.
-            </p>
-            {schedules.length === 0 ? (
-              <div className="p-6 text-center text-xs text-slate-400 border border-slate-100 rounded-xl">
-                Nenhuma outra semana arquivada ainda.
-              </div>
-            ) : (
-              <ul className="space-y-3">
-                {schedules.map((sched, index) => (
-                  <li key={sched.id || index} className="p-4 border border-slate-200 rounded-xl flex justify-between items-center bg-slate-50">
-                    <div>
-                      <h3 className="font-semibold text-sm text-slate-800">{sched.titulo}</h3>
-                      <p className="text-xs text-slate-500">Início: {sched.data_inicio} | Fim: {sched.data_fim}</p>
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      Criado em {new Date(sched.created_at).toLocaleDateString()}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
+          <Route path="/regras" element={<RegrasManager />} />
+          <Route path="/equipe" element={<EquipeManager />} />
+          <Route path="/sitios" element={<SitiosManager />} />
+          <Route path="/historico" element={
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+              <h2 className="text-base font-bold text-slate-900">Histórico de Escalas Salvas</h2>
+              <p className="text-xs text-slate-500">
+                Semanas persistidas na nuvem via Supabase. A escala anterior alimenta a regra sexta-para-segunda automaticamente.
+              </p>
+              {schedules.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400 border border-slate-100 rounded-xl">
+                  Nenhuma outra semana arquivada ainda.
+                </div>
+              ) : (
+                <ul className="space-y-3">
+                  {schedules.map((sched, index) => (
+                    <li key={sched.id || index} className="p-4 border border-slate-200 rounded-xl flex justify-between items-center bg-slate-50">
+                      <div>
+                        <h3 className="font-semibold text-sm text-slate-800">{sched.titulo}</h3>
+                        <p className="text-xs text-slate-500">Início: {sched.data_inicio} | Fim: {sched.data_fim}</p>
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        Criado em {new Date(sched.created_at).toLocaleDateString()}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          } />
+        </Routes>
       </main>
 
       {/* Modais de Autenticação e Administração */}
+
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
