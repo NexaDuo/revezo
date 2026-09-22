@@ -6,24 +6,31 @@ import { Edit2, Trash2, Plus, Save, X } from 'lucide-react';
 
 export const EquipeManager: React.FC = () => {
   const { isAdmin, isCoordenador } = useAuth();
-  const { unidadeId } = useWorkContext();
+  const { unidadeId, isLoading: unidadeCarregando } = useWorkContext();
   const canEdit = isAdmin || isCoordenador;
   const [equipes, setEquipes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
 
   useEffect(() => {
+    // WorkContext ainda resolvendo a unidade (perfil carregando): esperar em
+    // vez de consultar com `unidadeId` nulo, que lança "nenhuma unidade
+    // selecionada" mesmo quando a unidade está a um instante de existir.
+    if (unidadeCarregando) return;
     fetchData();
-  }, [unidadeId]);
+  }, [unidadeId, unidadeCarregando]);
 
   const fetchData = async () => {
     setLoading(true);
+    setErro(null);
     try {
       const data = await getEquipes(unidadeId);
       setEquipes(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      setErro(error?.message || 'Não foi possível carregar a equipe.');
     } finally {
       setLoading(false);
     }
@@ -46,6 +53,7 @@ export const EquipeManager: React.FC = () => {
   };
 
   const handleSave = async () => {
+    setErro(null);
     try {
       if (editingId === 'new') {
         await addEquipe(editForm, unidadeId);
@@ -54,18 +62,21 @@ export const EquipeManager: React.FC = () => {
       }
       setEditingId(null);
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      setErro(error?.message || 'Não foi possível salvar.');
     }
   };
 
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza?')) {
+      setErro(null);
       try {
         await deleteEquipe(id, unidadeId);
         fetchData();
-      } catch (error) {
+      } catch (error: any) {
         console.error(error);
+        setErro(error?.message || 'Não foi possível excluir.');
       }
     }
   };
@@ -81,6 +92,12 @@ export const EquipeManager: React.FC = () => {
           </button>
         )}
       </div>
+
+      {erro && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+          {erro}
+        </div>
+      )}
 
       {loading ? (
         <div className="text-sm text-slate-500">Carregando...</div>

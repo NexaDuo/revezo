@@ -18,7 +18,7 @@ interface Regra {
 
 export const RegrasManager: React.FC = () => {
   const { isAdmin, isCoordenador } = useAuth();
-  const { unidadeId } = useWorkContext();
+  const { unidadeId, isLoading: unidadeCarregando } = useWorkContext();
   const canEdit = isAdmin || isCoordenador;
 
   const [regras, setRegras] = useState<Regra[]>([]);
@@ -38,7 +38,14 @@ export const RegrasManager: React.FC = () => {
     }
   };
 
-  useEffect(() => { loadData(); }, [unidadeId]);
+  useEffect(() => {
+    // Sem esperar o WorkContext resolver, `unidadeId` chega nulo aqui durante
+    // o carregamento do perfil e `getRegras` lança "nenhuma unidade
+    // selecionada" — um erro real virando falso positivo por causa da ordem
+    // de renderização, não da falta de unidade de fato.
+    if (unidadeCarregando) return;
+    loadData();
+  }, [unidadeId, unidadeCarregando]);
 
   /** Gravação otimista com reversão: se o banco recusar, a chave volta ao
    *  estado anterior e o erro aparece — nunca um toggle que mente. */

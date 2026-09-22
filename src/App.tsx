@@ -34,7 +34,7 @@ import { carregarConfigUnidade } from './lib/loadConfig';
 
 export const App: React.FC = () => {
   const { user, profile, role, isAdmin, isCoordenador, signOut, isSupabaseConfigured } = useAuth();
-  const { unidadeId, semanaInicio, erro: erroUnidade } = useWorkContext();
+  const { unidadeId, semanaInicio, erro: erroUnidade, isLoading: unidadeCarregando } = useWorkContext();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
   const location = useLocation();
@@ -78,10 +78,10 @@ export const App: React.FC = () => {
   };
 
   React.useEffect(() => {
-    if (location.pathname === '/historico') {
+    if (location.pathname === '/historico' && !unidadeCarregando) {
       loadSchedules(unidadeId).then(setSchedules).catch(console.error);
     }
-  }, [location.pathname, unidadeId]);
+  }, [location.pathname, unidadeId, unidadeCarregando]);
 
   const handleGerarGrade = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[]) => {
     if (!unidadeId) {
@@ -102,10 +102,28 @@ export const App: React.FC = () => {
       let disp = dp || dispOverride;
       let dias = ds || diasOverride;
 
+      // Garante um roster para trabalhar antes de olhar para a disponibilidade:
+      // em modo demonstração (e em qualquer unidade nova sem Equipe cadastrada)
+      // `base.config.equipe` é vazio de propósito. Usa só a LISTA de nomes do
+      // exemplo do caso-origem — nunca a disponibilidade dele, que é de uma
+      // semana fixa (03–07/08) sem relação com a semana em contexto.
+      if (!equipe.length) {
+        const f = await fetchEquipe(isSupabaseConfigured);
+        equipe = f.equipe;
+        msgs.push(
+          isSupabaseConfigured
+            ? 'Nenhuma equipe cadastrada para esta unidade: usando os nomes do exemplo do caso-origem só para navegar.'
+            : 'Modo demonstração: a equipe vem do exemplo do caso-origem, não de dados reais.'
+        );
+      }
+
       // Sem disponibilidade em memória, usar a semana EM CONTEXTO — não mais
       // "a última salva, seja qual for". Se a semana escolhida não tem nada
-      // salvo, isso tem que aparecer na tela, não virar silenciosamente o
-      // fixture de demonstração (docs/referencia).
+      // salvo (ou a leitura falhar), a geração BLOQUEIA: presumir "todo mundo
+      // disponível" para rodar o solver é a alucinação de dado que o produto
+      // não pode cometer sozinho — a coordenadora precisa saneiar a semana
+      // (importar a planilha ou preencher a aba Disponibilidade) antes de ter
+      // qualquer grade na mão, não só ser avisada depois de já ter uma.
       if (!disp) {
         try {
           const salva = await carregarDisponibilidade(semanaInicio, unidadeId);
@@ -113,33 +131,18 @@ export const App: React.FC = () => {
             disp = salva.dados as Record<string, StatusDisponibilidade[]>;
             dias = dias || salva.dias;
             msgs.push(`Usando a disponibilidade salva da semana de ${salva.data_inicio} a ${salva.data_fim}.`);
-          } else {
-            msgs.push(
-              `Não há disponibilidade salva para a semana de ${semanaInicio}. Gerando com todo mundo ` +
-              `disponível — importe a planilha ou ajuste na aba Disponibilidade antes de publicar.`
-            );
           }
         } catch (e: any) {
           msgs.push(`Não consegui ler a disponibilidade salva (${e?.message || e}).`);
         }
-      }
 
-      if (!disp) {
-        if (equipe.length) {
-          // Equipe real da unidade, sem disponibilidade da semana: presumir
-          // todo mundo disponível é aceitável como estado inicial, mas só
-          // porque o aviso acima já contou isso — nunca em silêncio.
-          const diasBase = dias || base.config.dias;
-          disp = Object.fromEntries(
-            equipe.map(p => [p.n, diasBase.map(() => 'OK' as StatusDisponibilidade)])
+        if (!disp) {
+          msgs.push(
+            `Geração bloqueada: sem disponibilidade confiável para a semana de ${semanaInicio}. ` +
+            `Importe a planilha ou preencha a aba Disponibilidade antes de gerar a grade.`
           );
-        } else {
-          // Último recurso: nem equipe cadastrada existe. Aí sim cai no
-          // fixture de demonstração — com aviso explícito de fetchEquipe.
-          const f = await fetchEquipe(isSupabaseConfigured);
-          disp = f.disp;
-          equipe = f.equipe;
-          if (!base.doBanco) msgs.push(...f.avisos);
+          setAvisos(msgs);
+          return;
         }
       }
 

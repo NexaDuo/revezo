@@ -29,7 +29,7 @@ const fmt = (iso: string) => {
 
 export const DisponibilidadeManager: React.FC = () => {
   const { isAdmin, isCoordenador } = useAuth();
-  const { unidadeId, semanaInicio } = useWorkContext();
+  const { unidadeId, semanaInicio, isLoading: unidadeCarregando } = useWorkContext();
   const canEdit = isAdmin || isCoordenador;
 
   const [semanas, setSemanas] = useState<SemanaDisponibilidade[]>([]);
@@ -56,7 +56,13 @@ export const DisponibilidadeManager: React.FC = () => {
     }
   };
 
-  useEffect(() => { carregarLista(); }, [unidadeId]);
+  useEffect(() => {
+    // Mesma regra dos outros managers: esperar o WorkContext resolver a
+    // unidade antes de consultar, senão `unidadeId` nulo (ainda resolvendo)
+    // vira um "nenhuma unidade selecionada" que não é de verdade.
+    if (unidadeCarregando) return;
+    carregarLista();
+  }, [unidadeId, unidadeCarregando]);
 
   // Muda de unidade → a semana selecionada acompanha o contexto, em vez de
   // continuar apontando para uma data que pode nem existir na unidade nova.

@@ -107,19 +107,30 @@ async function atualizar(tabela: string, id: string, item: any, unidadeId: strin
     .update(campos)
     .eq('id', id)
     .eq('unidade_id', exigirUnidade(unidadeId))
-    .select();
+    .select('id');
   if (error) throw error;
-  return data?.[0];
+  // Um UPDATE filtrado por RLS ou pelo `.eq('unidade_id', …)` que não bate com
+  // nenhuma linha não é erro do PostgREST — devolve sucesso com zero linhas.
+  // Reportar "salvo" nesse caso é exatamente a falha silenciosa que a lição
+  // de RLS do AGENTS.md pede para nunca acontecer.
+  if (!data || data.length === 0) {
+    throw new Error('Nada foi atualizado: o registro pode ter sido movido para outra unidade ou removido.');
+  }
+  return data[0];
 }
 
 async function remover(tabela: string, id: string, unidadeId: string | null) {
   if (!isSupabaseConfigured) return;
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from(tabela)
     .delete()
     .eq('id', id)
-    .eq('unidade_id', exigirUnidade(unidadeId));
+    .eq('unidade_id', exigirUnidade(unidadeId))
+    .select('id');
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error('Nada foi excluído: o registro pode já ter sido removido ou estar em outra unidade.');
+  }
 }
 
 export const getEquipes   = (unidadeId: string | null) => listar('equipe', 'ordem', unidadeId);
@@ -231,10 +242,14 @@ export async function excluirDisponibilidade(dataInicio: string, unidadeId: stri
     );
     return;
   }
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('disponibilidade_semanal')
     .delete()
     .eq('unidade_id', exigirUnidade(unidadeId))
-    .eq('data_inicio', dataInicio);
+    .eq('data_inicio', dataInicio)
+    .select('id');
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error('Nada foi excluído: a semana pode já ter sido removida ou estar em outra unidade.');
+  }
 }
