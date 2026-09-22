@@ -172,7 +172,7 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
       {renderTurno('noite', 'Noite (N)')}
 
       {(isAdmin || isCoordenador) && (
-        <div className="mt-6 flex justify-end">
+        <div className="mt-6 flex justify-end print:hidden">
           <button
             onClick={handleSave}
             disabled={isSaving}
