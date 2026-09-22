@@ -15,13 +15,15 @@ import {
   Shield, 
   Database,
   Info,
-  Layers
+  Layers, MapPin
 } from 'lucide-react';
 
 import { fetchEquipe } from './lib/fetchData';
 import { generateSchedule, defaultConfig, Escala, Violacao, validar } from './lib/solver';
 import { ScheduleGrid } from './components/ScheduleGrid';
 import { ExcelImportModal } from './components/ExcelImportModal';
+import { EquipeManager } from './components/EquipeManager';
+import { SitiosManager } from './components/SitiosManager';
 import { exportToWord } from './lib/exportWord';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
 import { loadSchedules } from './lib/db';
@@ -30,7 +32,7 @@ export const App: React.FC = () => {
   const { user, profile, role, isAdmin, isCoordenador, signOut, isSupabaseConfigured } = useAuth();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'grade' | 'equipe' | 'regras' | 'historico'>('grade');
+  const [activeTab, setActiveTab] = useState<'grade' | 'equipe' | 'sitios' | 'regras' | 'historico'>('grade');
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [equipeOverride, setEquipeOverride] = useState<Pessoa[] | null>(null);
   const [dispOverride, setDispOverride] = useState<Record<string, StatusDisponibilidade[]> | null>(null);
@@ -136,6 +138,17 @@ export const App: React.FC = () => {
             >
               <Users className="w-3.5 h-3.5 text-emerald-600" />
               Equipe (21)
+            </button>
+            <button
+              onClick={() => setActiveTab('sitios')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                activeTab === 'sitios'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+              Sítios
             </button>
             <button
               onClick={() => setActiveTab('historico')}
@@ -356,26 +369,11 @@ export const App: React.FC = () => {
         )}
 
         {activeTab === 'equipe' && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-            <h2 className="text-base font-bold text-slate-900">Equipe da Unidade (~21 Profissionais)</h2>
-            <p className="text-xs text-slate-500">
-              Configuração central gerenciada no Supabase. Coordenadores podem editar profissionais e turnos-base.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
-                <span className="text-xs font-bold text-slate-800">Enfermeiras Manhã</span>
-                <p className="text-xs text-slate-600">May, Shana, Ana Cláudia, Sandra</p>
-              </div>
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
-                <span className="text-xs font-bold text-slate-800">Enfermeiras Tarde & Noite</span>
-                <p className="text-xs text-slate-600">Michele (13h30), Fernanda, Carolina K, Carol V (16h), Letícia (Ensino), Allan</p>
-              </div>
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
-                <span className="text-xs font-bold text-slate-800">Técnicos de Enfermagem</span>
-                <p className="text-xs text-slate-600">Vanessa, Maria, Andressa, Dani P, Luciana, Fabiano, Dani J, Nicole, Paula, Regina (16h), Jomalba (16h)</p>
-              </div>
-            </div>
-          </div>
+          <EquipeManager />
+        )}
+
+        {activeTab === 'sitios' && (
+          <SitiosManager />
         )}
 
         {activeTab === 'historico' && (
