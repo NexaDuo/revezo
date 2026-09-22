@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ROTAS = ['/regras', '/equipe', '/sitios', '/historico'] as const;
+const ROTAS = ['/regras', '/equipe', '/sitios', '/disponibilidade', '/historico'] as const;
 
 test('navigation links work', async ({ page }) => {
   await page.goto('/');

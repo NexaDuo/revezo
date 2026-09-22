@@ -123,3 +123,94 @@ export const deleteProibicao = (id: string) => remover('proibicoes', id);
 export const getDuplasProibidas = () => listar('duplas_proibidas', 'pessoa_a');
 export const addDuplaProibida   = (i: any) => inserir('duplas_proibidas', i);
 export const deleteDuplaProibida = (id: string) => remover('duplas_proibidas', id);
+
+// ---------------------------------------------------------------------------
+// Disponibilidade semanal (o que a planilha .xlsx importa)
+// ---------------------------------------------------------------------------
+
+export interface SemanaDisponibilidade {
+  id?: string;
+  data_inicio: string;
+  data_fim: string;
+  dias: string[];
+  dados: Record<string, string[]>;
+  origem?: { arquivo?: string; aba?: string; semana?: string };
+  updated_at?: string;
+}
+
+const CHAVE_DEMO = 'demo_disponibilidade';
+
+function lerDemo(): SemanaDisponibilidade[] {
+  try {
+    return JSON.parse(localStorage.getItem(CHAVE_DEMO) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+/** Grava a disponibilidade de uma semana. Reimportar a mesma semana
+ *  SOBRESCREVE — a chave é (unidade, data_inicio). */
+export async function salvarDisponibilidade(s: SemanaDisponibilidade) {
+  if (!isSupabaseConfigured) {
+    const todas = lerDemo().filter(x => x.data_inicio !== s.data_inicio);
+    todas.push({ ...s, updated_at: new Date().toISOString() });
+    localStorage.setItem(CHAVE_DEMO, JSON.stringify(todas));
+    return;
+  }
+
+  const unidade_id = await exigirUnidade();
+  const { data: auth } = await supabase.auth.getUser();
+  const { error } = await supabase.from('disponibilidade_semanal').upsert(
+    [{
+      unidade_id,
+      data_inicio: s.data_inicio,
+      data_fim: s.data_fim,
+      dias: s.dias,
+      dados: s.dados,
+      origem: s.origem ?? {},
+      atualizado_por: auth?.user?.id ?? null,
+    }],
+    { onConflict: 'unidade_id,data_inicio' }
+  );
+  if (error) throw error;
+}
+
+export async function listarDisponibilidades(): Promise<SemanaDisponibilidade[]> {
+  if (!isSupabaseConfigured) {
+    return lerDemo().sort((a, b) => b.data_inicio.localeCompare(a.data_inicio));
+  }
+  const { data, error } = await supabase
+    .from('disponibilidade_semanal')
+    .select('*')
+    .order('data_inicio', { ascending: false });
+  if (error) throw error;
+  return (data || []) as SemanaDisponibilidade[];
+}
+
+export async function carregarDisponibilidade(dataInicio: string): Promise<SemanaDisponibilidade | null> {
+  if (!isSupabaseConfigured) {
+    return lerDemo().find(x => x.data_inicio === dataInicio) ?? null;
+  }
+  const { data, error } = await supabase
+    .from('disponibilidade_semanal')
+    .select('*')
+    .eq('data_inicio', dataInicio)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as SemanaDisponibilidade) ?? null;
+}
+
+export async function excluirDisponibilidade(dataInicio: string) {
+  if (!isSupabaseConfigured) {
+    localStorage.setItem(
+      CHAVE_DEMO,
+      JSON.stringify(lerDemo().filter(x => x.data_inicio !== dataInicio))
+    );
+    return;
+  }
+  const { error } = await supabase
+    .from('disponibilidade_semanal')
+    .delete()
+    .eq('data_inicio', dataInicio);
+  if (error) throw error;
+}

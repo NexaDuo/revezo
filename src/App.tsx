@@ -16,7 +16,7 @@ import {
   Shield, 
   Database,
   Info,
-  Layers, MapPin
+  Layers, MapPin, CalendarCheck
 } from 'lucide-react';
 
 import { fetchEquipe } from './lib/fetchData';
@@ -26,8 +26,9 @@ import { ExcelImportModal } from './components/ExcelImportModal';
 import { EquipeManager } from './components/EquipeManager';
 import { SitiosManager } from './components/SitiosManager';
 import { RegrasManager } from './components/RegrasManager';
+import { DisponibilidadeManager } from './components/DisponibilidadeManager';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
-import { loadSchedules } from './lib/db';
+import { loadSchedules, salvarDisponibilidade, listarDisponibilidades } from './lib/db';
 import { carregarConfigUnidade } from './lib/loadConfig';
 
 export const App: React.FC = () => {
@@ -89,6 +90,23 @@ export const App: React.FC = () => {
 
       let equipe = eq || equipeOverride || base.config.equipe;
       let disp = dp || dispOverride;
+      let dias = ds || diasOverride;
+
+      // Sem disponibilidade em memória, usar a última semana salva. É isto que
+      // faz a importação sobreviver ao reload em vez de virar estado perdido.
+      if (!disp) {
+        try {
+          const salvas = await listarDisponibilidades();
+          if (salvas.length) {
+            const ultima = salvas[0];
+            disp = ultima.dados as Record<string, StatusDisponibilidade[]>;
+            dias = dias || ultima.dias;
+            msgs.push(`Usando a disponibilidade salva da semana de ${ultima.data_inicio} a ${ultima.data_fim}.`);
+          }
+        } catch (e: any) {
+          msgs.push(`Não consegui ler a disponibilidade salva (${e?.message || e}).`);
+        }
+      }
 
       if (!disp) {
         const f = await fetchEquipe(isSupabaseConfigured);
@@ -97,7 +115,7 @@ export const App: React.FC = () => {
         if (!base.doBanco) msgs.push(...f.avisos);
       }
 
-      const dias = ds || diasOverride || base.config.dias;
+      dias = dias || base.config.dias;
       const config = { ...base.config, equipe, disp, dias };
       setAvisos(msgs);
       const result = generateSchedule(config);
@@ -178,6 +196,17 @@ export const App: React.FC = () => {
             >
               <MapPin className="w-3.5 h-3.5 text-emerald-600" />
               Sítios
+            </Link>
+            <Link
+              to="/disponibilidade"
+              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                location.pathname === '/disponibilidade'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <CalendarCheck className="w-3.5 h-3.5 text-emerald-600" />
+              Disponibilidade
             </Link>
             <Link
               to="/historico"
@@ -384,6 +413,7 @@ export const App: React.FC = () => {
           <Route path="/regras" element={<RegrasManager />} />
           <Route path="/equipe" element={<EquipeManager />} />
           <Route path="/sitios" element={<SitiosManager />} />
+          <Route path="/disponibilidade" element={<DisponibilidadeManager />} />
           <Route path="/historico" element={
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
               <h2 className="text-base font-bold text-slate-900">Histórico de Escalas Salvas</h2>
@@ -430,11 +460,30 @@ export const App: React.FC = () => {
         isOpen={isExcelModalOpen}
         onClose={() => setIsExcelModalOpen(false)}
         baseEquipe={defaultConfig.equipe}
-        onApply={(equipe, disp, dias) => {
+        onApply={async (equipe, disp, dias, semana) => {
           setEquipeOverride(equipe);
           setDispOverride(disp);
           setDiasOverride(dias);
-          handleGerarGrade(equipe, disp, dias);
+
+          // A disponibilidade importada precisa sobreviver ao reload: até aqui
+          // ela vivia só no estado do React. Reimportar a mesma semana
+          // sobrescreve (chave: unidade + data_inicio).
+          const extras: string[] = [];
+          try {
+            await salvarDisponibilidade({
+              data_inicio: semana.data_inicio,
+              data_fim: semana.data_fim,
+              dias,
+              dados: disp as Record<string, string[]>,
+              origem: semana.origem,
+            });
+            extras.push(`Disponibilidade da semana ${semana.origem.semana ?? ''} salva — dá para conferir e corrigir na aba Disponibilidade.`);
+          } catch (e: any) {
+            extras.push(`A grade foi gerada, mas a disponibilidade NÃO foi salva: ${e?.message || e}. Ao recarregar, esses dados se perdem.`);
+          }
+
+          await handleGerarGrade(equipe, disp, dias);
+          setAvisos(a => [...a, ...extras]);
         }}
       />
     </div>

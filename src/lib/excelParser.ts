@@ -83,8 +83,15 @@ export function semanasDoMes(ano: number, mes: number) {
     if(wd>=1 && wd<=5) atual.push(d);
     if(wd===5 || d===ultimo){ if(atual.length){ semanas.push(atual); atual=[]; } }
   }
+  // data_inicio/data_fim reais: são a chave da semana no banco. Só os rótulos
+  // ("Segunda 03") não bastam — não carregam o ano nem o mês.
+  const iso = (d: number) =>
+    `${ano}-${String(mes).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+
   return semanas.map(dias=>({
     dias,
+    inicio: iso(dias[0]),
+    fim: iso(dias[dias.length-1]),
     rotulos: dias.map(d=>`${DIAS_SEMANA[new Date(ano,mes-1,d).getDay()]} ${String(d).padStart(2,"0")}`),
     label: `${String(dias[0]).padStart(2,"0")} a ${String(dias[dias.length-1]).padStart(2,"0")}/${String(mes).padStart(2,"0")}`,
   }));

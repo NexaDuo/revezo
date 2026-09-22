@@ -15,7 +15,12 @@ interface ExcelImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   baseEquipe: Pessoa[];
-  onApply: (equipe: Pessoa[], disp: Record<string, StatusDisponibilidade[]>, diasRotulos: string[]) => void;
+  onApply: (
+    equipe: Pessoa[],
+    disp: Record<string, StatusDisponibilidade[]>,
+    diasRotulos: string[],
+    semana: { data_inicio: string; data_fim: string; origem: { arquivo?: string; aba?: string; semana?: string } }
+  ) => void;
 }
 
 export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ isOpen, onClose, baseEquipe, onApply }) => {
@@ -134,7 +139,11 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ isOpen, onCl
       if (!newDisp[p.n]) newDisp[p.n] = sem.rotulos.map(() => "OK");
     }
     
-    onApply(newEquipe, newDisp, sem.rotulos);
+    onApply(newEquipe, newDisp, sem.rotulos, {
+      data_inicio: sem.inicio,
+      data_fim: sem.fim,
+      origem: { arquivo: file?.name, aba: String(selAba ?? ''), semana: sem.label },
+    });
     onClose();
   };
 
