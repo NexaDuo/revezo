@@ -102,6 +102,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  /** Login por e-mail e senha. Contas criadas pelo provider `email` (as que
+   *  não vieram do Google) só conseguem entrar por aqui. */
+  const signInWithPassword = async (email: string, password: string) => {
+    try {
+      setError(null);
+      if (!isSupabaseConfigured) {
+        setError('Supabase não configurado: login por e-mail indisponível em modo demonstração.');
+        return false;
+      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      return true;
+    } catch (err: any) {
+      console.error('Erro no login por e-mail:', err);
+      setError(
+        err?.message === 'Invalid login credentials'
+          ? 'E-mail ou senha inválidos.'
+          : err?.message || 'Falha ao autenticar.'
+      );
+      return false;
+    }
+  };
+
   const signInWithGoogle = async () => {
     try {
       setError(null);
@@ -208,6 +231,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         error,
         signInWithGoogle,
+        signInWithPassword,
         signOut,
         refreshProfile,
         updateUserRole,

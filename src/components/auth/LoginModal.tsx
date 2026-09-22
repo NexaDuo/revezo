@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { X, ShieldAlert, Sparkles } from 'lucide-react';
+import { X, ShieldAlert, Sparkles, Mail, Lock, LogIn } from 'lucide-react';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -8,7 +8,18 @@ interface LoginModalProps {
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
-  const { signInWithGoogle, isSupabaseConfigured, error } = useAuth();
+  const { signInWithGoogle, signInWithPassword, isSupabaseConfigured, error } = useAuth();
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [entrando, setEntrando] = useState(false);
+
+  const entrarComSenha = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEntrando(true);
+    const ok = await signInWithPassword(email.trim(), senha);
+    setEntrando(false);
+    if (ok) onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -42,8 +53,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
               <span>Papéis e Níveis de Acesso:</span>
             </div>
             <ul className="list-disc pl-4 space-y-1">
-              <li><strong>Coordenador de Escala:</strong> Pode criar, gerar com solver, editar grade e baixar escalas em Word.</li>
+              <li><strong>Coordenador de Escala:</strong> Pode gerar a grade com o solver, editar arrastando e imprimir a escala em PDF.</li>
               <li><strong>Administrador:</strong> Gerencia permissões de usuários, regras da unidade e equipe.</li>
+              <li><strong>Visualizador:</strong> Só leitura — é o papel de quem acaba de entrar.</li>
             </ul>
           </div>
 
@@ -61,6 +73,55 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
               {error}
             </div>
           )}
+
+          <form onSubmit={entrarComSenha} className="space-y-3">
+            <label className="block">
+              <span className="text-xs font-semibold text-slate-700">E-mail</span>
+              <div className="mt-1 relative">
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="email"
+                  required
+                  autoComplete="username"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="voce@exemplo.com"
+                  className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-semibold text-slate-700">Senha</span>
+              <div className="mt-1 relative">
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  value={senha}
+                  onChange={e => setSenha(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+            </label>
+
+            <button
+              type="submit"
+              disabled={entrando}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-sm transition-all active:scale-[0.99] disabled:opacity-60"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>{entrando ? 'Entrando...' : 'Entrar'}</span>
+            </button>
+          </form>
+
+          <div className="flex items-center gap-3">
+            <span className="h-px flex-1 bg-slate-200" />
+            <span className="text-[11px] uppercase tracking-wide text-slate-400">ou</span>
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
 
           <button
             onClick={async () => {
