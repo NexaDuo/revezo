@@ -119,7 +119,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ isOpen, onCl
       horario: l.p.horario,
     })) as Pessoa[];
     
-    for (const extra of [{ n: "Leticia", c: "enf", t: "ambos", fixo: "Ensino" }, { n: "Allan", c: "enf", t: "ambos" }]) {
+    for (const extra of [
+      { n: "Leticia", c: "enf", t: "ambos", fixo: "Ensino" },
+      { n: "Allan", c: "enf", t: "ambos", isentoAcoes: true, custoExtra: 3 },
+    ]) {
       if (!newEquipe.some(p => p.n === extra.n)) newEquipe.push(extra as Pessoa);
     }
     

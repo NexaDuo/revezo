@@ -26,9 +26,9 @@ import { ExcelImportModal } from './components/ExcelImportModal';
 import { EquipeManager } from './components/EquipeManager';
 import { SitiosManager } from './components/SitiosManager';
 import { RegrasManager } from './components/RegrasManager';
-import { exportToWord } from './lib/exportWord';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
 import { loadSchedules } from './lib/db';
+import { carregarConfigUnidade } from './lib/loadConfig';
 
 export const App: React.FC = () => {
   const { user, profile, role, isAdmin, isCoordenador, signOut, isSupabaseConfigured } = useAuth();
@@ -46,6 +46,20 @@ export const App: React.FC = () => {
   const [score, setScore] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [schedules, setSchedules] = useState<any[]>([]);
+  const [avisos, setAvisos] = useState<string[]>([]);
+
+  // rótulo da semana corrente (segunda a sexta). Era uma string literal
+  // "Semana 03 a 07 de Agosto / 2026" no meio do JSX.
+  const tituloSemana = React.useMemo(() => {
+    const hoje = new Date();
+    const segunda = new Date(hoje);
+    segunda.setDate(hoje.getDate() - ((hoje.getDay() + 6) % 7));
+    const sexta = new Date(segunda);
+    sexta.setDate(segunda.getDate() + 4);
+    const dd = (d: Date) => String(d.getDate()).padStart(2, '0');
+    const mes = sexta.toLocaleDateString('pt-BR', { month: 'long' });
+    return `Semana ${dd(segunda)} a ${dd(sexta)} de ${mes} / ${sexta.getFullYear()}`;
+  }, []);
 
 
   const handleUpdateEscala = (novaEscala: Escala) => {
@@ -67,11 +81,25 @@ export const App: React.FC = () => {
   const handleGerarGrade = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[]) => {
     setIsGenerating(true);
     try {
-      const { equipe: fEq, disp: fDp } = await fetchEquipe(isSupabaseConfigured);
-      const equipe = eq || equipeOverride || fEq;
-      const disp = dp || dispOverride || fDp;
-      const dias = ds || diasOverride || defaultConfig.dias;
-      const config = { ...defaultConfig, equipe, disp, dias };
+      // A configuração (equipe, sítios, regras ligadas/desligadas, proibições,
+      // duplas e fixas) vem da unidade. É isto que faz o painel de Regras
+      // valer de verdade: desligar uma regra ali muda a geração aqui.
+      const base = await carregarConfigUnidade(isSupabaseConfigured);
+      const msgs = [...base.avisos];
+
+      let equipe = eq || equipeOverride || base.config.equipe;
+      let disp = dp || dispOverride;
+
+      if (!disp) {
+        const f = await fetchEquipe(isSupabaseConfigured);
+        disp = f.disp;
+        if (!equipe.length) equipe = f.equipe;
+        if (!base.doBanco) msgs.push(...f.avisos);
+      }
+
+      const dias = ds || diasOverride || base.config.dias;
+      const config = { ...base.config, equipe, disp, dias };
+      setAvisos(msgs);
       const result = generateSchedule(config);
       setEscala(result.escala);
       setViolacoes(result.violacoes);
@@ -138,7 +166,7 @@ export const App: React.FC = () => {
               }`}
             >
               <Users className="w-3.5 h-3.5 text-emerald-600" />
-              Equipe (21)
+              Equipe{currentConfig?.equipe?.length ? ` (${currentConfig.equipe.length})` : ''}
             </Link>
             <Link
               to="/sitios"
@@ -244,7 +272,7 @@ export const App: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold text-slate-900">
-                Semana 03 a 07 de Agosto / 2026
+                {tituloSemana}
               </h1>
               {score !== null ? (
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${score === 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
@@ -288,16 +316,7 @@ export const App: React.FC = () => {
                   className="flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-50"
                 >
                   <Download className="w-4 h-4 text-slate-300" />
-                  <span>Baixar PDF</span>
-                </button>
-
-                <button 
-                  onClick={() => escala && exportToWord(escala, diasOverride || defaultConfig.dias)}
-                  disabled={!escala}
-                  className="flex items-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-50"
-                >
-                  <Download className="w-4 h-4 text-blue-200" />
-                  <span>Baixar Word (.docx)</span>
+                  <span>Imprimir / Salvar PDF</span>
                 </button>
               </>
             ) : (
@@ -308,6 +327,17 @@ export const App: React.FC = () => {
             )}
           </div>
         </div>
+
+        {avisos.length > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 print:hidden">
+            <p className="text-xs font-bold text-amber-900">Atenção aos dados desta grade</p>
+            <ul className="mt-1 space-y-0.5">
+              {avisos.map((a, i) => (
+                <li key={i} className="text-xs text-amber-800">• {a}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Exibição da Aba Ativa */}
         <Routes>

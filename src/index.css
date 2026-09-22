@@ -17,3 +17,89 @@
 .animate-fade-in {
   animation: fadeIn 0.15s ease-out forwards;
 }
+
+/* ---------------------------------------------------------------------------
+   Impressão / PDF — a escala é impressa e colada na parede, então este bloco
+   é a saída oficial do produto, não um extra. Paisagem, tabela única com
+   bordas, sem a interface em volta.
+   --------------------------------------------------------------------------- */
+@page {
+  size: A4 landscape;
+  margin: 8mm;
+}
+
+@media print {
+  body {
+    background: #fff;
+    /* sem isto o Chrome descarta o sombreado dos cabeçalhos */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* a interface em volta não vai para o papel */
+  header,
+  nav,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* o conteúdo ocupa a folha inteira */
+  main {
+    max-width: none !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  main > div,
+  main section {
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    /* não partir a tabela no meio de uma linha */
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  th,
+  td {
+    border: 1px solid #808080 !important;
+    font-size: 9pt;
+    padding: 2pt 3pt !important;
+    vertical-align: middle;
+  }
+
+  thead th {
+    background: #d9e1f2 !important;
+    font-weight: 700;
+  }
+
+  /* primeira coluna = nome do sítio */
+  tbody td:first-child {
+    background: #f2f2f2 !important;
+    font-weight: 700;
+    text-align: left;
+  }
+
+  /* as mensagens de violação são ferramenta de conferência, não vão no papel */
+  [data-print-hide="true"] {
+    display: none !important;
+  }
+
+  h3 {
+    font-size: 11pt;
+    font-weight: 700;
+    margin: 6pt 0 3pt;
+  }
+}

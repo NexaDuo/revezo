@@ -7,26 +7,29 @@
 gh_org = "NexaDuo"
 gh_repo = "NexaDuo/revezo"
 # The GitHub Project (v2) number that is the team's source-of-truth board.
-# WARNING if left as TODO: set this before dispatching, or issues may land on the
-# wrong board. Do NOT use the owner's auto-created "untitled" project (often #1).
-project_number = 2
-# Optional: uncomment to disambiguate when the org has several projects.
-# project_title = "TODO_optional_title"
+project_number = 3
+project_title = "revezo"
 
 [architecture]
 agents_doc = "AGENTS.md"
 
 [paths]
-# TODO: set to this repo's real layout, e.g. app_paths = ["src/", "services/"]
-app_paths = ["TODO"]
-iac_paths = ["TODO"]
-test_paths = ["TODO"]
-ui_paths = ["TODO"]
+app_paths = ["src/"]
+iac_paths = ["supabase/migrations/", ".github/workflows/"]
+test_paths = ["tests/"]
+ui_paths = ["src/components/", "src/index.css", "tailwind.config.js"]
 
 [validation]
 # The single command that proves a change works:
-validation_command = "TODO"
+validation_command = "npm run build && npx playwright test"
+# Optional smoke/health entrypoint:
+health_check_command = "npm run preview"
 
 [release]
 # true/false; if false, mandatory release phases are N/A.
-has_release_pipeline = "TODO"
+has_release_pipeline = "true"
+# Public URLs to validate against.
+real_urls = ["https://nexaduo.com/revezo/"]
+# Deploy model: push to main -> .github/workflows/deploy.yml builds and publishes
+# dist/ to GitHub Pages. No staging environment exists; main IS production.
+release_notes = "TODO_confirm_or_refine"

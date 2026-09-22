@@ -18,10 +18,8 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
   };
 
   
-  const renderTurno = (turno: 'manha' | 'tarde' | 'noite', titulo: string) => {
-    // Treat noite as a dummy for UI if solver doesn't output it natively
-    const isNoite = turno === 'noite';
-    const sourceData = isNoite ? {} : (escala[turno as 'manha' | 'tarde'] || {});
+  const renderTurno = (turno: 'manha' | 'tarde', titulo: string) => {
+    const sourceData = escala[turno] || {};
     const sitios = Object.keys(sourceData);
     const canEdit = isAdmin || isCoordenador;
 
@@ -66,31 +64,6 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
       e.preventDefault();
     };
 
-    if (isNoite) {
-      // Just for UI requirement "M, T, N"
-      return (
-        <div className="mb-6 overflow-x-auto">
-          <h3 className="text-md font-bold mb-2">Noite (N)</h3>
-          <table className="w-full border-collapse border border-slate-200">
-            <thead>
-              <tr className="bg-slate-100">
-                <th className="border border-slate-200 p-2 text-left">Sítio</th>
-                {dias.map((d, i) => (
-                  <th key={i} className="border border-slate-200 p-2">{d}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="border border-slate-200 p-2 font-semibold bg-slate-50 text-xs w-48 text-gray-400">Sem sítios noturnos</td>
-                {dias.map((_, i) => <td key={i} className="border border-slate-200 p-2"></td>)}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      );
-    }
-
     if (sitios.length === 0) return null;
 
     return (
@@ -134,7 +107,7 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
                         </div>
                       ))}
                       {vs.length > 0 && (
-                        <div className="text-[10px] text-red-600 mt-1">
+                        <div data-print-hide="true" className="text-[10px] text-red-600 mt-1">
                           {vs.map((v, i) => <div key={i}>• {v.msg}</div>)}
                         </div>
                       )}
@@ -153,10 +126,24 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const dataInicio = new Date().toISOString().split('T')[0];
-      const dataFim = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      await saveSchedule({ escala, violacoes, score: 0 }, `Semana salva em ${new Date().toLocaleDateString()}`, dataInicio, dataFim);
-      alert('Escala salva com sucesso!');
+      // segunda-feira da semana corrente: a chave da semana é a segunda, não "hoje"
+      const hoje = new Date();
+      const segunda = new Date(hoje);
+      segunda.setDate(hoje.getDate() - ((hoje.getDay() + 6) % 7));
+      const sexta = new Date(segunda);
+      sexta.setDate(segunda.getDate() + 4);
+      const iso = (d: Date) => d.toISOString().split('T')[0];
+
+      const score = violacoes.reduce((a, v) => a + (v.hard ? 100 : 1), 0);
+      await saveSchedule(
+        { escala, violacoes, score },
+        `Escala de ${iso(segunda)} a ${iso(sexta)}`,
+        iso(segunda), iso(sexta), dias
+      );
+      const rigidas = violacoes.filter(v => v.hard).length;
+      alert(rigidas
+        ? `Escala salva como rascunho: ainda tem ${rigidas} violação(ões) rígida(s).`
+        : 'Escala salva e marcada como validada.');
     } catch (e: any) {
       console.error(e);
       alert('Erro ao salvar escala: ' + (e.message || JSON.stringify(e)));
@@ -169,7 +156,6 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
     <div>
       {renderTurno('manha', 'Manhã (M)')}
       {renderTurno('tarde', 'Tarde (T)')}
-      {renderTurno('noite', 'Noite (N)')}
 
       {(isAdmin || isCoordenador) && (
         <div className="mt-6 flex justify-end print:hidden">

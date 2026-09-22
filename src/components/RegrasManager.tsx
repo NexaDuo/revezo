@@ -1,231 +1,145 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getRegras, updateRegra, deleteRegra, addRegra } from '../lib/db';
-import { DataTable, Column } from './DataTable';
-import { Trash2, X, Save, Plus } from 'lucide-react';
+import { getRegras, updateRegra } from '../lib/db';
+import { AlertTriangle, ShieldCheck, Info } from 'lucide-react';
 
+/** Uma linha de `regras_config`. A `chave` casa 1:1 com `Regras` em
+ *  src/lib/solver/types.ts — é por ela que o motor encontra a regra. */
 interface Regra {
   id: string;
+  chave: string;
   nome: string;
-  tipo: string;
+  descricao: string | null;
   ativa: boolean;
-  parametros: any;
+  rigida: boolean;
+  ordem: number;
 }
 
 export const RegrasManager: React.FC = () => {
   const { isAdmin, isCoordenador } = useAuth();
   const canEdit = isAdmin || isCoordenador;
-  
+
   const [regras, setRegras] = useState<Regra[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [editingRegra, setEditingRegra] = useState<Regra | null>(null);
-  const [jsonStr, setJsonStr] = useState<string>('');
-  
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState<string | null>(null);
+
   const loadData = async () => {
     setLoading(true);
+    setErro(null);
     try {
-      const data = await getRegras();
-      setRegras(data);
-    } catch (e) {
-      console.error(e);
+      setRegras((await getRegras()) as Regra[]);
+    } catch (e: any) {
+      setErro(e?.message || 'Não foi possível carregar as regras.');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
-  const openEdit = (item: Regra) => {
-    setEditingRegra(item);
-    setJsonStr(JSON.stringify(item.parametros, null, 2));
-  };
-
-  const handleBulkDelete = async () => {
-    if (!isAdmin) return;
-    if (confirm(`Tem certeza que deseja excluir ${selectedIds.length} regra(s)?`)) {
-      try {
-        for (const id of selectedIds) {
-          await deleteRegra(id);
-        }
-        setSelectedIds([]);
-        loadData();
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  };
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingRegra) return;
-    
-    let parsedParams = {};
+  /** Gravação otimista com reversão: se o banco recusar, a chave volta ao
+   *  estado anterior e o erro aparece — nunca um toggle que mente. */
+  const alternar = async (r: Regra, campo: 'ativa' | 'rigida') => {
+    if (!canEdit) return;
+    const anterior = r[campo];
+    const novo = !anterior;
+    setSalvando(r.id);
+    setErro(null);
+    setRegras(rs => rs.map(x => (x.id === r.id ? { ...x, [campo]: novo } : x)));
     try {
-      parsedParams = JSON.parse(jsonStr);
-    } catch (e) {
-      alert("JSON de parâmetros inválido.");
-      return;
-    }
-
-    try {
-      if (editingRegra.id === '') {
-        await addRegra({
-          nome: editingRegra.nome,
-          tipo: editingRegra.tipo,
-          ativa: editingRegra.ativa,
-          parametros: parsedParams
-        });
-      } else {
-        await updateRegra(editingRegra.id, {
-          nome: editingRegra.nome,
-          tipo: editingRegra.tipo,
-          ativa: editingRegra.ativa,
-          parametros: parsedParams
-        });
-      }
-      setEditingRegra(null);
-      loadData();
-    } catch (e) {
-      console.error(e);
-      alert("Erro ao salvar regra.");
+      await updateRegra(r.id, { [campo]: novo });
+    } catch (e: any) {
+      setRegras(rs => rs.map(x => (x.id === r.id ? { ...x, [campo]: anterior } : x)));
+      setErro(e?.message || 'Não foi possível gravar a alteração.');
+    } finally {
+      setSalvando(null);
     }
   };
-
-  const columns: Column<Regra>[] = [
-    { key: 'nome', header: 'Nome', searchable: true },
-    { key: 'tipo', header: 'Tipo', searchable: true, render: (item) => (
-      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${item.tipo === 'hard' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
-        {item.tipo.toUpperCase()}
-      </span>
-    ) },
-    { key: 'ativa', header: 'Status', render: (item) => (
-      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${item.ativa ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}`}>
-        {item.ativa ? 'Ativa' : 'Inativa'}
-      </span>
-    ) },
-    { key: 'parametros', header: 'Parâmetros', render: (item) => (
-      <span className="text-xs text-slate-500 font-mono">
-        {JSON.stringify(item.parametros)}
-      </span>
-    ) }
-  ];
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-lg font-bold text-slate-900">Gerenciador de Regras</h2>
-          <p className="text-xs text-slate-500">Configuração das regras de validação da escala.</p>
-        </div>
-        <div className="flex gap-2">
-          {isAdmin && selectedIds.length > 0 && (
-            <button
-              onClick={handleBulkDelete}
-              className="flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-sm font-semibold transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-              Excluir Selecionados ({selectedIds.length})
-            </button>
-          )}
-          {canEdit && (
-            <button
-              onClick={() => {
-                setEditingRegra({ id: '', nome: '', tipo: 'alert', ativa: true, parametros: {} });
-                setJsonStr('{}');
-              }}
-              className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-sm font-semibold transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Adicionar Nova Regra
-            </button>
-          )}
-        </div>
+      <div>
+        <h2 className="text-lg font-bold text-slate-900">Gerenciador de Regras</h2>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Desligar uma regra aqui muda a próxima geração da grade. Serve para descobrir
+          na prática quais regras são inegociáveis: desligue uma e veja se a escala melhora.
+        </p>
       </div>
 
-      {loading ? (
-        <div className="text-center py-8 text-slate-500">Carregando...</div>
-      ) : (
-        <DataTable
-          data={regras}
-          columns={columns}
-          canEdit={canEdit}
-          onRowClick={(item) => canEdit && openEdit(item)}
-          selectedIds={selectedIds}
-          onSelectionChange={setSelectedIds}
-          getRowId={(item) => item.id}
-        />
+      <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+        <Info className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+        <p className="text-xs text-slate-600">
+          <strong>Rígida</strong> bloqueia e pinta a célula de vermelho (peso 100 na
+          pontuação do solver). <strong>Alerta</strong> apenas avisa, em amarelo (peso 1).
+          Quem é proibido de quê se cadastra em Equipe, não aqui.
+        </p>
+      </div>
+
+      {erro && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+          {erro}
+        </div>
       )}
 
-      {/* Edit Modal */}
-      {editingRegra && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <h3 className="font-bold text-slate-800">{editingRegra.id === '' ? 'Adicionar Regra' : 'Editar Regra'}</h3>
-              <button onClick={() => setEditingRegra(null)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <form onSubmit={handleSave} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nome</label>
-                <input type="text" value={editingRegra.nome} disabled={editingRegra.id !== ''} onChange={(e) => setEditingRegra({...editingRegra, nome: e.target.value})} className={`w-full px-3 py-2 border border-slate-200 rounded-lg text-sm ${editingRegra.id !== '' ? 'bg-slate-50 text-slate-500' : 'bg-white text-slate-900 focus:ring-2 focus:ring-emerald-500'}`} />
-              </div>
-              {editingRegra.id === '' && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
-                  <select value={editingRegra.tipo} onChange={(e) => setEditingRegra({...editingRegra, tipo: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500">
-                    <option value="alert">Alerta</option>
-                    <option value="hard">Rígida</option>
-                  </select>
-                </div>
-              )}
-              
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="ativa"
-                  checked={editingRegra.ativa}
-                  onChange={(e) => setEditingRegra({...editingRegra, ativa: e.target.checked})}
-                  className="rounded text-emerald-600 focus:ring-emerald-500"
-                />
-                <label htmlFor="ativa" className="text-sm font-medium text-slate-700">Regra Ativa</label>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Parâmetros (JSON)</label>
-                <textarea
-                  rows={4}
-                  value={jsonStr}
-                  onChange={(e) => setJsonStr(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-                <p className="text-xs text-slate-500 mt-1">Insira um JSON válido. (Ex: {`{"max": 5}`})</p>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setEditingRegra(null)}
-                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-lg"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg flex items-center gap-2 shadow-sm"
-                >
-                  <Save className="w-4 h-4" />
-                  Salvar
-                </button>
-              </div>
-            </form>
-          </div>
+      {loading ? (
+        <div className="text-center py-8 text-slate-500 text-sm">Carregando...</div>
+      ) : regras.length === 0 ? (
+        <div className="p-6 text-center text-xs text-slate-500 border border-dashed border-slate-300 rounded-xl">
+          Nenhuma regra cadastrada para esta unidade. A grade vai usar os padrões do motor.
         </div>
+      ) : (
+        <table className="w-full">
+          <thead>
+            <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
+              <th className="pb-2 font-semibold">Regra</th>
+              <th className="pb-2 font-semibold w-28">Severidade</th>
+              <th className="pb-2 font-semibold w-24">Estado</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {regras.map(r => (
+              <tr key={r.id} className={r.ativa ? '' : 'opacity-50'}>
+                <td className="py-3 pr-4">
+                  <div className="text-sm font-semibold text-slate-900">{r.nome}</div>
+                  <div className="text-xs text-slate-500">{r.descricao}</div>
+                  <code className="text-[10px] text-slate-400">{r.chave}</code>
+                </td>
+                <td className="py-3">
+                  <button
+                    onClick={() => alternar(r, 'rigida')}
+                    disabled={!canEdit || salvando === r.id}
+                    title={canEdit ? 'Alternar entre rígida e alerta' : 'Somente leitura'}
+                    className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold border transition-colors disabled:cursor-not-allowed ${
+                      r.rigida
+                        ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                        : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                    }`}
+                  >
+                    {r.rigida ? <ShieldCheck className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                    {r.rigida ? 'Rígida' : 'Alerta'}
+                  </button>
+                </td>
+                <td className="py-3">
+                  <button
+                    onClick={() => alternar(r, 'ativa')}
+                    disabled={!canEdit || salvando === r.id}
+                    aria-pressed={r.ativa}
+                    className={`relative w-11 h-6 rounded-full transition-colors disabled:cursor-not-allowed ${
+                      r.ativa ? 'bg-emerald-500' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                        r.ativa ? 'translate-x-5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );

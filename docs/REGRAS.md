@@ -1,6 +1,15 @@
-# CLAUDE.md — Gerador de Escala de Sítio (Enfermagem)
+# REGRAS.md — registro histórico do caso-origem
 
-Contexto operacional do projeto. Leia antes de mexer em qualquer coisa aqui.
+> **DOCUMENTO HISTÓRICO — não é a autoridade do projeto.** A autoridade é o
+> `AGENTS.md` na raiz. Este arquivo era o `CLAUDE.md` da época em que o produto
+> era um HTML único single-tenant para uma pessoa, e descreve
+> `app/editor_escala.html`, que não existe mais neste repositório (a versão de
+> referência está em `docs/referencia/editor_escala.html`).
+>
+> Continua valioso por um motivo: é a descrição mais completa das **regras de
+> negócio reais** do caso-origem. Onde ele falar de escopo, arquitetura ou
+> stack, está desatualizado — vale o `AGENTS.md`.
+
 Complemento histórico e estratégico: `PRODUTO.md` (teses testadas, o que quebrou, roadmap).
 
 Escopo atual: **single-tenant**. É a ferramenta de UMA pessoa (Michele Ferreira,

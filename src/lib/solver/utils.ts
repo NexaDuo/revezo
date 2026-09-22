@@ -1,4 +1,4 @@
-import { Config, Pessoa, Escala } from "./types";
+import { Config, Pessoa, Escala, DuplaProibida } from "./types";
 
 export const canon = (s: string) => s.replace("Curativo- CME 16h", "Curativo").trim();
 
@@ -58,4 +58,39 @@ export function ondeEsteve(escala: Escala, config: Config, n: string, d: number,
     if ((escala[turno][s.n][d] || []).includes(n)) out.push(s.n);
   }
   return out;
+}
+
+/** Posto fixo: a pessoa ocupa o sítio todos os dias. Quem tem posto fixo fica
+ *  isento de `diasSeguidos` — sem essa isenção o solver nunca fecha. */
+export function ehPostoFixo(pessoaMap: Record<string, Pessoa>, n: string, sitio: string): boolean {
+  const f = pessoaMap[n]?.fixo;
+  return !!f && canon(f) === canon(sitio);
+}
+
+/** Alguém tem este sítio como posto fixo? Então o sítio é isento de `diasSeguidos`. */
+export function sitioTemPostoFixo(equipe: Pessoa[], sitio: string): boolean {
+  return equipe.some(p => p.fixo && canon(p.fixo) === canon(sitio));
+}
+
+export function sitioProibido(config: Config, n: string, sitio: string): boolean {
+  return config.proibicoes.some(x => x.pessoa === n && canon(x.sitio) === canon(sitio));
+}
+
+/** Retorna a primeira dupla proibida presente na célula, ou null. */
+export function duplaProibidaEm(config: Config, nomes: string[]): DuplaProibida | null {
+  for (const [a, b] of config.duplasProibidas) {
+    if (nomes.includes(a) && nomes.includes(b)) return [a, b];
+  }
+  return null;
+}
+
+/** Entrar com `n` nesta célula formaria uma dupla proibida? */
+export function formariaDuplaProibida(config: Config, nomes: string[], n: string): boolean {
+  return config.duplasProibidas.some(([a, b]) =>
+    (n === a && nomes.includes(b)) || (n === b && nomes.includes(a)));
+}
+
+/** Quem entra só depois das 16h. */
+export function pessoas16h(equipe: Pessoa[]): Pessoa[] {
+  return equipe.filter(p => p.t === "noite");
 }
