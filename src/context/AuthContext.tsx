@@ -4,9 +4,14 @@ import { AuthContextType, UserProfile, UserRole } from '../types/auth';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Unidade fixa do modo demonstração (sem Supabase configurado). WorkContext
+// reusa esta constante para resolver `unidadeId` sem chamada de rede.
+export const DEMO_UNIDADE_ID = 'demo-unidade-1';
+
 // Perfil de demonstração quando o Supabase ainda não foi configurado
 const DEMO_PROFILE: UserProfile = {
   id: 'demo-user-1',
+  unidade_id: DEMO_UNIDADE_ID,
   email: 'michele.ferreira@saude.gov.br',
   nome: 'Michele Ferreira',
   avatar_url: 'https://images.unsplash.com/photo-1594824813571-638f02614d3f?w=150&auto=format&fit=crop&q=80',

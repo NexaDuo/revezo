@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { AuthProvider } from './context/AuthContext';
+import { WorkProvider } from './context/WorkContext';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -11,7 +12,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         aponta para a raiz do domínio em vez de /revezo/x. */}
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <AuthProvider>
-        <App />
+        {/* WorkProvider depende do perfil resolvido por AuthProvider (unidade,
+            papel) — precisa ficar por dentro dele. */}
+        <WorkProvider>
+          <App />
+        </WorkProvider>
       </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>,

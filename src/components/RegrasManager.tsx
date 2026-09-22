@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useWorkContext } from '../context/WorkContext';
 import { getRegras, updateRegra } from '../lib/db';
 import { AlertTriangle, ShieldCheck, Info } from 'lucide-react';
 
@@ -17,6 +18,7 @@ interface Regra {
 
 export const RegrasManager: React.FC = () => {
   const { isAdmin, isCoordenador } = useAuth();
+  const { unidadeId, isLoading: unidadeCarregando } = useWorkContext();
   const canEdit = isAdmin || isCoordenador;
 
   const [regras, setRegras] = useState<Regra[]>([]);
@@ -28,7 +30,7 @@ export const RegrasManager: React.FC = () => {
     setLoading(true);
     setErro(null);
     try {
-      setRegras((await getRegras()) as Regra[]);
+      setRegras((await getRegras(unidadeId)) as Regra[]);
     } catch (e: any) {
       setErro(e?.message || 'Não foi possível carregar as regras.');
     } finally {
@@ -36,7 +38,14 @@ export const RegrasManager: React.FC = () => {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    // Sem esperar o WorkContext resolver, `unidadeId` chega nulo aqui durante
+    // o carregamento do perfil e `getRegras` lança "nenhuma unidade
+    // selecionada" — um erro real virando falso positivo por causa da ordem
+    // de renderização, não da falta de unidade de fato.
+    if (unidadeCarregando) return;
+    loadData();
+  }, [unidadeId, unidadeCarregando]);
 
   /** Gravação otimista com reversão: se o banco recusar, a chave volta ao
    *  estado anterior e o erro aparece — nunca um toggle que mente. */
@@ -48,7 +57,7 @@ export const RegrasManager: React.FC = () => {
     setErro(null);
     setRegras(rs => rs.map(x => (x.id === r.id ? { ...x, [campo]: novo } : x)));
     try {
-      await updateRegra(r.id, { [campo]: novo });
+      await updateRegra(r.id, { [campo]: novo }, unidadeId);
     } catch (e: any) {
       setRegras(rs => rs.map(x => (x.id === r.id ? { ...x, [campo]: anterior } : x)));
       setErro(e?.message || 'Não foi possível gravar a alteração.');
@@ -82,7 +91,7 @@ export const RegrasManager: React.FC = () => {
         </div>
       )}
 
-      {loading ? (
+      {loading || unidadeCarregando ? (
         <div className="text-center py-8 text-slate-500 text-sm">Carregando...</div>
       ) : regras.length === 0 ? (
         <div className="p-6 text-center text-xs text-slate-500 border border-dashed border-slate-300 rounded-xl">
@@ -110,7 +119,8 @@ export const RegrasManager: React.FC = () => {
                     onClick={() => alternar(r, 'rigida')}
                     disabled={!canEdit || salvando === r.id}
                     title={canEdit ? 'Alternar entre rígida e alerta' : 'Somente leitura'}
-                    className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold border transition-colors disabled:cursor-not-allowed ${
+                    data-testid={`regra-severidade-${r.chave}`}
+                    className={`inline-flex align-middle items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold border transition-colors disabled:cursor-not-allowed ${
                       r.rigida
                         ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
                         : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
@@ -125,13 +135,19 @@ export const RegrasManager: React.FC = () => {
                     onClick={() => alternar(r, 'ativa')}
                     disabled={!canEdit || salvando === r.id}
                     aria-pressed={r.ativa}
-                    className={`relative w-11 h-6 rounded-full transition-colors disabled:cursor-not-allowed ${
+                    data-testid={`regra-toggle-${r.chave}`}
+                    className={`relative align-middle w-11 h-6 rounded-full transition-colors disabled:cursor-not-allowed ${
                       r.ativa ? 'bg-emerald-500' : 'bg-slate-300'
                     }`}
                   >
+                    {/* `left-0.5` fixa a posição de repouso dentro da trilha —
+                        sem ela, o span parte do centro do botão (conteúdo
+                        vazio, sem largura própria) e o translate-x-5 (20px)
+                        empurra o polegar para fora da trilha de 44px. */}
                     <span
-                      className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        r.ativa ? 'translate-x-5' : 'translate-x-0.5'
+                      data-testid={`regra-toggle-knob-${r.chave}`}
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                        r.ativa ? 'translate-x-5' : 'translate-x-0'
                       }`}
                     />
                   </button>

@@ -2,7 +2,9 @@ import { ScheduleResult } from './solver/types';
 import { supabase, isSupabaseConfigured } from './supabase';
 
 /** Unidade do usuário logado. Toda escrita no domínio é escopada por ela —
- *  as tabelas têm `unidade_id not null` e RLS por unidade. */
+ *  as tabelas têm `unidade_id not null` e RLS por unidade. Usado só como
+ *  valor inicial do `WorkContext`: o resto do arquivo recebe a unidade
+ *  explícita, nunca a lê de novo por conta própria. */
 export async function minhaUnidade(): Promise<string | null> {
   if (!isSupabaseConfigured) return null;
   const { data: auth } = await supabase.auth.getUser();
@@ -12,13 +14,18 @@ export async function minhaUnidade(): Promise<string | null> {
   return data?.unidade_id ?? null;
 }
 
-async function exigirUnidade(): Promise<string> {
-  const u = await minhaUnidade();
-  if (!u) throw new Error('Seu perfil não está vinculado a nenhuma unidade. Peça a um admin para vincular.');
-  return u;
+/** Nenhuma função aqui embaixo assume unidade: quem chama tem que trazer o
+ *  `unidadeId` do `WorkContext`. Sem unidade resolvida, falha alto — nunca
+ *  um default silencioso que grava (ou lê) na unidade errada. */
+function exigirUnidade(unidadeId: string | null | undefined): string {
+  if (!unidadeId) {
+    throw new Error('Nenhuma unidade selecionada. Peça a um admin para vincular seu perfil a uma unidade.');
+  }
+  return unidadeId;
 }
 
 export async function saveSchedule(
+  unidadeId: string | null,
   resultado: ScheduleResult,
   titulo: string,
   dataInicio: string,
@@ -39,7 +46,7 @@ export async function saveSchedule(
   };
 
   if (isSupabaseConfigured) {
-    payload.unidade_id = await exigirUnidade();
+    payload.unidade_id = exigirUnidade(unidadeId);
     // uma semana por unidade: regravar substitui, em vez de duplicar
     const { error } = await supabase
       .from('escalas_semanais')
@@ -55,13 +62,14 @@ export async function saveSchedule(
   }
 }
 
-export async function loadSchedules() {
+export async function loadSchedules(unidadeId: string | null) {
   if (isSupabaseConfigured) {
     const { data, error } = await supabase
       .from('escalas_semanais')
       .select('*')
+      .eq('unidade_id', exigirUnidade(unidadeId))
       .order('data_inicio', { ascending: false });
-      
+
     if (error) throw error;
     return data || [];
   } else {
@@ -71,58 +79,82 @@ export async function loadSchedules() {
     return data.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
 }
-async function listar(tabela: string, ordem: string) {
+async function listar(tabela: string, ordem: string, unidadeId: string | null) {
   if (!isSupabaseConfigured) return [];
-  const { data, error } = await supabase.from(tabela).select('*').order(ordem);
+  const { data, error } = await supabase
+    .from(tabela)
+    .select('*')
+    .eq('unidade_id', exigirUnidade(unidadeId))
+    .order(ordem);
   if (error) throw error;
   return data || [];
 }
 
-async function inserir(tabela: string, item: any) {
+async function inserir(tabela: string, item: any, unidadeId: string | null) {
   if (!isSupabaseConfigured) return;
-  const unidade_id = await exigirUnidade();
+  const unidade_id = exigirUnidade(unidadeId);
   const { data, error } = await supabase.from(tabela).insert([{ ...item, unidade_id }]).select();
   if (error) throw error;
   return data?.[0];
 }
 
-async function atualizar(tabela: string, id: string, item: any) {
+async function atualizar(tabela: string, id: string, item: any, unidadeId: string | null) {
   if (!isSupabaseConfigured) return;
   // unidade_id nunca vem do formulário: mover linha de unidade é operação de admin
   const { unidade_id: _ignorado, ...campos } = item;
-  const { data, error } = await supabase.from(tabela).update(campos).eq('id', id).select();
+  const { data, error } = await supabase
+    .from(tabela)
+    .update(campos)
+    .eq('id', id)
+    .eq('unidade_id', exigirUnidade(unidadeId))
+    .select('id');
   if (error) throw error;
-  return data?.[0];
+  // Um UPDATE filtrado por RLS ou pelo `.eq('unidade_id', …)` que não bate com
+  // nenhuma linha não é erro do PostgREST — devolve sucesso com zero linhas.
+  // Reportar "salvo" nesse caso é exatamente a falha silenciosa que a lição
+  // de RLS do AGENTS.md pede para nunca acontecer.
+  if (!data || data.length === 0) {
+    throw new Error('Nada foi atualizado: o registro pode ter sido movido para outra unidade ou removido.');
+  }
+  return data[0];
 }
 
-async function remover(tabela: string, id: string) {
+async function remover(tabela: string, id: string, unidadeId: string | null) {
   if (!isSupabaseConfigured) return;
-  const { error } = await supabase.from(tabela).delete().eq('id', id);
+  const { data, error } = await supabase
+    .from(tabela)
+    .delete()
+    .eq('id', id)
+    .eq('unidade_id', exigirUnidade(unidadeId))
+    .select('id');
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error('Nada foi excluído: o registro pode já ter sido removido ou estar em outra unidade.');
+  }
 }
 
-export const getEquipes   = () => listar('equipe', 'ordem');
-export const addEquipe    = (i: any) => inserir('equipe', i);
-export const updateEquipe = (id: string, i: any) => atualizar('equipe', id, i);
-export const deleteEquipe = (id: string) => remover('equipe', id);
+export const getEquipes   = (unidadeId: string | null) => listar('equipe', 'ordem', unidadeId);
+export const addEquipe    = (i: any, unidadeId: string | null) => inserir('equipe', i, unidadeId);
+export const updateEquipe = (id: string, i: any, unidadeId: string | null) => atualizar('equipe', id, i, unidadeId);
+export const deleteEquipe = (id: string, unidadeId: string | null) => remover('equipe', id, unidadeId);
 
-export const getSitios    = () => listar('sitios', 'ordem');
-export const addSitio     = (i: any) => inserir('sitios', i);
-export const updateSitio  = (id: string, i: any) => atualizar('sitios', id, i);
-export const deleteSitio  = (id: string) => remover('sitios', id);
+export const getSitios    = (unidadeId: string | null) => listar('sitios', 'ordem', unidadeId);
+export const addSitio     = (i: any, unidadeId: string | null) => inserir('sitios', i, unidadeId);
+export const updateSitio  = (id: string, i: any, unidadeId: string | null) => atualizar('sitios', id, i, unidadeId);
+export const deleteSitio  = (id: string, unidadeId: string | null) => remover('sitios', id, unidadeId);
 
-export const getRegras    = () => listar('regras_config', 'ordem');
-export const addRegra     = (i: any) => inserir('regras_config', i);
-export const updateRegra  = (id: string, i: any) => atualizar('regras_config', id, i);
-export const deleteRegra  = (id: string) => remover('regras_config', id);
+export const getRegras    = (unidadeId: string | null) => listar('regras_config', 'ordem', unidadeId);
+export const addRegra     = (i: any, unidadeId: string | null) => inserir('regras_config', i, unidadeId);
+export const updateRegra  = (id: string, i: any, unidadeId: string | null) => atualizar('regras_config', id, i, unidadeId);
+export const deleteRegra  = (id: string, unidadeId: string | null) => remover('regras_config', id, unidadeId);
 
-export const getProibicoes = () => listar('proibicoes', 'pessoa_curto');
-export const addProibicao  = (i: any) => inserir('proibicoes', i);
-export const deleteProibicao = (id: string) => remover('proibicoes', id);
+export const getProibicoes = (unidadeId: string | null) => listar('proibicoes', 'pessoa_curto', unidadeId);
+export const addProibicao  = (i: any, unidadeId: string | null) => inserir('proibicoes', i, unidadeId);
+export const deleteProibicao = (id: string, unidadeId: string | null) => remover('proibicoes', id, unidadeId);
 
-export const getDuplasProibidas = () => listar('duplas_proibidas', 'pessoa_a');
-export const addDuplaProibida   = (i: any) => inserir('duplas_proibidas', i);
-export const deleteDuplaProibida = (id: string) => remover('duplas_proibidas', id);
+export const getDuplasProibidas = (unidadeId: string | null) => listar('duplas_proibidas', 'pessoa_a', unidadeId);
+export const addDuplaProibida   = (i: any, unidadeId: string | null) => inserir('duplas_proibidas', i, unidadeId);
+export const deleteDuplaProibida = (id: string, unidadeId: string | null) => remover('duplas_proibidas', id, unidadeId);
 
 // ---------------------------------------------------------------------------
 // Disponibilidade semanal (o que a planilha .xlsx importa)
@@ -150,7 +182,7 @@ function lerDemo(): SemanaDisponibilidade[] {
 
 /** Grava a disponibilidade de uma semana. Reimportar a mesma semana
  *  SOBRESCREVE — a chave é (unidade, data_inicio). */
-export async function salvarDisponibilidade(s: SemanaDisponibilidade) {
+export async function salvarDisponibilidade(s: SemanaDisponibilidade, unidadeId: string | null) {
   if (!isSupabaseConfigured) {
     const todas = lerDemo().filter(x => x.data_inicio !== s.data_inicio);
     todas.push({ ...s, updated_at: new Date().toISOString() });
@@ -158,7 +190,7 @@ export async function salvarDisponibilidade(s: SemanaDisponibilidade) {
     return;
   }
 
-  const unidade_id = await exigirUnidade();
+  const unidade_id = exigirUnidade(unidadeId);
   const { data: auth } = await supabase.auth.getUser();
   const { error } = await supabase.from('disponibilidade_semanal').upsert(
     [{
@@ -175,32 +207,34 @@ export async function salvarDisponibilidade(s: SemanaDisponibilidade) {
   if (error) throw error;
 }
 
-export async function listarDisponibilidades(): Promise<SemanaDisponibilidade[]> {
+export async function listarDisponibilidades(unidadeId: string | null): Promise<SemanaDisponibilidade[]> {
   if (!isSupabaseConfigured) {
     return lerDemo().sort((a, b) => b.data_inicio.localeCompare(a.data_inicio));
   }
   const { data, error } = await supabase
     .from('disponibilidade_semanal')
     .select('*')
+    .eq('unidade_id', exigirUnidade(unidadeId))
     .order('data_inicio', { ascending: false });
   if (error) throw error;
   return (data || []) as SemanaDisponibilidade[];
 }
 
-export async function carregarDisponibilidade(dataInicio: string): Promise<SemanaDisponibilidade | null> {
+export async function carregarDisponibilidade(dataInicio: string, unidadeId: string | null): Promise<SemanaDisponibilidade | null> {
   if (!isSupabaseConfigured) {
     return lerDemo().find(x => x.data_inicio === dataInicio) ?? null;
   }
   const { data, error } = await supabase
     .from('disponibilidade_semanal')
     .select('*')
+    .eq('unidade_id', exigirUnidade(unidadeId))
     .eq('data_inicio', dataInicio)
     .maybeSingle();
   if (error) throw error;
   return (data as SemanaDisponibilidade) ?? null;
 }
 
-export async function excluirDisponibilidade(dataInicio: string) {
+export async function excluirDisponibilidade(dataInicio: string, unidadeId: string | null) {
   if (!isSupabaseConfigured) {
     localStorage.setItem(
       CHAVE_DEMO,
@@ -208,9 +242,14 @@ export async function excluirDisponibilidade(dataInicio: string) {
     );
     return;
   }
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('disponibilidade_semanal')
     .delete()
-    .eq('data_inicio', dataInicio);
+    .eq('unidade_id', exigirUnidade(unidadeId))
+    .eq('data_inicio', dataInicio)
+    .select('id');
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error('Nada foi excluído: a semana pode já ter sido removida ou estar em outra unidade.');
+  }
 }
