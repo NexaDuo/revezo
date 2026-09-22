@@ -15,6 +15,6 @@ test('tela de disponibilidade abre e explica o estado vazio', async ({ page }) =
 
 test('link de disponibilidade aparece na navegacao', async ({ page }) => {
   await page.goto('/');
-  await page.click('text=Disponibilidade');
+  await page.getByRole('link', { name: 'Disponibilidade' }).click();
   await expect(page).toHaveURL(/\/disponibilidade$/);
 });

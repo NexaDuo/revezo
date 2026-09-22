@@ -1,23 +1,21 @@
 import React, { useState } from 'react';
-import { useLocation, Routes, Route, Link } from 'react-router-dom';
+import { useLocation, Routes, Route } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { useWorkContext } from './context/WorkContext';
 import { RoleBadge } from './components/auth/RoleBadge';
 import { LoginModal } from './components/auth/LoginModal';
 import { UserManagementModal } from './components/admin/UserManagementModal';
-import { 
-  Calendar, 
-  Users, 
-  CheckCircle, 
-  FileSpreadsheet, 
-  Download, 
-  Sparkles, 
-  LogIn, 
-  LogOut, 
-  Shield, 
+import { SidebarProvider, Sidebar, MobileMenuButton } from './components/layout/Sidebar';
+import {
+  Calendar,
+  FileSpreadsheet,
+  Download,
+  Sparkles,
+  LogIn,
+  LogOut,
+  Shield,
   Database,
   Info,
-  Layers, MapPin, CalendarCheck
 } from 'lucide-react';
 
 import { fetchEquipe } from './lib/fetchData';
@@ -170,12 +168,14 @@ export const App: React.FC = () => {
   };
 
   return (
+    <SidebarProvider>
     <div className="min-h-screen flex flex-col bg-slate-50">
       {/* Barra superior de navegação */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo & Marca */}
           <div className="flex items-center gap-3">
+            <MobileMenuButton />
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white font-black text-xl shadow-md shadow-emerald-100">
               R
             </div>
@@ -189,76 +189,6 @@ export const App: React.FC = () => {
               <p className="text-xs text-slate-400 -mt-0.5">Escala de Sítio de Enfermagem</p>
             </div>
           </div>
-
-          {/* Abas de Navegação */}
-          <nav className="hidden md:flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-            <Link
-              to="/"
-              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                location.pathname === '/'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Calendar className="w-3.5 h-3.5 text-emerald-600" />
-              Grade da Semana
-            </Link>
-            <Link
-              to="/regras"
-              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                location.pathname === '/regras'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-              Regras & Conferência
-            </Link>
-            <Link
-              to="/equipe"
-              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                location.pathname === '/equipe'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5 text-emerald-600" />
-              Equipe{currentConfig?.equipe?.length ? ` (${currentConfig.equipe.length})` : ''}
-            </Link>
-            <Link
-              to="/sitios"
-              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                location.pathname === '/sitios'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-              Sítios
-            </Link>
-            <Link
-              to="/disponibilidade"
-              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                location.pathname === '/disponibilidade'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <CalendarCheck className="w-3.5 h-3.5 text-emerald-600" />
-              Disponibilidade
-            </Link>
-            <Link
-              to="/historico"
-              className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                location.pathname === '/historico'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5 text-emerald-600" />
-              Histórico
-            </Link>
-          </nav>
 
           {/* Área de Autenticação & Perfil */}
           <div className="flex items-center gap-3">
@@ -342,8 +272,11 @@ export const App: React.FC = () => {
         </div>
       )}
 
+      <div className="flex-1 flex min-h-0">
+      <Sidebar />
+
       {/* Conteúdo Principal */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Barra de Ações do Coordenador de Escala */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -495,6 +428,7 @@ export const App: React.FC = () => {
           } />
         </Routes>
       </main>
+      </div>
 
       {/* Modais de Autenticação e Administração */}
 
@@ -539,5 +473,6 @@ export const App: React.FC = () => {
         }}
       />
     </div>
+    </SidebarProvider>
   );
 };
