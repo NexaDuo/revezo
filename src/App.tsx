@@ -24,6 +24,7 @@ import { ScheduleGrid } from './components/ScheduleGrid';
 import { ExcelImportModal } from './components/ExcelImportModal';
 import { EquipeManager } from './components/EquipeManager';
 import { SitiosManager } from './components/SitiosManager';
+import { RegrasManager } from './components/RegrasManager';
 import { exportToWord } from './lib/exportWord';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
 import { loadSchedules } from './lib/db';
@@ -350,22 +351,7 @@ export const App: React.FC = () => {
         )}
 
         {activeTab === 'regras' && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-            <h2 className="text-base font-bold text-slate-900">Motor de Regras & Validação</h2>
-            <p className="text-xs text-slate-500">
-              Mesma função pontua o solver, colore as células e gera a conferência em tempo real.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-              <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 space-y-1.5">
-                <span className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Regras Rígidas (Hard)</span>
-                <p className="text-xs text-slate-700">Disponibilidade (F/FC/FE/AT), Turno-base, Categoria do sítio, Maria fora da Vacina, Plantão não repete sítio, Dias seguidos, Sexta-para-Segunda, Dupla Vanessa+Dani P, Colocações fixas.</p>
-              </div>
-              <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/50 space-y-1.5">
-                <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">Alertas (Soft)</span>
-                <p className="text-xs text-slate-700">Ações 1x na semana por profissional, Cobertura total dos sítios, Alternância 16h (Regina/Jomalba).</p>
-              </div>
-            </div>
-          </div>
+          <RegrasManager />
         )}
 
         {activeTab === 'equipe' && (
