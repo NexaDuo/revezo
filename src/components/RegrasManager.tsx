@@ -119,7 +119,8 @@ export const RegrasManager: React.FC = () => {
                     onClick={() => alternar(r, 'rigida')}
                     disabled={!canEdit || salvando === r.id}
                     title={canEdit ? 'Alternar entre rígida e alerta' : 'Somente leitura'}
-                    className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold border transition-colors disabled:cursor-not-allowed ${
+                    data-testid={`regra-severidade-${r.chave}`}
+                    className={`inline-flex align-middle items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold border transition-colors disabled:cursor-not-allowed ${
                       r.rigida
                         ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
                         : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
@@ -135,7 +136,7 @@ export const RegrasManager: React.FC = () => {
                     disabled={!canEdit || salvando === r.id}
                     aria-pressed={r.ativa}
                     data-testid={`regra-toggle-${r.chave}`}
-                    className={`relative w-11 h-6 rounded-full transition-colors disabled:cursor-not-allowed ${
+                    className={`relative align-middle w-11 h-6 rounded-full transition-colors disabled:cursor-not-allowed ${
                       r.ativa ? 'bg-emerald-500' : 'bg-slate-300'
                     }`}
                   >

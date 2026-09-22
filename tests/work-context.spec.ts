@@ -228,6 +228,17 @@ test.describe('WorkContext — semana e unidade dirigem o que a tela carrega', (
         caixaPolegar!.x + caixaPolegar!.width,
         `polegar de ${chave} não pode terminar depois da trilha`
       ).toBeLessThanOrEqual(caixaBotao!.x + caixaBotao!.width);
+
+      // Segunda regressão relatada pelo usuário: o switch (botão sem texto)
+      // alinhava pela borda de baixo na linha de base e ficava fora da altura
+      // da pílula de severidade da mesma linha. Centros verticais devem bater.
+      const caixaSeveridade = await page.getByTestId(`regra-severidade-${chave}`).boundingBox();
+      expect(caixaSeveridade, `severidade de ${chave} precisa ter geometria`).not.toBeNull();
+      const centro = (c: { y: number; height: number }) => c.y + c.height / 2;
+      expect(
+        Math.abs(centro(caixaBotao!) - centro(caixaSeveridade!)),
+        `switch e severidade de ${chave} precisam estar na mesma altura`
+      ).toBeLessThanOrEqual(1);
     }
   });
 });
