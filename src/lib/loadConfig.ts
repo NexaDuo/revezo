@@ -59,12 +59,16 @@ function montarRegras(linhas: any[], avisos: string[]): Regras {
 }
 
 /**
- * Carrega a configuração do solver da unidade do usuário. Se o Supabase não
- * estiver configurado ou a unidade não tiver dados, devolve o `defaultConfig`
+ * Carrega a configuração do solver da unidade recebida explicitamente (vem do
+ * `WorkContext`, nunca inferida aqui). Se o Supabase não estiver configurado,
+ * a unidade não for resolvível ou não tiver dados, devolve o `defaultConfig`
  * do caso-origem — sempre com aviso, porque gerar escala com a equipe errada
  * é exatamente a falha silenciosa que o produto não pode ter.
  */
-export async function carregarConfigUnidade(isSupabaseConfigured: boolean): Promise<ConfigCarregada> {
+export async function carregarConfigUnidade(
+  isSupabaseConfigured: boolean,
+  unidadeId: string | null
+): Promise<ConfigCarregada> {
   const avisos: string[] = [];
 
   if (!isSupabaseConfigured) {
@@ -75,14 +79,22 @@ export async function carregarConfigUnidade(isSupabaseConfigured: boolean): Prom
     };
   }
 
+  if (!unidadeId) {
+    return {
+      config: defaultConfig,
+      doBanco: false,
+      avisos: ['Nenhuma unidade selecionada: usando a configuração de demonstração do caso-origem.'],
+    };
+  }
+
   try {
     const [eq, st, rg, pr, dp, cf] = await Promise.all([
-      supabase.from('equipe').select('*').eq('ativo', true).order('ordem'),
-      supabase.from('sitios').select('*').order('ordem'),
-      supabase.from('regras_config').select('*').order('ordem'),
-      supabase.from('proibicoes').select('*'),
-      supabase.from('duplas_proibidas').select('*'),
-      supabase.from('colocacoes_fixas').select('*'),
+      supabase.from('equipe').select('*').eq('unidade_id', unidadeId).eq('ativo', true).order('ordem'),
+      supabase.from('sitios').select('*').eq('unidade_id', unidadeId).order('ordem'),
+      supabase.from('regras_config').select('*').eq('unidade_id', unidadeId).order('ordem'),
+      supabase.from('proibicoes').select('*').eq('unidade_id', unidadeId),
+      supabase.from('duplas_proibidas').select('*').eq('unidade_id', unidadeId),
+      supabase.from('colocacoes_fixas').select('*').eq('unidade_id', unidadeId),
     ]);
 
     const erro = [eq, st, rg, pr, dp, cf].find(r => r.error)?.error;

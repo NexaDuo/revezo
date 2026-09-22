@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useWorkContext } from '../context/WorkContext';
 import { getSitios, addSitio, updateSitio, deleteSitio } from '../lib/db';
 import { Edit2, Trash2, Plus, Save, X } from 'lucide-react';
 
 export const SitiosManager: React.FC = () => {
   const { isAdmin, isCoordenador } = useAuth();
+  const { unidadeId } = useWorkContext();
   const canEdit = isAdmin || isCoordenador;
   const [sitios, setSitios] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -13,12 +15,12 @@ export const SitiosManager: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [unidadeId]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const data = await getSitios();
+      const data = await getSitios(unidadeId);
       setSitios(data);
     } catch (error) {
       console.error(error);
@@ -46,9 +48,9 @@ export const SitiosManager: React.FC = () => {
   const handleSave = async () => {
     try {
       if (editingId === 'new') {
-        await addSitio(editForm);
+        await addSitio(editForm, unidadeId);
       } else {
-        await updateSitio(editingId!, editForm);
+        await updateSitio(editingId!, editForm, unidadeId);
       }
       setEditingId(null);
       fetchData();
@@ -60,7 +62,7 @@ export const SitiosManager: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza?')) {
       try {
-        await deleteSitio(id);
+        await deleteSitio(id, unidadeId);
         fetchData();
       } catch (error) {
         console.error(error);

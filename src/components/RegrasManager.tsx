@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useWorkContext } from '../context/WorkContext';
 import { getRegras, updateRegra } from '../lib/db';
 import { AlertTriangle, ShieldCheck, Info } from 'lucide-react';
 
@@ -17,6 +18,7 @@ interface Regra {
 
 export const RegrasManager: React.FC = () => {
   const { isAdmin, isCoordenador } = useAuth();
+  const { unidadeId } = useWorkContext();
   const canEdit = isAdmin || isCoordenador;
 
   const [regras, setRegras] = useState<Regra[]>([]);
@@ -28,7 +30,7 @@ export const RegrasManager: React.FC = () => {
     setLoading(true);
     setErro(null);
     try {
-      setRegras((await getRegras()) as Regra[]);
+      setRegras((await getRegras(unidadeId)) as Regra[]);
     } catch (e: any) {
       setErro(e?.message || 'Não foi possível carregar as regras.');
     } finally {
@@ -36,7 +38,7 @@ export const RegrasManager: React.FC = () => {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [unidadeId]);
 
   /** Gravação otimista com reversão: se o banco recusar, a chave volta ao
    *  estado anterior e o erro aparece — nunca um toggle que mente. */
@@ -48,7 +50,7 @@ export const RegrasManager: React.FC = () => {
     setErro(null);
     setRegras(rs => rs.map(x => (x.id === r.id ? { ...x, [campo]: novo } : x)));
     try {
-      await updateRegra(r.id, { [campo]: novo });
+      await updateRegra(r.id, { [campo]: novo }, unidadeId);
     } catch (e: any) {
       setRegras(rs => rs.map(x => (x.id === r.id ? { ...x, [campo]: anterior } : x)));
       setErro(e?.message || 'Não foi possível gravar a alteração.');

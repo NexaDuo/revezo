@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useWorkContext } from '../context/WorkContext';
 import { getEquipes, addEquipe, updateEquipe, deleteEquipe } from '../lib/db';
 import { Edit2, Trash2, Plus, Save, X } from 'lucide-react';
 
 export const EquipeManager: React.FC = () => {
   const { isAdmin, isCoordenador } = useAuth();
+  const { unidadeId } = useWorkContext();
   const canEdit = isAdmin || isCoordenador;
   const [equipes, setEquipes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -13,12 +15,12 @@ export const EquipeManager: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [unidadeId]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const data = await getEquipes();
+      const data = await getEquipes(unidadeId);
       setEquipes(data);
     } catch (error) {
       console.error(error);
@@ -46,9 +48,9 @@ export const EquipeManager: React.FC = () => {
   const handleSave = async () => {
     try {
       if (editingId === 'new') {
-        await addEquipe(editForm);
+        await addEquipe(editForm, unidadeId);
       } else {
-        await updateEquipe(editingId!, editForm);
+        await updateEquipe(editingId!, editForm, unidadeId);
       }
       setEditingId(null);
       fetchData();
@@ -60,7 +62,7 @@ export const EquipeManager: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza?')) {
       try {
-        await deleteEquipe(id);
+        await deleteEquipe(id, unidadeId);
         fetchData();
       } catch (error) {
         console.error(error);

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Escala, Violacao } from '../lib/solver/types';
 import { canon } from '../lib/solver/utils';
 import { useAuth } from '../context/AuthContext';
+import { useWorkContext } from '../context/WorkContext';
 import { saveSchedule } from '../lib/db';
 
 interface ScheduleGridProps {
@@ -13,6 +14,7 @@ interface ScheduleGridProps {
 
 export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, dias, onUpdateEscala }) => {
   const { isAdmin, isCoordenador } = useAuth();
+  const { unidadeId, semanaInicio } = useWorkContext();
   const getViolacoes = (turno: string, sitio: string, d: number) => {
     return violacoes.filter(v => v.turno === turno && canon(v.sitio) === canon(sitio) && v.d === d);
   };
@@ -126,16 +128,21 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // segunda-feira da semana corrente: a chave da semana é a segunda, não "hoje"
-      const hoje = new Date();
-      const segunda = new Date(hoje);
-      segunda.setDate(hoje.getDate() - ((hoje.getDay() + 6) % 7));
+      // A chave da semana é a segunda-feira EM CONTEXTO (WorkContext), não uma
+      // recalculada de `new Date()` aqui dentro — senão salvar sempre grava na
+      // semana corrente, mesmo quando a grade gerada era de outra semana.
+      const [ano, mes, dia] = semanaInicio.split('-').map(Number);
+      const segunda = new Date(ano, (mes || 1) - 1, dia || 1);
       const sexta = new Date(segunda);
       sexta.setDate(segunda.getDate() + 4);
-      const iso = (d: Date) => d.toISOString().split('T')[0];
+      const iso = (d: Date) => {
+        const dd = (n: number) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${dd(d.getMonth() + 1)}-${dd(d.getDate())}`;
+      };
 
       const score = violacoes.reduce((a, v) => a + (v.hard ? 100 : 1), 0);
       await saveSchedule(
+        unidadeId,
         { escala, violacoes, score },
         `Escala de ${iso(segunda)} a ${iso(sexta)}`,
         iso(segunda), iso(sexta), dias

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation, Routes, Route, Link } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { useWorkContext } from './context/WorkContext';
 import { RoleBadge } from './components/auth/RoleBadge';
 import { LoginModal } from './components/auth/LoginModal';
 import { UserManagementModal } from './components/admin/UserManagementModal';
@@ -28,11 +29,12 @@ import { SitiosManager } from './components/SitiosManager';
 import { RegrasManager } from './components/RegrasManager';
 import { DisponibilidadeManager } from './components/DisponibilidadeManager';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
-import { loadSchedules, salvarDisponibilidade, listarDisponibilidades } from './lib/db';
+import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade } from './lib/db';
 import { carregarConfigUnidade } from './lib/loadConfig';
 
 export const App: React.FC = () => {
   const { user, profile, role, isAdmin, isCoordenador, signOut, isSupabaseConfigured } = useAuth();
+  const { unidadeId, semanaInicio, erro: erroUnidade } = useWorkContext();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
   const location = useLocation();
@@ -49,18 +51,20 @@ export const App: React.FC = () => {
   const [schedules, setSchedules] = useState<any[]>([]);
   const [avisos, setAvisos] = useState<string[]>([]);
 
-  // rótulo da semana corrente (segunda a sexta). Era uma string literal
-  // "Semana 03 a 07 de Agosto / 2026" no meio do JSX.
+  // rótulo da semana em contexto (segunda a sexta). Era uma string literal
+  // "Semana 03 a 07 de Agosto / 2026" no meio do JSX; depois virou `new Date()`
+  // — as duas formas ignoravam qual semana estava realmente selecionada.
+  // Agora deriva de `semanaInicio` (WorkContext), a mesma data que decide o
+  // que "Gerar Grade" carrega.
   const tituloSemana = React.useMemo(() => {
-    const hoje = new Date();
-    const segunda = new Date(hoje);
-    segunda.setDate(hoje.getDate() - ((hoje.getDay() + 6) % 7));
+    const [ano, mes, dia] = semanaInicio.split('-').map(Number);
+    const segunda = new Date(ano, (mes || 1) - 1, dia || 1);
     const sexta = new Date(segunda);
     sexta.setDate(segunda.getDate() + 4);
     const dd = (d: Date) => String(d.getDate()).padStart(2, '0');
-    const mes = sexta.toLocaleDateString('pt-BR', { month: 'long' });
-    return `Semana ${dd(segunda)} a ${dd(sexta)} de ${mes} / ${sexta.getFullYear()}`;
-  }, []);
+    const nomeMes = sexta.toLocaleDateString('pt-BR', { month: 'long' });
+    return `Semana ${dd(segunda)} a ${dd(sexta)} de ${nomeMes} / ${sexta.getFullYear()}`;
+  }, [semanaInicio]);
 
 
   const handleUpdateEscala = (novaEscala: Escala) => {
@@ -75,33 +79,45 @@ export const App: React.FC = () => {
 
   React.useEffect(() => {
     if (location.pathname === '/historico') {
-      loadSchedules().then(setSchedules).catch(console.error);
+      loadSchedules(unidadeId).then(setSchedules).catch(console.error);
     }
-  }, [location.pathname]);
+  }, [location.pathname, unidadeId]);
 
   const handleGerarGrade = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[]) => {
+    if (!unidadeId) {
+      // Sem unidade resolvida não há o que gerar — e não existe unidade
+      // "padrão" segura para inventar aqui (WorkContext já mostra o erro).
+      setAvisos([erroUnidade || 'Nenhuma unidade selecionada: não é possível gerar a grade.']);
+      return;
+    }
     setIsGenerating(true);
     try {
       // A configuração (equipe, sítios, regras ligadas/desligadas, proibições,
-      // duplas e fixas) vem da unidade. É isto que faz o painel de Regras
-      // valer de verdade: desligar uma regra ali muda a geração aqui.
-      const base = await carregarConfigUnidade(isSupabaseConfigured);
+      // duplas e fixas) vem da unidade em contexto. É isto que faz o painel de
+      // Regras valer de verdade: desligar uma regra ali muda a geração aqui.
+      const base = await carregarConfigUnidade(isSupabaseConfigured, unidadeId);
       const msgs = [...base.avisos];
 
       let equipe = eq || equipeOverride || base.config.equipe;
       let disp = dp || dispOverride;
       let dias = ds || diasOverride;
 
-      // Sem disponibilidade em memória, usar a última semana salva. É isto que
-      // faz a importação sobreviver ao reload em vez de virar estado perdido.
+      // Sem disponibilidade em memória, usar a semana EM CONTEXTO — não mais
+      // "a última salva, seja qual for". Se a semana escolhida não tem nada
+      // salvo, isso tem que aparecer na tela, não virar silenciosamente o
+      // fixture de demonstração (docs/referencia).
       if (!disp) {
         try {
-          const salvas = await listarDisponibilidades();
-          if (salvas.length) {
-            const ultima = salvas[0];
-            disp = ultima.dados as Record<string, StatusDisponibilidade[]>;
-            dias = dias || ultima.dias;
-            msgs.push(`Usando a disponibilidade salva da semana de ${ultima.data_inicio} a ${ultima.data_fim}.`);
+          const salva = await carregarDisponibilidade(semanaInicio, unidadeId);
+          if (salva) {
+            disp = salva.dados as Record<string, StatusDisponibilidade[]>;
+            dias = dias || salva.dias;
+            msgs.push(`Usando a disponibilidade salva da semana de ${salva.data_inicio} a ${salva.data_fim}.`);
+          } else {
+            msgs.push(
+              `Não há disponibilidade salva para a semana de ${semanaInicio}. Gerando com todo mundo ` +
+              `disponível — importe a planilha ou ajuste na aba Disponibilidade antes de publicar.`
+            );
           }
         } catch (e: any) {
           msgs.push(`Não consegui ler a disponibilidade salva (${e?.message || e}).`);
@@ -109,10 +125,22 @@ export const App: React.FC = () => {
       }
 
       if (!disp) {
-        const f = await fetchEquipe(isSupabaseConfigured);
-        disp = f.disp;
-        if (!equipe.length) equipe = f.equipe;
-        if (!base.doBanco) msgs.push(...f.avisos);
+        if (equipe.length) {
+          // Equipe real da unidade, sem disponibilidade da semana: presumir
+          // todo mundo disponível é aceitável como estado inicial, mas só
+          // porque o aviso acima já contou isso — nunca em silêncio.
+          const diasBase = dias || base.config.dias;
+          disp = Object.fromEntries(
+            equipe.map(p => [p.n, diasBase.map(() => 'OK' as StatusDisponibilidade)])
+          );
+        } else {
+          // Último recurso: nem equipe cadastrada existe. Aí sim cai no
+          // fixture de demonstração — com aviso explícito de fetchEquipe.
+          const f = await fetchEquipe(isSupabaseConfigured);
+          disp = f.disp;
+          equipe = f.equipe;
+          if (!base.doBanco) msgs.push(...f.avisos);
+        }
       }
 
       dias = dias || base.config.dias;
@@ -125,6 +153,7 @@ export const App: React.FC = () => {
       setCurrentConfig(config);
     } catch (e) {
       console.error(e);
+      setAvisos([`Falha ao gerar a grade: ${(e as any)?.message || e}`]);
     } finally {
       setIsGenerating(false);
     }
@@ -294,13 +323,26 @@ export const App: React.FC = () => {
         </div>
       )}
 
+      {/* Alerta de unidade de trabalho não resolvida — WorkContext falhou alto
+          em vez de inventar uma unidade default. */}
+      {erroUnidade && (
+        <div className="bg-red-600 text-white text-xs py-2 px-4 text-center font-medium flex items-center justify-center gap-2 print:hidden">
+          <Database className="w-4 h-4" />
+          <span>{erroUnidade}</span>
+        </div>
+      )}
+
       {/* Conteúdo Principal */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Barra de Ações do Coordenador de Escala */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-slate-900">
+              <h1
+                className="text-lg font-bold text-slate-900"
+                data-testid="titulo-semana"
+                data-semana-inicio={semanaInicio}
+              >
                 {tituloSemana}
               </h1>
               {score !== null ? (
@@ -476,7 +518,7 @@ export const App: React.FC = () => {
               dias,
               dados: disp as Record<string, string[]>,
               origem: semana.origem,
-            });
+            }, unidadeId);
             extras.push(`Disponibilidade da semana ${semana.origem.semana ?? ''} salva — dá para conferir e corrigir na aba Disponibilidade.`);
           } catch (e: any) {
             extras.push(`A grade foi gerada, mas a disponibilidade NÃO foi salva: ${e?.message || e}. Ao recarregar, esses dados se perdem.`);

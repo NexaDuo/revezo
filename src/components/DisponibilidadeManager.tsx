@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useWorkContext } from '../context/WorkContext';
 import {
   listarDisponibilidades, carregarDisponibilidade, salvarDisponibilidade,
   excluirDisponibilidade, SemanaDisponibilidade,
@@ -28,23 +29,25 @@ const fmt = (iso: string) => {
 
 export const DisponibilidadeManager: React.FC = () => {
   const { isAdmin, isCoordenador } = useAuth();
+  const { unidadeId, semanaInicio } = useWorkContext();
   const canEdit = isAdmin || isCoordenador;
 
   const [semanas, setSemanas] = useState<SemanaDisponibilidade[]>([]);
-  const [sel, setSel] = useState<string>('');
+  // A semana em contexto abre selecionada por padrão — é o que faz esta tela
+  // (e a de "Gerar Grade") mostrarem a mesma semana sem coincidência.
+  const [sel, setSel] = useState<string>(semanaInicio);
   const [atual, setAtual] = useState<SemanaDisponibilidade | null>(null);
   const [rascunho, setRascunho] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
-  const [msg, setMsg] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null);
+  const [msg, setMsg] = useState<{ tipo: 'ok' | 'erro' | 'aviso'; texto: string } | null>(null);
   const [novaPessoa, setNovaPessoa] = useState('');
 
   const carregarLista = async () => {
     setLoading(true);
     try {
-      const lista = await listarDisponibilidades();
+      const lista = await listarDisponibilidades(unidadeId);
       setSemanas(lista);
-      if (lista.length && !sel) setSel(lista[0].data_inicio);
       if (!lista.length) { setAtual(null); setRascunho({}); }
     } catch (e: any) {
       setMsg({ tipo: 'erro', texto: e?.message || 'Falha ao listar as semanas.' });
@@ -53,21 +56,31 @@ export const DisponibilidadeManager: React.FC = () => {
     }
   };
 
-  useEffect(() => { carregarLista(); }, []);
+  useEffect(() => { carregarLista(); }, [unidadeId]);
+
+  // Muda de unidade → a semana selecionada acompanha o contexto, em vez de
+  // continuar apontando para uma data que pode nem existir na unidade nova.
+  useEffect(() => { setSel(semanaInicio); }, [semanaInicio]);
 
   useEffect(() => {
-    if (!sel) return;
+    if (!sel || !unidadeId) return;
     (async () => {
       try {
-        const s = await carregarDisponibilidade(sel);
+        const s = await carregarDisponibilidade(sel, unidadeId);
         setAtual(s);
         setRascunho(s ? JSON.parse(JSON.stringify(s.dados)) : {});
-        setMsg(null);
+        setMsg(
+          s
+            ? null
+            // Semana escolhida sem disponibilidade salva: aviso explícito na tela,
+            // nunca um silêncio que sugere que a semana está "vazia porque está tudo OK".
+            : { tipo: 'aviso', texto: `Nenhuma disponibilidade salva para a semana de ${fmt(sel)}.` }
+        );
       } catch (e: any) {
         setMsg({ tipo: 'erro', texto: e?.message || 'Falha ao carregar a semana.' });
       }
     })();
-  }, [sel]);
+  }, [sel, unidadeId]);
 
   const pessoas = useMemo(() => Object.keys(rascunho).sort((a, b) => a.localeCompare(b)), [rascunho]);
   const dias = atual?.dias ?? [];
@@ -98,7 +111,7 @@ export const DisponibilidadeManager: React.FC = () => {
     setSalvando(true);
     setMsg(null);
     try {
-      await salvarDisponibilidade({ ...atual, dados: rascunho });
+      await salvarDisponibilidade({ ...atual, dados: rascunho }, unidadeId);
       setAtual({ ...atual, dados: rascunho });
       setMsg({ tipo: 'ok', texto: 'Disponibilidade salva. A próxima geração da grade já usa estes dados.' });
       carregarLista();
@@ -112,8 +125,8 @@ export const DisponibilidadeManager: React.FC = () => {
   const excluir = async () => {
     if (!atual || !confirm(`Excluir a disponibilidade da semana de ${fmt(atual.data_inicio)}?`)) return;
     try {
-      await excluirDisponibilidade(atual.data_inicio);
-      setSel('');
+      await excluirDisponibilidade(atual.data_inicio, unidadeId);
+      setSel(semanaInicio);
       setAtual(null);
       setRascunho({});
       carregarLista();
@@ -161,6 +174,8 @@ export const DisponibilidadeManager: React.FC = () => {
         <div className={`rounded-xl border px-3 py-2 text-xs ${
           msg.tipo === 'ok'
             ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+            : msg.tipo === 'aviso'
+            ? 'border-amber-200 bg-amber-50 text-amber-800'
             : 'border-red-200 bg-red-50 text-red-800'
         }`}>
           {msg.texto}

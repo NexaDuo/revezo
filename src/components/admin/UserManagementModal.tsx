@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, DEMO_UNIDADE_ID } from '../../context/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { UserProfile, UserRole } from '../../types/auth';
 import { RoleBadge } from '../auth/RoleBadge';
@@ -23,6 +23,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
       setUsers([
         profile || {
           id: '1',
+          unidade_id: DEMO_UNIDADE_ID,
           email: 'michele.ferreira@saude.gov.br',
           nome: 'Michele Ferreira',
           avatar_url: null,
@@ -33,6 +34,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
         },
         {
           id: '2',
+          unidade_id: DEMO_UNIDADE_ID,
           email: 'alexandre.machado@nexaduo.com',
           nome: 'Alexandre Machado',
           avatar_url: null,
@@ -43,6 +45,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
         },
         {
           id: '3',
+          unidade_id: DEMO_UNIDADE_ID,
           email: 'enfermeira.plantonista@saude.gov.br',
           nome: 'Carolina Feijó',
           avatar_url: null,

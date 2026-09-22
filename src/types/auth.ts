@@ -2,6 +2,7 @@ export type UserRole = 'admin' | 'coordenador' | 'visualizador';
 
 export interface UserProfile {
   id: string;
+  unidade_id: string | null;
   email: string;
   nome: string | null;
   avatar_url: string | null;
