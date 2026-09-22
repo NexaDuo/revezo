@@ -26,7 +26,6 @@ import { ExcelImportModal } from './components/ExcelImportModal';
 import { EquipeManager } from './components/EquipeManager';
 import { SitiosManager } from './components/SitiosManager';
 import { RegrasManager } from './components/RegrasManager';
-import { exportToWord } from './lib/exportWord';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
 import { loadSchedules } from './lib/db';
 
@@ -46,6 +45,7 @@ export const App: React.FC = () => {
   const [score, setScore] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [schedules, setSchedules] = useState<any[]>([]);
+  const [avisos, setAvisos] = useState<string[]>([]);
 
 
   const handleUpdateEscala = (novaEscala: Escala) => {
@@ -67,9 +67,12 @@ export const App: React.FC = () => {
   const handleGerarGrade = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[]) => {
     setIsGenerating(true);
     try {
-      const { equipe: fEq, disp: fDp } = await fetchEquipe(isSupabaseConfigured);
+      const { equipe: fEq, disp: fDp, avisos: fAv } = await fetchEquipe(isSupabaseConfigured);
       const equipe = eq || equipeOverride || fEq;
       const disp = dp || dispOverride || fDp;
+      // se a chamada trouxe equipe/disp próprios (importação), os avisos do
+      // fallback não se aplicam
+      setAvisos(eq || dp ? [] : fAv);
       const dias = ds || diasOverride || defaultConfig.dias;
       const config = { ...defaultConfig, equipe, disp, dias };
       const result = generateSchedule(config);
@@ -288,16 +291,7 @@ export const App: React.FC = () => {
                   className="flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-50"
                 >
                   <Download className="w-4 h-4 text-slate-300" />
-                  <span>Baixar PDF</span>
-                </button>
-
-                <button 
-                  onClick={() => escala && exportToWord(escala, diasOverride || defaultConfig.dias)}
-                  disabled={!escala}
-                  className="flex items-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-50"
-                >
-                  <Download className="w-4 h-4 text-blue-200" />
-                  <span>Baixar Word (.docx)</span>
+                  <span>Imprimir / Salvar PDF</span>
                 </button>
               </>
             ) : (
@@ -308,6 +302,17 @@ export const App: React.FC = () => {
             )}
           </div>
         </div>
+
+        {avisos.length > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 print:hidden">
+            <p className="text-xs font-bold text-amber-900">Atenção aos dados desta grade</p>
+            <ul className="mt-1 space-y-0.5">
+              {avisos.map((a, i) => (
+                <li key={i} className="text-xs text-amber-800">• {a}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Exibição da Aba Ativa */}
         <Routes>

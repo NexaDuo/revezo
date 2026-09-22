@@ -1,5 +1,6 @@
 import { Config, Escala, Violacao } from "./types";
-import { indexarEquipe, estaFora, podeTurno, cabeNoSitio, ondeEsteve, status, ehPlantao, canon } from "./utils";
+import { indexarEquipe, estaFora, podeTurno, cabeNoSitio, ondeEsteve, status, ehPlantao, canon,
+         ehPostoFixo, sitioProibido, duplaProibidaEm, pessoas16h } from "./utils";
 
 export function validar(config: Config, escala: Escala): Violacao[] {
   const v: Violacao[] = [];
@@ -27,15 +28,15 @@ export function validar(config: Config, escala: Escala): Violacao[] {
           if (config.regras.categoria.on && !cabeNoSitio(config, pessoaMap, n, s.n, turno))
             add(true, "categoria", turno, s.n, d, `${n} é ${pessoaMap[n]?.c === "enf" ? "enfermeiro" : "técnico"} e este sítio é de ${s.quem === "enf" ? "enfermeiros" : "técnicos"}`);
           
-          if (config.regras.mariaVacina.on && n === "Maria" && s.n === "Vacina")
-            add(true, "mariaVacina", turno, s.n, d, "Maria não fica na Vacina");
+          if (config.regras.mariaVacina.on && sitioProibido(config, n, s.n))
+            add(true, "mariaVacina", turno, s.n, d, `${n} não pode ficar em ${canon(s.n)}`);
           
           if (config.regras.plantaoMesmo.on && ehPlantao(config.disp, n, d) && turno === "tarde") {
             if (ondeEsteve(escala, config, n, d, "manha").map(canon).includes(canon(s.n)))
               add(true, "plantaoMesmo", turno, s.n, d, `${n} está de plantão e já ficou em ${canon(s.n)} de manhã`);
           }
           
-          if (config.regras.diasSeguidos.on && s.n !== "Ensino" && d > 0 && (escala[turno][s.n][d - 1] || []).includes(n))
+          if (config.regras.diasSeguidos.on && !ehPostoFixo(pessoaMap, n, s.n) && d > 0 && (escala[turno][s.n][d - 1] || []).includes(n))
             add(true, "diasSeguidos", turno, s.n, d, `${n} já estava em ${canon(s.n)} no dia anterior`);
           
           if (config.regras.sextaSegunda.on && d === 0) {
@@ -44,10 +45,12 @@ export function validar(config: Config, escala: Escala): Violacao[] {
           }
         }
         
-        if (config.regras.duplaProibida.on && nomes.includes("Vanessa") && nomes.includes("Dani P"))
-          add(true, "duplaProibida", turno, s.n, d, "Vanessa e Dani P não podem ficar juntas");
+        if (config.regras.duplaProibida.on) {
+          const dupla = duplaProibidaEm(config, nomes);
+          if (dupla) add(true, "duplaProibida", turno, s.n, d, `${dupla[0]} e ${dupla[1]} não podem ficar juntos`);
+        }
         
-        if (config.regras.cobertura.on && nomes.length === 0 && s.n !== "Ensino" && s.n !== "Consultas - Sala 5")
+        if (config.regras.cobertura.on && nomes.length === 0 && !s.opcional)
           add(false, "cobertura", turno, s.n, d, "sítio sem ninguém");
       }
     }
@@ -69,7 +72,7 @@ export function validar(config: Config, escala: Escala): Violacao[] {
 
   if (config.regras.acoesSemana.on) {
     for (const p of config.equipe) {
-      if (p.n === "Leticia" || p.n === "Allan") continue;
+      if (p.isentoAcoes || p.fixo) continue;
       let tem = false, temSemana = false;
       for (let d = 0; d < diasLength; d++) {
         if (!estaFora(config.disp, p.n, d)) temSemana = true;
@@ -81,7 +84,7 @@ export function validar(config: Config, escala: Escala): Violacao[] {
   }
 
   if (config.regras.alternancia16h.on) {
-    for (const n of ["Regina", "Jomalba"]) {
+    for (const { n } of pessoas16h(config.equipe)) {
       let ant: string | null = null;
       for (let d = 0; d < diasLength; d++) {
         if (estaFora(config.disp, n, d)) { ant = null; continue; }

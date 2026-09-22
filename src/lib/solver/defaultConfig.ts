@@ -1,14 +1,14 @@
-import { Config, Regras, Sitio, ColocacaoFixa, ColocacaoFixaNaoAcoes } from "./types";
+import { Config, Regras, Sitio, ColocacaoFixa, ColocacaoFixaNaoAcoes, Proibicao, DuplaProibida } from "./types";
 
-export const DIAS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+export const DIAS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
 
 export const ACOES = "Ações de vigilância/VD/PSE/Ensino/cursos/grupos";
 
 export const SITIOS_MANHA: Sitio[] = [
   { n: "Consultas - Sala 1", quem: "enf" },
-  { n: "Consultas - Sala 5", quem: "enf" },
+  { n: "Consultas - Sala 5", quem: "enf", opcional: true },
   { n: "Supervisão", quem: "enf" },
-  { n: "Ensino", quem: "enf" },
+  { n: "Ensino", quem: "enf", opcional: true },
   { n: "Procedim. de enfermagem", quem: "tec" },
   { n: "Vacina", quem: "tec" },
   { n: "Acolhimento", quem: "tec" },
@@ -18,9 +18,9 @@ export const SITIOS_MANHA: Sitio[] = [
 
 export const SITIOS_TARDE: Sitio[] = [
   { n: "Consultas - Sala 1", quem: "enf" },
-  { n: "Consultas - Sala 5", quem: "enf" },
+  { n: "Consultas - Sala 5", quem: "enf", opcional: true },
   { n: "Supervisão", quem: "enf" },
-  { n: "Ensino", quem: "enf" },
+  { n: "Ensino", quem: "enf", opcional: true },
   { n: "Procedim. de enfermagem", quem: "tec" },
   { n: "Vacina", quem: "tec" },
   { n: "Acolhimento", quem: "tec" },
@@ -30,19 +30,32 @@ export const SITIOS_TARDE: Sitio[] = [
 
 export const SITIOS_TEC = ["Procedim. de enfermagem", "Vacina", "Acolhimento", "Curativo"];
 
+/** Sítios com mais atendimento primeiro — é onde a dupla rende mais. */
+export const PRIORIDADE_DUPLA = ["Acolhimento", "Vacina", "Procedim. de enfermagem", "Curativo- CME 16h"];
+
+/** Regras específicas de pessoa, do caso-origem. São DADO, não código:
+ *  outra unidade carrega as suas próprias (tabela `regras_config`). */
+export const PROIBICOES: Proibicao[] = [
+  { pessoa: "Maria", sitio: "Vacina" },
+];
+
+export const DUPLAS_PROIBIDAS: DuplaProibida[] = [
+  ["Vanessa", "Dani P"],
+];
+
 export const REGRAS_DEFAULT: Regras = {
   disponibilidade: { on: true, hard: true, txt: "Não escalar quem está de F / FC / FE / AT no dia" },
   turnoBase: { on: true, hard: true, txt: "Cada um só no seu turno-base (exceto plantão P)." },
   categoria: { on: true, hard: true, txt: "Sala 1/5, Supervisão e Ensino só enfermeiro; Procedimento→Curativo só técnico" },
-  mariaVacina: { on: true, hard: true, txt: "Maria nunca na Vacina" },
+  mariaVacina: { on: true, hard: true, txt: "Respeitar as proibições de pessoa por sítio" },
   plantaoMesmo: { on: true, hard: true, txt: "Quem está de plantão não fica no mesmo sítio de manhã e de tarde" },
   diasSeguidos: { on: true, hard: true, txt: "Não repetir o mesmo sítio em dias seguidos (vale para Ações)" },
   sextaSegunda: { on: true, hard: true, txt: "Não repetir o sítio da sexta anterior na segunda" },
-  duplaProibida: { on: true, hard: true, txt: "Vanessa e Dani P não ficam juntas no mesmo sítio" },
+  duplaProibida: { on: true, hard: true, txt: "Respeitar as duplas proibidas no mesmo sítio" },
   fixas: { on: true, hard: true, txt: "Respeitar as colocações fixas de grupos/atividades" },
   acoesSemana: { on: true, hard: false, txt: "Cada profissional passa ao menos 1x por semana em Ações" },
   cobertura: { on: true, hard: false, txt: "Todo sítio deve ter alguém em todos os dias" },
-  alternancia16h: { on: true, hard: false, txt: "Regina/Jomalba dividem sítio após as 16h, alternando o sítio a cada dia" },
+  alternancia16h: { on: true, hard: false, txt: "Quem entra às 16h divide sítio, alternando o sítio a cada dia" },
 };
 
 export const FIXAS: ColocacaoFixa[] = [
@@ -70,6 +83,9 @@ export const defaultConfig: Config = {
   acoes: ACOES,
   sitios: { manha: SITIOS_MANHA, tarde: SITIOS_TARDE },
   sitiosTec: SITIOS_TEC,
+  prioridadeDupla: PRIORIDADE_DUPLA,
+  proibicoes: PROIBICOES,
+  duplasProibidas: DUPLAS_PROIBIDAS,
   fixas: FIXAS,
   fixasNaoAcoes: FIXAS_NAO_ACOES,
   regras: REGRAS_DEFAULT,

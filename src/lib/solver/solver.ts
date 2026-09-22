@@ -1,22 +1,22 @@
-import { Config, Escala } from "./types";
+import { Config, Escala, Pessoa } from "./types";
 import { validar } from "./validator";
-import { indexarEquipe, criarEscalaVazia, disponivel, cabeNoSitio, ondeEsteve, estaFora, podeTurno, ehPlantao, canon } from "./utils";
+import { indexarEquipe, criarEscalaVazia, disponivel, cabeNoSitio, ondeEsteve, estaFora, podeTurno, ehPlantao, canon,
+         ehPostoFixo, sitioProibido, formariaDuplaProibida, pessoas16h } from "./utils";
 
 function jaEstaNoDia(escala: Escala, config: Config, n: string, d: number, turno: "manha" | "tarde"): boolean {
   return ondeEsteve(escala, config, n, d, turno).length > 0;
 }
 
-function podeColocar(escala: Escala, config: Config, pessoaMap: Record<string, any>, n: string, turno: "manha" | "tarde", sitio: string, d: number): boolean {
+function podeColocar(escala: Escala, config: Config, pessoaMap: Record<string, Pessoa>, n: string, turno: "manha" | "tarde", sitio: string, d: number): boolean {
   if (!disponivel(config, pessoaMap, n, d, turno)) return false;
   if (!cabeNoSitio(config, pessoaMap, n, sitio, turno)) return false;
   if (jaEstaNoDia(escala, config, n, d, turno)) return false;
-  if (n === "Maria" && sitio === "Vacina") return false;
-  if (sitio !== "Ensino" && d > 0 && (escala[turno][sitio][d - 1] || []).includes(n)) return false;
+  if (sitioProibido(config, n, sitio)) return false;
+  if (!ehPostoFixo(pessoaMap, n, sitio) && d > 0 && (escala[turno][sitio][d - 1] || []).includes(n)) return false;
   if (d === 0 && (config.sextaAnterior[turno]?.[sitio] || []).includes(n)) return false;
   
   const cel = escala[turno][sitio][d] || [];
-  if (cel.includes("Vanessa") && n === "Dani P") return false;
-  if (cel.includes("Dani P") && n === "Vanessa") return false;
+  if (formariaDuplaProibida(config, cel, n)) return false;
   
   if (ehPlantao(config.disp, n, d) && turno === "tarde" && ondeEsteve(escala, config, n, d, "manha").map(canon).includes(canon(sitio))) return false;
   
@@ -53,12 +53,18 @@ function construir(config: Config): Escala {
     return k; 
   };
 
-  // 4.1 Ensino: Leticia todos os dias, nos dois turnos
-  if (esc.manha["Ensino"] && esc.tarde["Ensino"]) {
-    for (let d = 0; d < config.dias.length; d++) {
-      if (!estaFora(config.disp, "Leticia", d)) { 
-        put("manha", "Ensino", d, "Leticia"); 
-        put("tarde", "Ensino", d, "Leticia"); 
+  // 4.1 postos fixos: quem tem `fixo` ocupa aquele sítio todos os dias, nos dois turnos
+  for (const p of config.equipe) {
+    if (!p.fixo) continue;
+    for (const t of ["manha", "tarde"] as ("manha" | "tarde")[]) {
+      const sitio = config.sitios[t].find(x => canon(x.n) === canon(p.fixo!));
+      if (!sitio || !esc[t][sitio.n]) continue;
+      for (let d = 0; d < config.dias.length; d++) {
+        // posto fixo não isenta turno-base: quem só trabalha de manhã não
+        // ocupa o posto à tarde só por tê-lo como fixo.
+        if (estaFora(config.disp, p.n, d)) continue;
+        if (!podeTurno(pessoaMap, config.disp, p.n, d, t)) continue;
+        put(t, sitio.n, d, p.n);
       }
     }
   }
@@ -76,15 +82,15 @@ function construir(config: Config): Escala {
       const sitios = config.sitios[turno].filter(s => s.n !== config.acoes && s.n !== "Ensino");
       for (const s of sitios) {
         if (esc[turno][s.n][d].length > 0) continue;
-        let cands = config.equipe.filter(p => p.n !== "Leticia" && p.t !== "noite" && podeColocar(esc, config, pessoaMap, p.n, turno, s.n, d));
+        let cands = config.equipe.filter(p => !p.fixo && p.t !== "noite" && podeColocar(esc, config, pessoaMap, p.n, turno, s.n, d));
         if (!cands.length) 
           cands = config.equipe.filter(p => p.t === "noite" && podeColocar(esc, config, pessoaMap, p.n, turno, s.n, d));
         if (!cands.length) continue;
         
-        const custo = (p: any) => {
+        const custo = (p: Pessoa) => {
           let c = 4 * contaSitio(p.n, turno, s.n) + 1.5 * carga(p.n, turno);
           if (ehPlantao(config.disp, p.n, d)) c += 2;
-          if (p.n === "Allan") c += 3;
+          c += p.custoExtra || 0;
           return c + Math.random() * 1.2;
         };
         
@@ -96,10 +102,10 @@ function construir(config: Config): Escala {
       if (esc[turno][config.acoes]) {
         const alvo = 1;
         while (esc[turno][config.acoes][d].length < alvo) {
-          const cands = config.equipe.filter(p => p.n !== "Leticia" && p.t !== "noite" && podeColocar(esc, config, pessoaMap, p.n, turno, config.acoes, d));
+          const cands = config.equipe.filter(p => !p.fixo && p.t !== "noite" && podeColocar(esc, config, pessoaMap, p.n, turno, config.acoes, d));
           if (!cands.length) break;
           cands.sort((a, b) => {
-            const f = (p: any) => contaAcoes(p.n) * 10 + (ehPlantao(config.disp, p.n, d) ? -3 : 0) + carga(p.n, turno) * 0.5 + Math.random();
+            const f = (p: Pessoa) => contaAcoes(p.n) * 10 + (ehPlantao(config.disp, p.n, d) ? -3 : 0) + carga(p.n, turno) * 0.5 + Math.random();
             return f(a) - f(b);
           });
           put(turno, config.acoes, d, cands[0].n);
@@ -108,8 +114,8 @@ function construir(config: Config): Escala {
     }
   }
 
-  // 4.5 Regina e Jomalba
-  for (const n of ["Regina", "Jomalba"]) {
+  // 4.5 quem entra às 16h divide sítio com quem já está lá, alternando a cada dia
+  for (const { n } of pessoas16h(config.equipe)) {
     let ant: string | null = null;
     for (let d = 0; d < config.dias.length; d++) {
       if (estaFora(config.disp, n, d)) continue;
@@ -117,7 +123,7 @@ function construir(config: Config): Escala {
         ant = ondeEsteve(esc, config, n, d, "tarde")[0] || null; 
         continue; 
       }
-      const ordem = ["Acolhimento", "Vacina", "Procedim. de enfermagem", "Curativo- CME 16h"];
+      const ordem = config.prioridadeDupla;
       const opts = ordem.filter(s => esc.tarde[s] && canon(s) !== canon(ant || "") && podeColocar(esc, config, pessoaMap, n, "tarde", s, d));
       const alvo = opts.find(s => esc.tarde[s][d].length === 1) || opts[0];
       if (alvo) { esc.tarde[alvo][d].push(n); ant = alvo; }
@@ -126,7 +132,7 @@ function construir(config: Config): Escala {
 
   // 4.6 fechar a regra "1x por semana em Ações"
   for (const p of config.equipe) {
-    if (p.n === "Leticia" || p.n === "Allan") continue;
+    if (p.isentoAcoes || p.fixo) continue;
     if (contaAcoes(p.n) > 0) continue;
     const turno = p.t === "manha" ? "manha" : "tarde";
     if (!esc[turno][config.acoes]) continue;

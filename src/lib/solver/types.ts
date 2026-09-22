@@ -6,13 +6,31 @@ export interface Pessoa {
   n: string;
   c: Categoria;
   t: Turno;
+  /** Posto fixo: a pessoa ocupa este sítio todos os dias, nos dois turnos.
+   *  Quem tem posto fixo fica isento de `diasSeguidos` (senão o solver nunca fecha). */
   fixo?: string;
+  /** Não exigir que passe por Ações 1x na semana. */
+  isentoAcoes?: boolean;
+  /** Penalidade somada ao custo do solver: quanto maior, menos a pessoa é escolhida
+   *  para preencher sítio comum. Serve para quem só entra como reforço. */
+  custoExtra?: number;
 }
 
 export interface Sitio {
   n: string;
   quem: "enf" | "tec" | "ambos";
+  /** Sítio que pode ficar vazio sem gerar alerta de cobertura. */
+  opcional?: boolean;
 }
+
+/** "Fulano nunca no sítio X." */
+export interface Proibicao {
+  pessoa: string;
+  sitio: string;
+}
+
+/** "Fulano e Beltrano não ficam juntos no mesmo sítio." */
+export type DuplaProibida = [string, string];
 
 export interface ColocacaoFixa {
   p: string;
@@ -59,6 +77,10 @@ export interface Config {
   acoes: string;
   sitios: { manha: Sitio[]; tarde: Sitio[] };
   sitiosTec: string[];
+  /** Ordem de preferência ao colocar uma segunda pessoa no mesmo sítio. */
+  prioridadeDupla: string[];
+  proibicoes: Proibicao[];
+  duplasProibidas: DuplaProibida[];
   fixas: ColocacaoFixa[];
   fixasNaoAcoes: ColocacaoFixaNaoAcoes[];
   regras: Regras;

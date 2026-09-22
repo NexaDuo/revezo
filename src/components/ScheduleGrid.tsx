@@ -18,10 +18,8 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
   };
 
   
-  const renderTurno = (turno: 'manha' | 'tarde' | 'noite', titulo: string) => {
-    // Treat noite as a dummy for UI if solver doesn't output it natively
-    const isNoite = turno === 'noite';
-    const sourceData = isNoite ? {} : (escala[turno as 'manha' | 'tarde'] || {});
+  const renderTurno = (turno: 'manha' | 'tarde', titulo: string) => {
+    const sourceData = escala[turno] || {};
     const sitios = Object.keys(sourceData);
     const canEdit = isAdmin || isCoordenador;
 
@@ -66,31 +64,6 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
       e.preventDefault();
     };
 
-    if (isNoite) {
-      // Just for UI requirement "M, T, N"
-      return (
-        <div className="mb-6 overflow-x-auto">
-          <h3 className="text-md font-bold mb-2">Noite (N)</h3>
-          <table className="w-full border-collapse border border-slate-200">
-            <thead>
-              <tr className="bg-slate-100">
-                <th className="border border-slate-200 p-2 text-left">Sítio</th>
-                {dias.map((d, i) => (
-                  <th key={i} className="border border-slate-200 p-2">{d}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="border border-slate-200 p-2 font-semibold bg-slate-50 text-xs w-48 text-gray-400">Sem sítios noturnos</td>
-                {dias.map((_, i) => <td key={i} className="border border-slate-200 p-2"></td>)}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      );
-    }
-
     if (sitios.length === 0) return null;
 
     return (
@@ -134,7 +107,7 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
                         </div>
                       ))}
                       {vs.length > 0 && (
-                        <div className="text-[10px] text-red-600 mt-1">
+                        <div data-print-hide="true" className="text-[10px] text-red-600 mt-1">
                           {vs.map((v, i) => <div key={i}>• {v.msg}</div>)}
                         </div>
                       )}
@@ -169,7 +142,6 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
     <div>
       {renderTurno('manha', 'Manhã (M)')}
       {renderTurno('tarde', 'Tarde (T)')}
-      {renderTurno('noite', 'Noite (N)')}
 
       {(isAdmin || isCoordenador) && (
         <div className="mt-6 flex justify-end print:hidden">
