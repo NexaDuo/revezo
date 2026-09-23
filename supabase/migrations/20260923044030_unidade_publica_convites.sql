@@ -55,49 +55,37 @@ create policy convites_coordenador_insert on public.convites for insert to authe
     and role in ('coordenador','visualizador') and aceito_em is null and aceito_por is null
     and convidado_por = (select auth.uid()));
 create policy convites_coordenador_delete on public.convites for delete to authenticated
-  using ((select public.is_coordenador()) and unidade_id = (select public.minha_unidade()));
+  using ((select public.is_coordenador()) and unidade_id = (select public.minha_unidade())
+    and aceito_em is null);
 
-create or replace function public.handle_new_user() returns trigger
-language plpgsql security definer set search_path = public as $$
-declare convite public.convites%rowtype; papel text;
-begin
-  -- Só e-mail confirmado herda convite: cadastro por senha ainda não
-  -- confirmado não pode se apropriar do convite de outra pessoa. (Google já
-  -- chega confirmado; senão, o aceite fica para aceitar_convite() no login.)
-  if new.email_confirmed_at is not null then
-    select * into convite from public.convites
-      where email = lower(new.email) and aceito_em is null for update;
-  end if;
-  papel := coalesce(convite.role, case when not exists (select 1 from public.profiles)
-    then 'admin' else 'visualizador' end);
-  insert into public.profiles(id, email, nome, avatar_url, role, unidade_id)
-    values (new.id, new.email,
-      coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
-      new.raw_user_meta_data->>'avatar_url', papel, convite.unidade_id)
-    on conflict (id) do update set email = excluded.email,
-      nome = coalesce(excluded.nome, public.profiles.nome),
-      avatar_url = coalesce(excluded.avatar_url, public.profiles.avatar_url);
-  if convite.id is not null then
-    update public.profiles set role = convite.role, unidade_id = convite.unidade_id where id = new.id;
-    update public.convites set aceito_em = now(), aceito_por = new.id where id = convite.id;
-  end if;
-  return new;
-end $$;
-revoke all on function public.handle_new_user() from public, anon, authenticated;
-
+-- O aceite acontece só aqui, no login, e só para identidade Google com o
+-- mesmo e-mail: não depende da configuração "Confirm email" do projeto nem do
+-- cadastro por senha. Convite nunca rebaixa admin; convite de não-admin só
+-- vale para quem ainda não tem unidade ou é visualizador da mesma unidade —
+-- coordenador não move nem rebaixa gente de outra unidade.
 create function public.aceitar_convite() returns void
 language plpgsql security definer set search_path = public as $$
-declare convite public.convites%rowtype; usuario uuid := auth.uid(); endereco text;
+declare convite public.convites%rowtype; perfil public.profiles%rowtype;
+  usuario uuid := auth.uid(); endereco text;
 begin
   if usuario is null then raise exception 'Autenticação necessária'; end if;
-  select lower(email) into endereco from auth.users
-    where id = usuario and email_confirmed_at is not null;
+  select lower(i.identity_data->>'email') into endereco from auth.identities i
+    where i.user_id = usuario and i.provider = 'google'
+      and coalesce((i.identity_data->>'email_verified')::boolean, false)
+    limit 1;
   if endereco is null then return; end if;
   select * into convite from public.convites
     where email = endereco and aceito_em is null for update;
   if convite.id is null then return; end if;
+  select * into perfil from public.profiles where id = usuario for update;
+  if perfil.id is null then raise exception 'Perfil não encontrado para aceitar convite'; end if;
+  if perfil.role = 'admin' then return; end if;
+  if not exists (select 1 from public.profiles where id = convite.convidado_por and role = 'admin')
+     and not (perfil.unidade_id is null
+       or (perfil.unidade_id = convite.unidade_id and perfil.role = 'visualizador')) then
+    return;
+  end if;
   update public.profiles set role = convite.role, unidade_id = convite.unidade_id where id = usuario;
-  if not found then raise exception 'Perfil não encontrado para aceitar convite'; end if;
   update public.convites set aceito_em = now(), aceito_por = usuario where id = convite.id;
 end $$;
 revoke all on function public.aceitar_convite() from public, anon;
