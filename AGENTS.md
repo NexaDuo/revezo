@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Autoridade do projeto Revezo. `docs/PRODUTO.md` e `docs/REGRAS.md` são o registro
-histórico do caso-origem (Michele) — valiosos pelas lições, **desatualizados quanto
+histórico do caso-origem — valiosos pelas lições, **desatualizados quanto
 ao escopo**. Em caso de conflito, este arquivo vence.
 
 ## Architecture
@@ -31,7 +31,7 @@ pinta a célula, monta o relatório de conferência e **pontua** a tentativa do 
 (rígida = 100, alerta = 1). Três comportamentos, uma implementação — duplicar essa
 lógica é o jeito mais rápido de criar bug invisível.
 
-**Escopo atual: multi-hospital.** O caso Michele é o primeiro cliente, não o escopo.
+**Escopo atual: multi-hospital.** O caso-origem é o primeiro cliente, não o escopo.
 Toda regra específica de pessoa ou unidade é **dado**, nunca código.
 
 ## Constraints
@@ -44,7 +44,7 @@ Toda regra específica de pessoa ou unidade é **dado**, nunca código.
   caso-origem) — em `solver.ts`, `validator.ts` e `utils.ts`, nunca:
 
   ```bash
-  grep -nE 'Maria|Vanessa|Dani |Leticia|Allan|Regina|Jomalba' \
+  grep -nE 'Marta|Valéria|Bia |Livia|Artur|Rita|Joana' \
     src/lib/solver/solver.ts src/lib/solver/validator.ts src/lib/solver/utils.ts
   ```
 
@@ -69,8 +69,11 @@ Toda regra específica de pessoa ou unidade é **dado**, nunca código.
 - **Regra escrita ≠ regra real.** A escala pronta do cliente é fonte melhor que o
   documento de orientações dele. Derivar o modelo de dados da saída real.
 - **Dado real de funcionário não entra no repositório.** `.gitignore` já barra
-  `*.xlsx`/`*.pdf`/`*.docx`; fixtures em `docs/referencia/` usam nomes do caso-origem e
-  devem ser anonimizadas antes de qualquer abertura do repo.
+  `*.xlsx`/`*.pdf`/`*.docx`. Fixtures, docs, seed e `defaultConfig.ts` usam nomes
+  fictícios desde 23/09/2026 — o **histórico do git** ainda tem os reais, então
+  abrir o repo exige reescrever o histórico ou publicar um repo novo. Apelido de
+  pessoa (nome da planilha → nome curto) é dado da Equipe (coluna `nome`), nunca
+  tabela no código.
 - **Sem segredo no código.** Supabase só por `VITE_*` em `.env`. A pasta de origem no
   OneDrive contém um `client_secret*.json` real — nunca copiar para cá.
 
@@ -112,7 +115,7 @@ Definição de pronto:
   de plantão da pessoa quebram quando o plantão muda de dia — e ninguém entende por quê.
   Fixas precisam declarar de que dependem.
 - **A célula não é uma lista de nomes.** Na escala real ela é texto com horário, motivo e
-  atividade (`Dani P 10h`, `Allan VD com Renata`, `Curso Manejo: Paula P`), às vezes com
+  atividade (`Bia P 10h`, `Artur VD com Rosa`, `Curso Manejo: Pâmela P`), às vezes com
   4 pessoas, às vezes vazia. Nenhuma linha do documento de regras dizia isso.
 - **"Sem instalação" era requisito funcional no caso-origem**, não conveniência:
   computador de hospital, sem permissão de admin, sem plano pago. A migração de HTML

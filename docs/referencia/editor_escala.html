@@ -147,27 +147,27 @@ let DIAS = ["Segunda 03","Terça 04","Quarta 05","Quinta 06","Sexta 07"];
 
 // turno: manha | tarde | noite(=entra 16h, só tarde)
 let EQUIPE = [
-  {n:"May",        c:"enf", t:"manha"},
-  {n:"Shana",      c:"enf", t:"manha"},
-  {n:"Ana Claudia",c:"enf", t:"manha"},
-  {n:"Sandra",     c:"enf", t:"manha"},
-  {n:"Michele",    c:"enf", t:"tarde"},
-  {n:"Fernanda",   c:"enf", t:"tarde"},
-  {n:"Carolina K", c:"enf", t:"tarde"},
-  {n:"Carol V",    c:"enf", t:"noite"},
-  {n:"Leticia",    c:"enf", t:"ambos", fixo:"Ensino"},
-  {n:"Allan",      c:"enf", t:"ambos"},
-  {n:"Vanessa",    c:"tec", t:"manha"},
-  {n:"Maria",      c:"tec", t:"manha"},
-  {n:"Andressa",   c:"tec", t:"manha"},
-  {n:"Dani P",     c:"tec", t:"manha"},
-  {n:"Luciana",    c:"tec", t:"manha"},
-  {n:"Fabiano",    c:"tec", t:"tarde"},
-  {n:"Dani J",     c:"tec", t:"tarde"},
-  {n:"Nicole",     c:"tec", t:"tarde"},
-  {n:"Paula",      c:"tec", t:"tarde"},
-  {n:"Regina",     c:"tec", t:"noite"},
-  {n:"Jomalba",    c:"tec", t:"noite"},
+  {n:"Lia",        c:"enf", t:"manha"},
+  {n:"Tainá",      c:"enf", t:"manha"},
+  {n:"Ana Lucia",c:"enf", t:"manha"},
+  {n:"Sônia",     c:"enf", t:"manha"},
+  {n:"Mirela",    c:"enf", t:"tarde"},
+  {n:"Flávia",   c:"enf", t:"tarde"},
+  {n:"Clara K", c:"enf", t:"tarde"},
+  {n:"Clara V",    c:"enf", t:"noite"},
+  {n:"Livia",    c:"enf", t:"ambos", fixo:"Ensino"},
+  {n:"Artur",      c:"enf", t:"ambos"},
+  {n:"Valéria",    c:"tec", t:"manha"},
+  {n:"Marta",      c:"tec", t:"manha"},
+  {n:"Adriana",   c:"tec", t:"manha"},
+  {n:"Bia P",     c:"tec", t:"manha"},
+  {n:"Luana",    c:"tec", t:"manha"},
+  {n:"Fábio",    c:"tec", t:"tarde"},
+  {n:"Bia J",     c:"tec", t:"tarde"},
+  {n:"Noemi",     c:"tec", t:"tarde"},
+  {n:"Pâmela",      c:"tec", t:"tarde"},
+  {n:"Rita",     c:"tec", t:"noite"},
+  {n:"Joana",    c:"tec", t:"noite"},
 ];
 let PESSOA = {};
 const reindexar = ()=>{ PESSOA = Object.fromEntries(EQUIPE.map(p=>[p.n,p])); };
@@ -204,22 +204,22 @@ const SITIOS_TEC = ["Procedim. de enfermagem","Vacina","Acolhimento","Curativo"]
 
 // Colocações fixas: pessoa -> [{dia(0-4), turno, sitio}]
 const FIXAS = [
-  {p:"Dani P",   d:1, t:"manha", s:ACOES},
-  {p:"Dani P",   d:3, t:"tarde", s:ACOES},
-  {p:"Luciana",  d:3, t:"manha", s:ACOES},
-  {p:"Regina",   d:0, t:"tarde", s:ACOES},
-  {p:"Regina",   d:2, t:"tarde", s:ACOES},
-  {p:"Sandra",   d:4, t:"manha", s:ACOES},
-  {p:"Sandra",   d:3, t:"tarde", s:ACOES},
-  {p:"Vanessa",  d:2, t:"tarde", s:ACOES},
-  {p:"Fabiano",  d:2, t:"manha", s:ACOES},
-  {p:"Paula",    d:1, t:"tarde", s:ACOES},
-  {p:"Dani J",   d:3, t:"tarde", s:ACOES},
+  {p:"Bia P",   d:1, t:"manha", s:ACOES},
+  {p:"Bia P",   d:3, t:"tarde", s:ACOES},
+  {p:"Luana",  d:3, t:"manha", s:ACOES},
+  {p:"Rita",   d:0, t:"tarde", s:ACOES},
+  {p:"Rita",   d:2, t:"tarde", s:ACOES},
+  {p:"Sônia",   d:4, t:"manha", s:ACOES},
+  {p:"Sônia",   d:3, t:"tarde", s:ACOES},
+  {p:"Valéria",  d:2, t:"tarde", s:ACOES},
+  {p:"Fábio",  d:2, t:"manha", s:ACOES},
+  {p:"Pâmela",    d:1, t:"tarde", s:ACOES},
+  {p:"Bia J",   d:3, t:"tarde", s:ACOES},
 ];
 // Pessoa deve estar escalada nesse dia/turno, mas NUNCA em Ações
 const FIXAS_NAO_ACOES = [
-  {p:"Paula",  d:1, t:"manha"},
-  {p:"Dani J", d:3, t:"manha"},
+  {p:"Pâmela",  d:1, t:"manha"},
+  {p:"Bia J", d:3, t:"manha"},
 ];
 
 // Regras que podem ser ligadas/desligadas (para descobrir quais são flexíveis de verdade)
@@ -227,56 +227,56 @@ const REGRAS = {
   disponibilidade:{on:true,  hard:true,  txt:"Não escalar quem está de F / FC / FE / AT no dia"},
   turnoBase:      {on:true,  hard:true,  txt:"Cada um só no seu turno-base (exceto plantão P). Quem é 16h nunca de manhã"},
   categoria:      {on:true,  hard:true,  txt:"Sala 1/5, Supervisão e Ensino só enfermeiro; Procedimento→Curativo só técnico"},
-  mariaVacina:    {on:true,  hard:true,  txt:"Maria nunca na Vacina"},
+  mariaVacina:    {on:true,  hard:true,  txt:"Marta nunca na Vacina"},
   plantaoMesmo:   {on:true,  hard:true,  txt:"Quem está de plantão não fica no mesmo sítio de manhã e de tarde"},
   diasSeguidos:   {on:true,  hard:true,  txt:"Não repetir o mesmo sítio em dias seguidos (vale para Ações)"},
   sextaSegunda:   {on:true,  hard:true,  txt:"Não repetir o sítio da sexta anterior na segunda"},
-  duplaProibida:  {on:true,  hard:true,  txt:"Vanessa e Dani P não ficam juntas no mesmo sítio"},
+  duplaProibida:  {on:true,  hard:true,  txt:"Valéria e Bia P não ficam juntas no mesmo sítio"},
   fixas:          {on:true,  hard:true,  txt:"Respeitar as colocações fixas de grupos/atividades"},
   acoesSemana:    {on:true,  hard:false, txt:"Cada profissional passa ao menos 1x por semana em Ações"},
   cobertura:      {on:true,  hard:false, txt:"Todo sítio deve ter alguém em todos os dias"},
-  alternancia16h: {on:true,  hard:false, txt:"Regina/Jomalba dividem sítio após as 16h, alternando o sítio a cada dia"},
+  alternancia16h: {on:true,  hard:false, txt:"Rita/Joana dividem sítio após as 16h, alternando o sítio a cada dia"},
 };
 
 /* Disponibilidade da semana — sai do parse_mensal.py (status por dia).
    OK = disponível | P = plantão | F/FC = folga | FE = férias | AT = atestado */
 let DISP = {
-  "May":        ["OK","P","OK","OK","OK"],
-  "Sandra":     ["OK","OK","OK","P","OK"],
-  "Shana":      ["FC","OK","P","OK","OK"],
-  "Ana Claudia":["P","OK","OK","OK","OK"],
-  "Dani P":     ["OK","OK","OK","P","OK"],
-  "Luciana":    ["P","OK","OK","OK","OK"],
-  "Maria":      ["OK","P","OK","OK","OK"],
-  "Andressa":   ["OK","OK","OK","OK","OK"],
-  "Vanessa":    ["OK","OK","P","OK","OK"],
-  "Fernanda":   ["OK","P","OK","OK","OK"],
-  "Carolina K": ["OK","OK","P","OK","OK"],
-  "Michele":    ["OK","OK","OK","OK","P"],
-  "Fabiano":    ["OK","OK","P","OK","OK"],
-  "Nicole":     ["OK","OK","FE","FE","FE"],
-  "Dani J":     ["FE","FE","OK","P","OK"],
-  "Paula":      ["OK","P","OK","OK","FC"],
-  "Carol V":    ["OK","OK","P","OK","OK"],
-  "Jomalba":    ["OK","OK","OK","OK","P"],
-  "Regina":     ["OK","OK","P","OK","OK"],
-  "Leticia":    ["OK","OK","OK","OK","OK"],
-  "Allan":      ["OK","OK","OK","OK","OK"],
+  "Lia":        ["OK","P","OK","OK","OK"],
+  "Sônia":     ["OK","OK","OK","P","OK"],
+  "Tainá":      ["FC","OK","P","OK","OK"],
+  "Ana Lucia":["P","OK","OK","OK","OK"],
+  "Bia P":     ["OK","OK","OK","P","OK"],
+  "Luana":    ["P","OK","OK","OK","OK"],
+  "Marta":      ["OK","P","OK","OK","OK"],
+  "Adriana":   ["OK","OK","OK","OK","OK"],
+  "Valéria":    ["OK","OK","P","OK","OK"],
+  "Flávia":   ["OK","P","OK","OK","OK"],
+  "Clara K": ["OK","OK","P","OK","OK"],
+  "Mirela":    ["OK","OK","OK","OK","P"],
+  "Fábio":    ["OK","OK","P","OK","OK"],
+  "Noemi":     ["OK","OK","FE","FE","FE"],
+  "Bia J":     ["FE","FE","OK","P","OK"],
+  "Pâmela":      ["OK","P","OK","OK","FC"],
+  "Clara V":    ["OK","OK","P","OK","OK"],
+  "Joana":    ["OK","OK","OK","OK","P"],
+  "Rita":     ["OK","OK","P","OK","OK"],
+  "Livia":    ["OK","OK","OK","OK","OK"],
+  "Artur":      ["OK","OK","OK","OK","OK"],
 };
 
 /* Sexta da semana ANTERIOR — alimenta a regra sexta↔segunda.
    (extraída da escala 20 a 24/jul que já existe na pasta) */
 let SEXTA_ANTERIOR = {
-  manha:{ "Consultas - Sala 1":["Carolina K"], "Consultas - Sala 5":["Leticia"],
-          "Supervisão":["May"], "Ensino":[],
-          "Procedim. de enfermagem":["Maria"], "Vacina":["Luciana"],
-          "Acolhimento":["Nicole"], "Curativo":["Vanessa"],
-          [ACOES]:["Jomalba","Sandra","Nicole","Allan"] },
-  tarde:{ "Consultas - Sala 1":["Leticia","Allan"], "Consultas - Sala 5":["Carol V"],
-          "Supervisão":["Ana Claudia"], "Ensino":[],
-          "Procedim. de enfermagem":["Nicole"], "Vacina":["Fabiano"],
-          "Acolhimento":["Jomalba"], "Curativo- CME 16h":["Paula"],
-          [ACOES]:["Carolina K","Dani J"] },
+  manha:{ "Consultas - Sala 1":["Clara K"], "Consultas - Sala 5":["Livia"],
+          "Supervisão":["Lia"], "Ensino":[],
+          "Procedim. de enfermagem":["Marta"], "Vacina":["Luana"],
+          "Acolhimento":["Noemi"], "Curativo":["Valéria"],
+          [ACOES]:["Joana","Sônia","Noemi","Artur"] },
+  tarde:{ "Consultas - Sala 1":["Livia","Artur"], "Consultas - Sala 5":["Clara V"],
+          "Supervisão":["Ana Lucia"], "Ensino":[],
+          "Procedim. de enfermagem":["Noemi"], "Vacina":["Fábio"],
+          "Acolhimento":["Joana"], "Curativo- CME 16h":["Pâmela"],
+          [ACOES]:["Clara K","Bia J"] },
 };
 
 /* =====================================================================
@@ -340,8 +340,8 @@ function validar(esc){
           }
           if(REGRAS.categoria.on && !cabe(n,s.n,turno))
             add(true,"categoria",turno,s.n,d,`${n} é ${PESSOA[n]?.c==="enf"?"enfermeiro":"técnico"} e este sítio é de ${s.quem==="enf"?"enfermeiros":"técnicos"}`);
-          if(REGRAS.mariaVacina.on && n==="Maria" && s.n==="Vacina")
-            add(true,"mariaVacina",turno,s.n,d,"Maria não fica na Vacina");
+          if(REGRAS.mariaVacina.on && n==="Marta" && s.n==="Vacina")
+            add(true,"mariaVacina",turno,s.n,d,"Marta não fica na Vacina");
           // mesmo sítio manhã e tarde estando de plantão
           if(REGRAS.plantaoMesmo.on && plantao(n,d) && turno==="tarde"){
             if(ondeEsteve(esc,n,d,"manha").map(canon).includes(canon(s.n)))
@@ -356,8 +356,8 @@ function validar(esc){
             if(ant.includes(n)) add(true,"sextaSegunda",turno,s.n,d,`${n} estava em ${canon(s.n)} na sexta passada`);
           }
         }
-        if(REGRAS.duplaProibida.on && nomes.includes("Vanessa") && nomes.includes("Dani P"))
-          add(true,"duplaProibida",turno,s.n,d,"Vanessa e Dani P não podem ficar juntas");
+        if(REGRAS.duplaProibida.on && nomes.includes("Valéria") && nomes.includes("Bia P"))
+          add(true,"duplaProibida",turno,s.n,d,"Valéria e Bia P não podem ficar juntas");
         if(REGRAS.cobertura.on && nomes.length===0 && s.n!=="Ensino" && s.n!=="Consultas - Sala 5")
           add(false,"cobertura",turno,s.n,d,"sítio sem ninguém");
       }
@@ -380,7 +380,7 @@ function validar(esc){
   // Ações 1x por semana
   if(REGRAS.acoesSemana.on){
     for(const p of EQUIPE){
-      if(p.n==="Leticia"||p.n==="Allan") continue;
+      if(p.n==="Livia"||p.n==="Artur") continue;
       let tem=false, temSemana=false;
       for(let d=0; d<DIAS.length; d++){
         if(!fora(p.n,d)) temSemana=true;
@@ -392,7 +392,7 @@ function validar(esc){
   }
   // alternância das 16h
   if(REGRAS.alternancia16h.on){
-    for(const n of ["Regina","Jomalba"]){
+    for(const n of ["Rita","Joana"]){
       let ant=null;
       for(let d=0; d<DIAS.length; d++){
         if(fora(n,d)) {ant=null; continue;}
@@ -416,12 +416,12 @@ function podeColocar(esc,n,turno,sitio,d){
   if(!disponivel(n,d,turno)) return false;
   if(!cabe(n,sitio,turno)) return false;
   if(jaEstaNoDia(esc,n,d,turno)) return false;
-  if(n==="Maria" && sitio==="Vacina") return false;
+  if(n==="Marta" && sitio==="Vacina") return false;
   if(sitio!=="Ensino" && d>0 && (esc[turno][sitio][d-1]||[]).includes(n)) return false;
   if(d===0 && (SEXTA_ANTERIOR[turno]?.[sitio]||[]).includes(n)) return false;
   const cel = esc[turno][sitio][d]||[];
-  if(cel.includes("Vanessa") && n==="Dani P") return false;
-  if(cel.includes("Dani P") && n==="Vanessa") return false;
+  if(cel.includes("Valéria") && n==="Bia P") return false;
+  if(cel.includes("Bia P") && n==="Valéria") return false;
   if(plantao(n,d) && turno==="tarde" && ondeEsteve(esc,n,d,"manha").map(canon).includes(canon(sitio))) return false;
   return true;
 }
@@ -433,9 +433,9 @@ function construir(){
   const contaAcoes = n=>{ let k=0; for(let d=0;d<DIAS.length;d++) for(const t of ["manha","tarde"]) if(esc[t][ACOES][d].includes(n))k++; return k; };
   const carga = (n,t)=>{ let k=0; for(let d=0;d<DIAS.length;d++) k+=ondeEsteve(esc,n,d,t).length; return k; };
 
-  // 4.1 Ensino: Leticia todos os dias, nos dois turnos
+  // 4.1 Ensino: Livia todos os dias, nos dois turnos
   for(let d=0; d<DIAS.length; d++){
-    if(!fora("Leticia",d)){ put("manha","Ensino",d,"Leticia"); put("tarde","Ensino",d,"Leticia"); }
+    if(!fora("Livia",d)){ put("manha","Ensino",d,"Livia"); put("tarde","Ensino",d,"Livia"); }
   }
   // 4.2 colocações fixas
   for(const f of FIXAS) if(PESSOA[f.p] && !fora(f.p,f.d) && podeTurno(f.p,f.d,f.t)) put(f.t,f.s,f.d,f.p);
@@ -446,7 +446,7 @@ function construir(){
       const sitios = SITIOS[turno].filter(s=>s.n!==ACOES && s.n!=="Ensino");
       for(const s of sitios){
         if(esc[turno][s.n][d].length>0) continue;
-        let cands = EQUIPE.filter(p=>p.n!=="Leticia" && p.t!=="noite" && podeColocar(esc,p.n,turno,s.n,d));
+        let cands = EQUIPE.filter(p=>p.n!=="Livia" && p.t!=="noite" && podeColocar(esc,p.n,turno,s.n,d));
         if(!cands.length)   // ninguém do turno: as de 16h assumem o sítio (cobertura depois das 16h)
           cands = EQUIPE.filter(p=>p.t==="noite" && podeColocar(esc,p.n,turno,s.n,d));
         if(!cands.length) continue;
@@ -455,14 +455,14 @@ function construir(){
         function custo(p){
           let c = 4*contaSitio(p.n,turno,s.n) + 1.5*carga(p.n,turno);
           if(plantao(p.n,d)) c += 2;                    // no plantão prefira Ações
-          if(p.n==="Allan") c += 3;                     // Allan é apoio
+          if(p.n==="Artur") c += 3;                     // Artur é apoio
           return c + Math.random()*1.2;
         }
       }
       // 4.4 Ações: quem ainda não passou na semana, preferindo dia de plantão
       const alvo = turno==="manha" ? 1 : 1;
       while(esc[turno][ACOES][d].length < alvo){
-        const cands = EQUIPE.filter(p=>p.n!=="Leticia" && p.t!=="noite" && podeColocar(esc,p.n,turno,ACOES,d));
+        const cands = EQUIPE.filter(p=>p.n!=="Livia" && p.t!=="noite" && podeColocar(esc,p.n,turno,ACOES,d));
         if(!cands.length) break;
         cands.sort((a,b)=>{
           const f=p=> contaAcoes(p.n)*10 + (plantao(p.n,d)?-3:0) + carga(p.n,turno)*0.5 + Math.random();
@@ -473,8 +473,8 @@ function construir(){
     }
   }
 
-  // 4.5 Regina e Jomalba: dividem um sítio de técnico depois das 16h, alternando
-  for(const n of ["Regina","Jomalba"]){
+  // 4.5 Rita e Joana: dividem um sítio de técnico depois das 16h, alternando
+  for(const n of ["Rita","Joana"]){
     let ant=null;
     for(let d=0; d<DIAS.length; d++){
       if(fora(n,d)) continue;
@@ -487,7 +487,7 @@ function construir(){
   }
   // 4.6 fechar a regra "1x por semana em Ações", de preferência no dia de plantão
   for(const p of EQUIPE){
-    if(p.n==="Leticia" || p.n==="Allan") continue;
+    if(p.n==="Livia" || p.n==="Artur") continue;
     if(contaAcoes(p.n)>0) continue;
     const turno = p.t==="manha" ? "manha" : "tarde";
     const dias = DIAS.map((_,i)=>i)
@@ -525,7 +525,7 @@ function gerar(){
 const $ = id=>document.getElementById(id);
 const NOME_REGRA = {
   disponibilidade:"Folga, férias ou atestado", turnoBase:"Turno errado",
-  categoria:"Categoria do sítio", mariaVacina:"Maria na Vacina",
+  categoria:"Categoria do sítio", mariaVacina:"Marta na Vacina",
   plantaoMesmo:"Plantão no mesmo sítio", diasSeguidos:"Sítio repetido em dias seguidos",
   sextaSegunda:"Sexta passada → segunda", duplaProibida:"Dupla proibida",
   fixas:"Colocação fixa de grupo", acoesSemana:"Sem Ações na semana",
@@ -599,7 +599,7 @@ function renderPool(){
     const livres=[];
     for(const turno of ["manha","tarde"]){
       for(const p of EQUIPE){
-        if(p.n==="Leticia") continue;
+        if(p.n==="Livia") continue;
         if(!disponivel(p.n,d,turno)) continue;
         if(jaEstaNoDia(escala,p.n,d,turno)) continue;
         if(livres.some(x=>x.n===p.n&&x.t===turno)) continue;
@@ -875,14 +875,14 @@ async function lerPlanilha(file){
 
 /* nome como aparece na planilha -> nome curto usado na escala */
 const NOME_CURTO = [
-  ["May Britt","May"],["Sandra Rejane","Sandra"],["Shana","Shana"],
-  ["Ana Cláudia","Ana Claudia"],["Ana Claudia","Ana Claudia"],
-  ["Daniele de Souza","Dani P"],["Daniela Prado","Dani P"],["Luciana","Luciana"],
-  ["Maria Janir","Maria"],["Maria","Maria"],["Andressa","Andressa"],["Vanessa","Vanessa"],
-  ["Fernanda","Fernanda"],["Carolina Santana","Carolina K"],["Michele","Michele"],
-  ["Fabiano","Fabiano"],["Nicole","Nicole"],["Daniele Volkmer","Dani J"],
-  ["Daniela Jacobsen","Dani J"],["Paula","Paula"],["Carolina Feijó","Carol V"],
-  ["Jomalba","Jomalba"],["Regina","Regina"],["Leticia","Leticia"],["Letícia","Leticia"],["Allan","Allan"],
+  ["Lia Moreira","Lia"],["Sônia Prates","Sônia"],["Tainá","Tainá"],
+  ["Ana Lúcia","Ana Lucia"],["Ana Lucia","Ana Lucia"],
+  ["Beatriz Paiva","Bia P"],["Beatriz Paiva","Bia P"],["Luana","Luana"],
+  ["Marta Ilma","Marta"],["Marta","Marta"],["Adriana","Adriana"],["Valéria","Valéria"],
+  ["Flávia","Flávia"],["Clara Siqueira","Clara K"],["Mirela","Mirela"],
+  ["Fábio","Fábio"],["Noemi","Noemi"],["Beatriz Juliano","Bia J"],
+  ["Beatriz Juliano","Bia J"],["Pâmela","Pâmela"],["Clara Fonseca","Clara V"],
+  ["Joana","Joana"],["Rita","Rita"],["Livia","Livia"],["Lívia","Livia"],["Artur","Artur"],
 ];
 const semAcento = s => String(s).normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().trim();
 function nomeCurto(txt){
@@ -1070,7 +1070,7 @@ function dlgPlanilha(){
       ba.textContent = `Aplicar semana ${sem.label}`;
       ba.onclick = ()=>{
         EQUIPE = linhas.map(l=>({n:l.curto, c:l.p.c, t:l.p.t, completo:l.p.nome, horario:l.p.horario}));
-        for(const extra of [{n:"Leticia",c:"enf",t:"ambos"},{n:"Allan",c:"enf",t:"ambos"}])
+        for(const extra of [{n:"Livia",c:"enf",t:"ambos"},{n:"Artur",c:"enf",t:"ambos"}])
           if(!EQUIPE.some(p=>p.n===extra.n)) EQUIPE.push(extra);
         reindexar();
         DISP = {}; for(const l of linhas) DISP[l.curto] = l.status;
@@ -1188,7 +1188,7 @@ $("btnRegras").onclick  = dlgRegras;
 $("btnJson").onclick    = salvarSemana;
 $("btnImportar").onclick= abrirSemana;
 $("btnDocx").onclick    = docx;
-$("rodape").value = "Férias: Nicole (quarta a sexta), Dani J (segunda e terça)\nSubstituições: \nTrocas: ";
+$("rodape").value = "Férias: Noemi (quarta a sexta), Bia J (segunda e terça)\nSubstituições: \nTrocas: ";
 gerar();
 </script>
 </body>

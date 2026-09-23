@@ -12,7 +12,7 @@
 
 Complemento histórico e estratégico: `PRODUTO.md` (teses testadas, o que quebrou, roadmap).
 
-Escopo atual: **single-tenant**. É a ferramenta de UMA pessoa (Michele Ferreira,
+Escopo atual: **single-tenant**. É a ferramenta de UMA pessoa (Mirela Fontes,
 enfermeira responsável pela escala de sítio de uma unidade de saúde). Nada aqui
 precisa ser genérico para outras unidades — o objetivo é fechar as pendências e
 isso virar rotina semanal dela.
@@ -21,7 +21,7 @@ isso virar rotina semanal dela.
 
 ## 1. O problema, em uma frase
 
-Toda semana a Michele monta à mão a **escala de sítio da enfermagem**: um Word
+Toda semana a coordenadora monta à mão a **escala de sítio da enfermagem**: um Word
 (paisagem) com 9 sítios × 5 dias (seg–sex) × 2 turnos (manhã/tarde), distribuindo
 ~21 profissionais e respeitando ~12 regras. Leva horas e erra por cansaço.
 O produto gera essa escala em segundos, ela revisa arrastando nomes e baixa o Word.
@@ -36,7 +36,7 @@ a escala é impressa e colada na parede).
 ```
 LER              →   ALOCAR                 →   CONFERIR        →   AJUSTAR    →   RENDERIZAR
 importador xlsx      solver determinístico      validador           drag & drop     OOXML/docx
-(ou parse_mensal)    (guloso + reinícios)       (a cada mudança)    (a Michele)     (layout fixo)
+(ou parse_mensal)    (guloso + reinícios)       (a cada mudança)    (a coordenadora)     (layout fixo)
 ```
 
 **Nenhum LLM no caminho crítico.** Isso não é preferência estética, é resultado de
@@ -45,7 +45,7 @@ PDFs **e** resolver as restrições **e** desenhar o Word ao mesmo tempo. A leit
 errava dia de plantão/folga e a resolução violava regras em silêncio — o pior modo
 de falha possível, porque a escala *parece* certa.
 
-O LLM continua útil **em volta**: explicar um conflito ("por que a Nicole não pode
+O LLM continua útil **em volta**: explicar um conflito ("por que a Noemi não pode
 entrar aqui?"), sugerir substituição, redigir o rodapé, lidar com exceção do mês.
 Nunca decidir a alocação.
 
@@ -59,7 +59,7 @@ alocação, ela está errada.**
 ### `app/editor_escala.html` — o produto (ideia 3, escolhida)
 
 Arquivo HTML **único**, ~58 KB, sem build, sem dependência, sem CDN, sem servidor,
-sem conta, offline. Abre com duplo clique. Isso é requisito, não acidente: a Michele
+sem conta, offline. Abre com duplo clique. Isso é requisito, não acidente: a coordenadora
 usa o computador do hospital, sem permissão para instalar nada.
 
 O que já funciona:
@@ -109,7 +109,7 @@ Google Opal, 4 blocos). Mantidos como registro do que foi testado e por que falh
 | 1 | Consultas – Sala 1 | enfermeiro |
 | 2 | Consultas – Sala 5 | enfermeiro |
 | 3 | Supervisão | enfermeiro |
-| 4 | Ensino | enfermeiro (normalmente Leticia) |
+| 4 | Ensino | enfermeiro (normalmente Livia) |
 | 5 | Procedim. de enfermagem | técnico |
 | 6 | Vacina | técnico |
 | 7 | Acolhimento | técnico |
@@ -124,19 +124,19 @@ Abaixo da tabela: linha de **Férias** + trocas/substituições/observações da
 
 ### Equipe (~21 pessoas)
 
-Enfermeiras manhã (07:00–13:00): May, Shana, Ana Claudia, Sandra
-Enfermeiras tarde (12:30–18:30): Michele (13:30–19:30), Fernanda, Carolina K
-Enfermeira 16h (16:00–22:00): Carol V (plantão de 12h na quarta)
-Também enfermeiros: Leticia (Ensino, posto fixo diário), Allan
-Técnicos manhã: Vanessa, Maria, Andressa, Dani P, Luciana
-Técnicos tarde: Fabiano, Dani J, Nicole, Paula
-Técnicos 16h: Regina, Jomalba
+Enfermeiras manhã (07:00–13:00): Lia, Tainá, Ana Lucia, Sônia
+Enfermeiras tarde (12:30–18:30): Mirela (13:30–19:30), Flávia, Clara K
+Enfermeira 16h (16:00–22:00): Clara V (plantão de 12h na quarta)
+Também enfermeiros: Livia (Ensino, posto fixo diário), Artur
+Técnicos manhã: Valéria, Marta, Adriana, Bia P, Luana
+Técnicos tarde: Fábio, Bia J, Noemi, Pâmela
+Técnicos 16h: Rita, Joana
 
 Todos fazem **1 plantão (P) de 12h por semana** — o dia sai da escala mensal.
 
 **Regra de nome:** primeiro nome. Se repetir, inicial do último sobrenome —
-**Dani P** (Daniele de Souza Prado Dorneles) × **Dani J** (Daniele Volkmer Jacobsen);
-**Carol V** (Carolina Feijó Voigt); **Carolina K** (Carolina Santana K.).
+**Bia P** (Beatriz Paiva Nunes) × **Bia J** (Beatriz Juliano Vidal);
+**Clara V** (Clara Fonseca Valente); **Clara K** (Clara Siqueira K.).
 O importador casa nome completo da planilha → nome curto via `NOME_CURTO`.
 
 ### Regras rígidas (bloqueiam — `hard: true`)
@@ -146,11 +146,11 @@ O importador casa nome completo da planilha → nome curto via `NOME_CURTO`.
 | `disponibilidade` | não escalar quem está de F / FC / FE / AT no dia |
 | `turnoBase` | cada um só no seu turno-base (exceto plantão); quem é 16h nunca de manhã |
 | `categoria` | Sala 1/5, Supervisão e Ensino só enfermeiro; Procedimento→Curativo só técnico |
-| `mariaVacina` | Maria nunca na Vacina |
+| `mariaVacina` | Marta nunca na Vacina |
 | `plantaoMesmo` | quem está de plantão não fica no mesmo sítio de manhã e de tarde |
 | `diasSeguidos` | não repetir o mesmo sítio em dias seguidos (vale para Ações) |
 | `sextaSegunda` | não repetir o sítio da sexta anterior na segunda |
-| `duplaProibida` | Vanessa e Dani P não ficam juntas no mesmo sítio |
+| `duplaProibida` | Valéria e Bia P não ficam juntas no mesmo sítio |
 | `fixas` | respeitar as colocações fixas de grupos/atividades |
 
 ### Alertas (avisam, não bloqueiam — `hard: false`)
@@ -159,17 +159,17 @@ O importador casa nome completo da planilha → nome curto via `NOME_CURTO`.
 |---|---|
 | `acoesSemana` | cada profissional passa ao menos 1x por semana em Ações |
 | `cobertura` | todo sítio deve ter alguém em todos os dias |
-| `alternancia16h` | Regina/Jomalba dividem sítio após as 16h, alternando o sítio a cada dia |
+| `alternancia16h` | Rita/Joana dividem sítio após as 16h, alternando o sítio a cada dia |
 
 ### Colocações fixas (grupos e atividades recorrentes)
 
-Em **Ações**: Dani P (ter manhã, qui tarde) · Luciana (qui manhã, grupo de caminhada) ·
-Regina (seg e qua tarde, grupo de caminhada) · Sandra (sex manhã tabagismo, qui tarde
-viva leve) · Vanessa (qua tarde) · Fabiano (qua manhã) · Paula (ter tarde) ·
-Dani J (qui tarde).
+Em **Ações**: Bia P (ter manhã, qui tarde) · Luana (qui manhã, grupo de caminhada) ·
+Rita (seg e qua tarde, grupo de caminhada) · Sônia (sex manhã tabagismo, qui tarde
+viva leve) · Valéria (qua tarde) · Fábio (qua manhã) · Pâmela (ter tarde) ·
+Bia J (qui tarde).
 
 Fora de Ações (a pessoa precisa estar escalada, mas **não** em Ações):
-Paula (ter manhã) · Dani J (qui manhã).
+Pâmela (ter manhã) · Bia J (qui manhã).
 
 ⚠️ Hoje isso está **hardcoded** em `FIXAS` / `FIXAS_NAO_ACOES` no HTML. Enquanto
 mudar com frequência, alguém precisa editar o arquivo — candidato a virar aba de
@@ -182,25 +182,25 @@ julho.docx`). Vale mais que qualquer descrição de regra — é a saída que te
 
 | Sítio (manhã) | Segunda 20 | Terça 21 | Quarta 22 | Quinta 23 | Sexta 24 |
 |---|---|---|---|---|---|
-| Consultas - Sala 1 | Sandra | Ana Claudia | **May/Allan** | May | Carolina |
-| Ensino | Leticia | Leticia | Leticia | Leticia | **-** |
-| Acolhimento | Vanessa | Luciana | Maria | **Allan/Dani J/Dani P 10h** | Nicole |
-| Ações | Vanessa | **Curso Manejo: Paula P** | **Regina 10h/Carol V 10h/Maria** | **Dani J P 10h/Carol P 10h** | **Jomalba 10h/Sandra grupo/Nicole P/Allan VD com Renata** |
+| Consultas - Sala 1 | Sônia | Ana Lucia | **Lia/Artur** | Lia | Clara |
+| Ensino | Livia | Livia | Livia | Livia | **-** |
+| Acolhimento | Valéria | Luana | Marta | **Artur/Bia J/Bia P 10h** | Noemi |
+| Ações | Valéria | **Curso Manejo: Pâmela P** | **Rita 10h/Clara V 10h/Marta** | **Bia J P 10h/Clara P 10h** | **Joana 10h/Sônia grupo/Noemi P/Artur VD com Rosa** |
 
 | Sítio (tarde) | Segunda 20 | Terça 21 | Quarta 22 | Quinta 23 | Sexta 24 |
 |---|---|---|---|---|---|
-| Consultas - Sala 5 | *(vazio)* | **Carol 16h** | Carol 16h | - | Carol |
-| Curativo- CME 16h | **Ana/Allan/Jomalba 16h** | Dani J | Fabiano | Nicole | Paula |
-| Ações | **Carol V 16h VD/Ana/Regina 16h** | **Curso Manejo: Vanessa/I/Regina (CME)** | **Maria P CLS-17h** | Sandra P grupo/Dani P P | Curso Manejo: Carolina e Dani J |
+| Consultas - Sala 5 | *(vazio)* | **Clara 16h** | Clara 16h | - | Clara |
+| Curativo- CME 16h | **Ana/Artur/Joana 16h** | Bia J | Fábio | Noemi | Pâmela |
+| Ações | **Clara V 16h VD/Ana/Rita 16h** | **Curso Manejo: Valéria/I/Rita (CME)** | **Marta P CLS-17h** | Sônia P grupo/Bia P P | Curso Manejo: Clara e Bia J |
 
-Rodapé real: `Férias: Michele, Andressa` · `Segunda: Lu troca Dani J | Terça: Shana FC |
-Quarta: Shana Férias | Quinta: Michele FC | Sexta: Luciana FC` · `Nicole troca Dani P |
-Fernanda férias | Michele FC | Carolina P`
+Rodapé real: `Férias: Mirela, Adriana` · `Segunda: Lu troca Bia J | Terça: Tainá FC |
+Quarta: Tainá Férias | Quinta: Mirela FC | Sexta: Luana FC` · `Noemi troca Bia P |
+Flávia férias | Mirela FC | Clara P`
 
 O que isso ensina:
 
 - **Célula é texto livre com nomes dentro**, não uma lista de nomes. Tem horário
-  (`Dani P 10h`, `Carol 16h`), motivo (`P`, `grupo`, `VD com Renata`, `CLS-17h`),
+  (`Bia P 10h`, `Clara 16h`), motivo (`P`, `grupo`, `VD com Rosa`, `CLS-17h`),
   atividade que engloba a célula (`Curso Manejo: ...`) e separador `/` para 2–4 pessoas.
 - **Célula vazia e `-` existem** e são legítimos (Ensino na sexta, Sala 5 na segunda tarde).
 - O modelo de dados atual (`escala{turno}{sitio}[dia] = [nomes]`) **não expressa isso**.
@@ -209,9 +209,9 @@ O que isso ensina:
 
 ### Regras conhecidas mas ainda NÃO implementadas
 
-- **Maria em Ações na 2ª quarta e na 3ª terça do mês** (reunião do conselho).
+- **Marta em Ações na 2ª quarta e na 3ª terça do mês** (reunião do conselho).
   A interpretação de "segundas quartas / terceiras terças" nunca foi confirmada com
-  a Michele. Precisa de contexto de mês, não só de semana.
+  a coordenadora. Precisa de contexto de mês, não só de semana.
 - **Prioridade de dupla de técnicos:** quando sobrar gente para dobrar num sítio,
   priorizar Acolhimento → Vacinas → Procedimentos (sítios com mais atendimento).
 - **Ordem de substituição por ATM/curso/folga** (e escrever a substituição no rodapé):
@@ -297,13 +297,13 @@ validação** — se precisar validar em outro lugar, chame `validar()`.
 Guloso com aleatoriedade e reinício — não backtracking puro. Mais simples e
 suficiente para 9 sítios × 5 dias × 2 turnos. 350 tentativas rodam em <1s.
 
-1. **Ensino**: Leticia todos os dias (posto fixo, **isento** da regra de dias seguidos).
+1. **Ensino**: Livia todos os dias (posto fixo, **isento** da regra de dias seguidos).
 2. **Colocações fixas** de grupo/atividade.
 3. Sítio a sítio, dia a dia: candidatos que passam em **todas** as rígidas, ordenados
    por custo = repetição do sítio na semana + carga acumulada + ruído. Quando não
    sobra ninguém do turno, quem entra às 16h assume o sítio.
 4. **Ações**: quem tem menos Ações na semana, preferindo o dia de plantão.
-5. **Regina e Jomalba** dividem um sítio de técnico após as 16h, alternando.
+5. **Rita e Joana** dividem um sítio de técnico após as 16h, alternando.
 6. **Passe final**: quem ficou sem Ações na semana entra no dia de plantão.
 
 ---
@@ -313,15 +313,15 @@ suficiente para 9 sítios × 5 dias × 2 turnos. 350 tentativas rodam em <1s.
 | # | Item | Esforço | Observação |
 |---|---|---|---|
 | 1 | **Ler a escala das enfermeiras** (salas por dia/turno) | médio | **é o que falta de verdade** — hoje o solver decide as salas, mas isso já vem decidido em outro documento |
-| 2 | **Observação dentro da célula** ("P 10h", "VD com Renata", "Curso Manejo: ...") | médio | hoje a célula só aceita nome. Na escala real dela isso é **frequente, não exceção** — ver §4B |
+| 2 | **Observação dentro da célula** ("P 10h", "VD com Rosa", "Curso Manejo: ...") | médio | hoje a célula só aceita nome. Na escala real dela isso é **frequente, não exceção** — ver §4B |
 | 3 | Ajuste fino do layout do .docx | baixo | comparar com o modelo impresso e acertar larguras |
 | 4 | Colocações fixas fora do código | baixo | aba de configuração na tela |
-| 5 | Regras não implementadas da seção 4 | médio | Maria/conselho, prioridade de dupla, substituições automáticas |
+| 5 | Regras não implementadas da seção 4 | médio | Marta/conselho, prioridade de dupla, substituições automáticas |
 | 6 | Histórico automático | baixo | hoje é salvar/abrir arquivo — **proposital**, sem servidor |
 
 ---
 
-## 10. Limites honestos (dizer isso à Michele, sempre)
+## 10. Limites honestos (dizer isso à Mirela, sempre)
 
 - **Não substitui a revisão dela.** O solver garante as regras escritas; as não
   escritas (quem se dá bem com quem, quem está aprendendo um sítio) só ela sabe.
@@ -353,7 +353,7 @@ suficiente para 9 sítios × 5 dias × 2 turnos. 350 tentativas rodam em <1s.
 ## 12. Armadilhas do ambiente (já custaram tempo)
 
 - Esta pasta é um **mount do OneDrive**. Ler arquivos com **acento no nome** via shell
-  falha com `Invalid argument` / `Input/output error` (ex.: `instrução da michele.md`).
+  falha com `Invalid argument` / `Input/output error` (ex.: `instrução da coordenadora.md`).
   Contorno: `device_stage_files` para esses arquivos, ou renomear sem acento.
 - Números de dia na planilha vêm como `1.0`, não `1` — **comparação de string não
   funciona**, converta.
@@ -384,7 +384,7 @@ python3 gerar_escala_docx.py escala_semana.json "Escala semana 03 a 07-08.docx"
 
 ## 14. Próximo passo acordado
 
-Rodar **uma semana real com a Michele**, lado a lado com a escala que ela faria à mão,
+Rodar **uma semana real com a coordenadora**, lado a lado com a escala que ela faria à mão,
 e comparar. Duas perguntas para essa sessão:
 
 1. Quais diferenças são **erro do solver**?

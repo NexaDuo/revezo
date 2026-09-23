@@ -19,7 +19,8 @@ interface ExcelImportModalProps {
     equipe: Pessoa[],
     disp: Record<string, StatusDisponibilidade[]>,
     diasRotulos: string[],
-    semana: { data_inicio: string; data_fim: string; origem: { arquivo?: string; aba?: string; semana?: string } }
+    semana: { data_inicio: string; data_fim: string; origem: { arquivo?: string; aba?: string; semana?: string } },
+    presumidos: string[]
   ) => void;
 }
 
@@ -124,12 +125,16 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ isOpen, onCl
       horario: l.p.horario,
     })) as Pessoa[];
     
-    for (const extra of [
-      { n: "Leticia", c: "enf", t: "ambos", fixo: "Ensino" },
-      { n: "Allan", c: "enf", t: "ambos", isentoAcoes: true, custoExtra: 3 },
-    ]) {
-      if (!newEquipe.some(p => p.n === extra.n)) newEquipe.push(extra as Pessoa);
+    // Posto fixo, isenção de Ações e custo extra vêm da Equipe da unidade; quem
+    // está cadastrado mas fora da planilha entra presumido disponível — e a
+    // tela diz quem é (`presumidos`), nunca em silêncio.
+    const cadastro = new Map(baseEquipe.map(p => [p.n, p]));
+    for (const p of newEquipe) {
+      const c = cadastro.get(p.n);
+      if (c) Object.assign(p, { fixo: c.fixo, isentoAcoes: c.isentoAcoes, custoExtra: c.custoExtra });
     }
+    const presumidos = baseEquipe.filter(p => !newEquipe.some(x => x.n === p.n));
+    newEquipe.push(...presumidos.map(p => ({ ...p })));
     
     const newDisp: Record<string, StatusDisponibilidade[]> = {};
     for (const l of linhasParsed) {
@@ -143,7 +148,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ isOpen, onCl
       data_inicio: sem.inicio,
       data_fim: sem.fim,
       origem: { arquivo: file?.name, aba: String(selAba ?? ''), semana: sem.label },
-    });
+    }, presumidos.map(p => p.n));
     onClose();
   };
 

@@ -241,7 +241,7 @@ export const DisponibilidadeManager: React.FC = () => {
                   value={novaPessoa}
                   onChange={e => setNovaPessoa(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && adicionarPessoa()}
-                  placeholder="Nome curto (ex.: Dani P)"
+                  placeholder="Nome curto (ex.: Bia P)"
                   className="px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-caneta-500 focus:outline-none"
                 />
                 <button

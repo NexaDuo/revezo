@@ -32,9 +32,13 @@ import { RegrasManager } from './components/RegrasManager';
 import { RestricoesManager } from './components/RestricoesManager';
 import { DisponibilidadeManager } from './components/DisponibilidadeManager';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
-import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade, carregarEscala } from './lib/db';
+import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade, carregarEscala, getEquipes } from './lib/db';
 import { semanaAnterior, sextaDaEscala } from './lib/sextaAnterior';
-import { carregarConfigUnidade } from './lib/loadConfig';
+import { carregarConfigUnidade, pessoaDaLinha } from './lib/loadConfig';
+import { useQuery } from '@tanstack/react-query';
+
+// Referência estável: o importador recalcula quando a equipe muda.
+const SEM_EQUIPE: Pessoa[] = [];
 
 export const App: React.FC = () => {
   const { user, profile, role, error: authError, signOut, isSupabaseConfigured } = useAuth();
@@ -55,6 +59,14 @@ export const App: React.FC = () => {
   const navigate = useNavigate();
   const semanaAbrir = React.useRef<any>(null);
   const [avisos, setAvisos] = useState<string[]>([]);
+  // Equipe cadastrada: dá ao importador os nomes curtos e os postos fixos.
+  const equipeBase = useQuery({
+    queryKey: ['equipe', unidadeId, 'importador'],
+    enabled: isExcelModalOpen && !!unidadeId,
+    queryFn: async () => isSupabaseConfigured
+      ? (await getEquipes(unidadeId)).filter((r: any) => r.ativo !== false).map(pessoaDaLinha)
+      : (await fetchEquipe(false)).equipe,
+  });
   // `semanas` vem da mais recente para a mais antiga.
   const semanaVizinha = (passo: -1 | 1) => {
     const i = semanas.indexOf(semanaInicio);
@@ -450,8 +462,8 @@ export const App: React.FC = () => {
       <ExcelImportModal
         isOpen={isExcelModalOpen}
         onClose={() => setIsExcelModalOpen(false)}
-        baseEquipe={defaultConfig.equipe}
-        onApply={async (equipe, disp, dias, semana) => {
+        baseEquipe={equipeBase.data ?? SEM_EQUIPE}
+        onApply={async (equipe, disp, dias, semana, presumidos) => {
 
 
           // A disponibilidade importada precisa sobreviver ao reload: até aqui
@@ -459,6 +471,10 @@ export const App: React.FC = () => {
           // sobrescreve (chave: unidade + data_inicio).
           if (!podeGravar) throw new Error('Modo visitante: entre para salvar');
           const extras: string[] = [];
+          if (presumidos.length)
+            extras.push(`Estão na Equipe mas não na planilha, e entraram como disponíveis a semana toda: ${presumidos.join(', ')}.`);
+          if (equipeBase.isError)
+            extras.push(`Não foi possível ler a Equipe da unidade (${equipeBase.error.message}): nomes curtos e postos fixos vieram só da planilha.`);
           try {
             await salvarDisponibilidade({
               data_inicio: semana.data_inicio,

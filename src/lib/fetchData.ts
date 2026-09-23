@@ -1,5 +1,5 @@
 import { Pessoa, Turno, StatusDisponibilidade } from './solver/types';
-import { DIAS } from './solver/defaultConfig';
+import { DIAS, EQUIPE_FORA_DA_PLANILHA_DEMO } from './solver/defaultConfig';
 import mockData from '../../docs/referencia/disponibilidade_03a07.json';
 
 /** Equipe de demonstração, derivada do fixture do caso-origem. */
@@ -8,13 +8,12 @@ function equipeDemo(): Pessoa[] {
     n: d.nome,
     c: d.categoria === 'enfermeiro' ? 'enf' : 'tec',
     t: (d.turno === 'manhã' ? 'manha' : d.turno) as Turno,
+    completo: d.nome_completo,
   }));
 
   // Posto fixo e isenção de Ações são propriedades da pessoa, não regras no código.
-  if (!equipe.find(p => p.n === 'Leticia'))
-    equipe.push({ n: 'Leticia', c: 'enf', t: 'ambos', fixo: 'Ensino' });
-  if (!equipe.find(p => p.n === 'Allan'))
-    equipe.push({ n: 'Allan', c: 'enf', t: 'ambos', isentoAcoes: true, custoExtra: 3 });
+  for (const extra of EQUIPE_FORA_DA_PLANILHA_DEMO)
+    if (!equipe.some(p => p.n === extra.n)) equipe.push({ ...extra });
 
   return equipe;
 }
