@@ -1,4 +1,6 @@
-import { configDaFotografia, fotografarSitios, inferirFotografia, orfaosDaGrade, sitiosDemo, rotuloSitio, type SitioSnapshot } from './sitiosSnapshot';
+import { avisoOrfaos, configDaFotografia, fotografarSitios, fotografiaHistorica, sitiosDemo, rotuloSitio, type SitioSnapshot } from './sitiosSnapshot';
+
+export { fotografiaHistorica } from './sitiosSnapshot';
 import { supabase } from './supabase';
 import { Config, Escala } from './solver/types';
 import { defaultConfig } from './solver/defaultConfig';
@@ -34,7 +36,7 @@ export async function carregarConfigUnidade(
 ): Promise<ConfigCarregada> {
   if (!isSupabaseConfigured) {
     const atuais = sitiosDemo(defaultConfig);
-    const sitios = historica ? historica.sitios ?? inferirFotografia(historica.grade, atuais) : atuais;
+    const sitios = historica ? fotografiaHistorica(historica, atuais) : atuais;
     const avisos = ['Supabase não configurado: usando a configuração de demonstração do caso-origem.'];
     let config = defaultConfig;
     if (historica) {
@@ -87,7 +89,7 @@ export async function carregarConfigUnidade(
     }
 
     const atuais = fotografarSitios(st.data as LinhaSitio[]);
-    const sitios = historica ? historica.sitios ?? inferirFotografia(historica.grade, atuais) : atuais;
+    const sitios = historica ? fotografiaHistorica(historica, atuais) : atuais;
     const { config, avisos } = montarConfig({
       equipe: eq.data || [],
       sitios,
@@ -115,6 +117,6 @@ function limitarConferencia(config: Config, grade: Escala, sitios: SitioSnapshot
 }
 
 export function avisarOrfaos(avisos: string[], grade: Escala, sitios: SitioSnapshot[], atuais: SitioSnapshot[]) {
-  const orfaos = orfaosDaGrade(grade, sitios, atuais);
-  if (orfaos.length) avisos.push(`A grade salva usa sítios removidos ou sem correspondência inequívoca: ${orfaos.join(', ')} — confira as linhas preservadas antes de salvar.`);
+  const aviso = avisoOrfaos(grade, sitios, atuais);
+  if (aviso) avisos.push(aviso);
 }

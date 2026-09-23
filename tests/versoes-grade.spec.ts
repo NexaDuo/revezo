@@ -19,7 +19,8 @@ const DIAS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
 /** Célula da grade (tabela da manhã ou da tarde) por sítio e índice do dia. */
 function celula(page: Page, turno: 'manha' | 'tarde', sitio: string, d: number) {
   return page.getByRole('table').nth(turno === 'manha' ? 0 : 1)
-    .locator(`xpath=.//tr[td[1][normalize-space()="${sitio}"]]/td[${d + 2}]`);
+    // Só o nome (1º nó de texto): a linha órfã mostra o motivo na mesma célula.
+    .locator(`xpath=.//tr[td[1][normalize-space(text()[1])="${sitio}"]]/td[${d + 2}]`);
 }
 
 async function arrastar(page: Page, nome: string, de: [string, number], para: [string, number]) {
@@ -208,7 +209,10 @@ test.describe('versões da grade — modo demonstração', () => {
     await expect(page.getByTestId('indicador-score')).toContainText(/Score: \d+/);
     await expect(page.getByText(mov.msg)).toHaveCount(0);
     await expect(page.getByText(
-      `A grade salva usa sítios removidos ou sem correspondência inequívoca: ${renomeado} (nome antigo) — confira as linhas preservadas antes de salvar.`)).toBeVisible();
+      `A grade salva usa sítios removidos ou sem correspondência inequívoca: ${renomeado} (nome antigo) (grade antiga: sem sítio correspondente no cadastro) — confira as linhas preservadas antes de salvar.`)).toBeVisible();
+    // A linha órfã fica na grade, marcada e com o motivo na tela.
+    await expect(page.locator('[data-sitio-orfao]')).toHaveCount(1);
+    await expect(page.locator('[data-sitio-orfao]')).toContainText('grade antiga: sem sítio correspondente no cadastro');
     // Abrir legado preserva as chaves: não acrescenta a linha atual.
     await expect(celula(page, 'manha', renomeado, 0)).toHaveCount(0);
 
@@ -385,7 +389,7 @@ test.describe('versões da grade — Supabase', () => {
     await expect(banner).toContainText('Versão ativa');
     await expect(banner).toHaveAttribute('data-versao-id', ANTIGA);
     await expect(page.getByText(msg)).toHaveCount(0);
-    await expect(page.getByText('A grade salva usa sítios removidos ou sem correspondência inequívoca: Sala Extinta — confira as linhas preservadas antes de salvar.')).toBeVisible();
+    await expect(page.getByText('A grade salva usa sítios removidos ou sem correspondência inequívoca: Sala Extinta (grade antiga: sem sítio correspondente no cadastro) — confira as linhas preservadas antes de salvar.')).toBeVisible();
     await arrastar(page, 'Ciro Cometa', ['Cuidados demonstrativos', 0], ['Consulta demonstrativa', 0]);
     await expect(celula(page, 'manha', 'Consulta demonstrativa', 0)).toContainText(msg);
 
@@ -514,6 +518,40 @@ test.describe('versões da grade — Supabase', () => {
     await expect(celula(page, 'manha', 'Nome de antes', 0)).toContainText('Aurora Estelar');
     await expect(celula(page, 'manha', 'Consulta demonstrativa', 0)).toHaveCount(0);
     await expect(page.getByText('A grade salva usa sítios removidos ou sem correspondência inequívoca:', { exact: false })).toContainText('Nome de antes');
+  });
+
+  test('legado sem fotografia reconcilia IDs pelo nome canônico, ordena pelo cadastro e marca a órfã', async ({ page }) => {
+    const g = gradeManual();
+    // Chaves em ordem invertida (JSONB) e uma com caixa/espaços diferentes do cadastro.
+    const grade = {
+      manha: { 'Sala Extinta': [['Nilo Solar'], [], [], [], []], 'Ações educativas': g.manha['Ações educativas'],
+        'Cuidados demonstrativos': g.manha['Cuidados demonstrativos'], 'CONSULTA  demonstrativa': g.manha['Consulta demonstrativa'] },
+      tarde: g.tarde,
+    };
+    const banco = await bancoSimulado(page, [{
+      id: '0a0a0a0a-0000-4000-8000-0000000000ef', titulo: 'legado canônico',
+      data_inicio: SEMANA, data_fim: '2026-08-07', dias: DIAS, grade, sitios: null,
+      violacoes: [], score: 0, ativa: true, substituida_em: null, created_at: '2026-08-01T10:00:00Z',
+    }]);
+    await page.goto(`/${slug}/${SEMANA}`);
+    await expect(page.getByRole('button', { name: 'Salvar nesta versão' })).toBeEnabled();
+    const linhas = page.getByRole('table').first().locator('tbody tr');
+    await expect(linhas.locator('td:first-child')).toHaveText([
+      'CONSULTA  demonstrativa', 'Cuidados demonstrativos', 'Ações educativas', /^Sala Extinta/,
+    ]);
+    const orfa = linhas.filter({ hasText: 'Sala Extinta' });
+    await expect(orfa).toHaveAttribute('data-sitio-orfao', 'true');
+    await expect(orfa).toContainText('grade antiga: sem sítio correspondente no cadastro');
+    await expect(page.locator('[data-sitio-orfao]')).toHaveCount(1);
+    await expect(page.getByText('A grade salva usa sítios removidos ou sem correspondência inequívoca:', { exact: false }))
+      .toContainText('Sala Extinta (grade antiga: sem sítio correspondente no cadastro)');
+
+    await page.getByRole('button', { name: 'Salvar nesta versão' }).click();
+    await expect.poll(() => banco.patches.length).toBe(1);
+    expect(banco.linhas[0].sitios.map((s: any) => s.id)).toEqual(['s0', 's1', 's2', 'legado:Sala Extinta']);
+    expect(banco.linhas[0].grade.manha['Consulta demonstrativa']).toEqual(g.manha['Consulta demonstrativa']);
+    expect(banco.linhas[0].grade.manha['Sala Extinta']).toEqual([['Nilo Solar'], [], [], [], []]);
+    await expect(orfa).toHaveAttribute('data-sitio-orfao', 'true');
   });
 
   test('grade salva carregando trava Gerar/arrastar; a geração seguinte fica e salva como versão nova', async ({ page }) => {

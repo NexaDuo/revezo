@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { atualizarFotografia, configDaFotografia, fotografarSitios, inferirFotografia, ordenarGradeFotografada, orfaosDaGrade, type SitioSnapshot } from '../src/lib/sitiosSnapshot';
+import { atualizarFotografia, configDaFotografia, fotografarSitios, avisoOrfaos, fotografiaHistorica, inferirFotografia, linhasOrfas, ordenarGradeFotografada, orfaosDaGrade, type SitioSnapshot } from '../src/lib/sitiosSnapshot';
 import { sextaDaEscala } from '../src/lib/sextaAnterior';
 import { montarConfig } from '../src/lib/montarConfig';
 import { validar } from '../src/lib/solver/validator';
@@ -42,6 +42,43 @@ test('legado reserva nomes exatos antes de canon e preserva chave órfã', () =>
   expect(inferida.find(s => s.id === 'c')?.nome).toBe('Curativo');
   expect(inferida.filter(s => s.removido)).toHaveLength(2);
   expect(inferirFotografia({ manha: { 'Curativo- CME 16h': [[]] }, tarde: {} }, [sitio('c', 'Curativo')])[0].id).toBe('c');
+});
+
+test('grade legada (sitios = NULL): IDs pelo nome canônico, ordem do cadastro, órfã com motivo', () => {
+  const cadastro = [sitio('a', 'Sala Única', 0), { ...sitio('b', 'Sala Dois', 1), nome_tarde: 'Sala Dois tarde' }];
+  // Chaves fora da ordem do cadastro, com caixa/acento/espaço diferentes.
+  const legado: Escala = {
+    manha: { 'Sala Sumida': [['Pessoa X']], 'sala  dois': [['Pessoa B']], 'SALA UNICA': [['Pessoa A']] },
+    tarde: { 'Sala Dois Tarde ': [['Pessoa C']] },
+  };
+  const copia = structuredClone(legado);
+  const foto = inferirFotografia(legado, cadastro);
+  expect(foto.map(s => [s.id, s.ordem])).toEqual([['a', 0], ['b', 1], ['legado:Sala Sumida', 2]]);
+  expect(foto.find(s => s.id === 'b')?.linhas).toEqual({ manha: 'sala  dois', tarde: 'Sala Dois Tarde ' });
+  expect(Object.keys(ordenarGradeFotografada(legado, foto).manha)).toEqual(['SALA UNICA', 'sala  dois', 'Sala Sumida']);
+  expect(linhasOrfas(legado, foto, cadastro)).toEqual({
+    manha: { 'Sala Sumida': 'grade antiga: sem sítio correspondente no cadastro' }, tarde: {},
+  });
+  expect(avisoOrfaos(legado, foto, cadastro)).toContain('Sala Sumida (grade antiga: sem sítio correspondente no cadastro)');
+  // Abre e confere sem quebrar; salvar leva as linhas casadas ao nome atual.
+  expect(() => configDaFotografia(montarConfig({ sitios: [], equipe: [], regras: [], proibicoes: [], duplas: [], fixas: [] }).config, legado, foto)).not.toThrow();
+  const salvo = atualizarFotografia(legado, foto, cadastro, ['Segunda']);
+  expect(salvo.grade.manha).toEqual({ 'Sala Única': [['Pessoa A']], 'Sala Dois': [['Pessoa B']], 'Sala Sumida': [['Pessoa X']] });
+  expect(salvo.grade.tarde).toEqual({ 'Sala Única': [[]], 'Sala Dois tarde': [['Pessoa C']] });
+  expect(linhasOrfas(salvo.grade, salvo.sitios, cadastro).manha).toEqual({ 'Sala Sumida': 'grade antiga: sem sítio correspondente no cadastro' });
+  expect(legado).toEqual(copia);
+});
+
+test('legado ambíguo explica quantos sítios casam; fotografia salva marca sítio apagado depois', () => {
+  const legado: Escala = { manha: { sala: [['Pessoa']] }, tarde: {} };
+  const cadastro = [sitio('a', 'Sala'), sitio('b', 'SALA', 1)];
+  expect(linhasOrfas(legado, inferirFotografia(legado, cadastro), cadastro).manha)
+    .toEqual({ sala: 'grade antiga: o nome casa com 2 sítios do cadastro' });
+  const salva = [sitio('a', 'Sala'), sitio('b', 'Outra', 1)];
+  const marcada = fotografiaHistorica({ grade: { manha: { Sala: [[]], Outra: [[]] }, tarde: {} }, sitios: salva }, [salva[1]]);
+  expect(marcada.map(s => !!s.removido)).toEqual([true, false]);
+  expect(salva[0].removido).toBeUndefined();
+  expect(linhasOrfas({ manha: { Sala: [[]], Outra: [[]] }, tarde: {} }, marcada).manha).toEqual({ Sala: 'sítio excluído do cadastro' });
 });
 
 test('sexta anterior traduz os dois turnos por ID e exclui IDs apagados', () => {

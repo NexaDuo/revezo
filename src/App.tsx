@@ -25,7 +25,7 @@ import { formatarSemana } from './lib/datas';
 import { fetchEquipe } from './lib/fetchData';
 import { generateSchedule, defaultConfig, Escala, Violacao, validar } from './lib/solver';
 import type { Config } from './lib/solver/types';
-import { configDaFotografia, atualizarFotografia, ordenarGradeFotografada, inferirFotografia, orfaosDaGrade, rotuloSitio, type SitioSnapshot } from './lib/sitiosSnapshot';
+import { configDaFotografia, atualizarFotografia, ordenarGradeFotografada, linhasOrfas, orfaosDaGrade, type SitioSnapshot } from './lib/sitiosSnapshot';
 import { ScheduleGrid } from './components/ScheduleGrid';
 import { ExcelImportModal } from './components/ExcelImportModal';
 import { EquipeManager } from './components/EquipeManager';
@@ -36,7 +36,7 @@ import { DisponibilidadeManager } from './components/DisponibilidadeManager';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
 import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade, carregarEscala, carregarEscalaPorId, listarVersoesSemana, salvarEscalaNova, atualizarEscala, ativarEscala, ordenarVersoes, EscalaSalva, getEquipes, getSitios } from './lib/db';
 import { semanaAnterior, sextaDaEscala } from './lib/sextaAnterior';
-import { avisarOrfaos, carregarConfigUnidade, pessoaDaLinha } from './lib/loadConfig';
+import { avisarOrfaos, carregarConfigUnidade, fotografiaHistorica, pessoaDaLinha } from './lib/loadConfig';
 import { indexarRotulos } from './lib/referenciasSitio';
 import { definirGuardaVoltar } from './lib/guardaVoltar';
 import { useQuery } from '@tanstack/react-query';
@@ -187,7 +187,7 @@ export const App: React.FC = () => {
       const anterior = semanaAnterior(semanaInicio);
       try {
         const salva = await carregarEscala(anterior, unidadeId);
-        const fotoAnterior = salva ? salva.sitios ?? inferirFotografia(salva.grade, base.atuais) : undefined;
+        const fotoAnterior = salva ? fotografiaHistorica(salva, base.atuais) : undefined;
         const sexta = sextaDaEscala(salva?.grade, salva?.dias, fotoAnterior, base.sitios);
         if (sexta) {
           sextaAnterior = sexta;
@@ -306,7 +306,8 @@ export const App: React.FC = () => {
           'A grade salva foi aberta sem a configuração da semana: ela não pôde ser conferida, então arrastar e salvar ficam bloqueados. As marcas mostradas são as da hora em que ela foi salva.']);
         return encerrar();
       }
-      const grade = ordenarGradeFotografada(salva.grade, salva.sitios);
+      // Grade antiga (sem fotografia) ordena pela fotografia reconciliada.
+      const grade = ordenarGradeFotografada(salva.grade, m.sitios);
       setFotoGrade(m.sitios);
       let vs: Violacao[];
       try { vs = validar(m.config, grade); }
@@ -608,7 +609,7 @@ export const App: React.FC = () => {
                     <span><span className="marca-rigida px-1 text-slate-900">Regra rígida</span> bloqueia</span>
                     <span><span className="marca-alerta px-1 text-slate-900">Alerta</span> só avisa</span>
                   </p>
-                  <ScheduleGrid sitiosRemovidos={fotoGrade.filter(s => s.removido).flatMap(s => [rotuloSitio(s, 'manha'), rotuloSitio(s, 'tarde')])} escala={escala} violacoes={violacoes} dias={currentConfig?.dias || diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala}
+                  <ScheduleGrid linhasOrfas={fotoGrade.length ? linhasOrfas(escala, fotoGrade) : undefined} escala={escala} violacoes={violacoes} dias={currentConfig?.dias || diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala}
                     onSalvar={handleSalvar} bloqueio={bloqueioEdicao} textoSalvar={versao ? 'Salvar nesta versão' : 'Salvar e Publicar'} />
                 </>
               )}

@@ -29,9 +29,19 @@ export function sitiosDemo(config: Config): SitioSnapshot[] {
   }));
 }
 
+/** Prefixo do ID local dado a uma linha de grade antiga que não casou com
+ *  nenhum sítio do cadastro. Persiste na fotografia ao salvar. */
+export const PREFIXO_LEGADO = 'legado:';
+
+/** Forma canônica para casar grade antiga com o cadastro: ignora caixa,
+ *  acentos e espaços repetidos, além das equivalências de `canon`. */
+export const nomeCanonico = (s: string) =>
+  canon(s).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
 /** Legado: reserva todos os nomes exatos antes de tentar canon, por turno.
- *  Nunca altera chaves, ordem ou conteúdo. Identidades desconhecidas não são
- *  casadas novamente por nome ao salvar: recebem um ID local persistente. */
+ *  Nunca altera chaves nem conteúdo. Identidades desconhecidas não são
+ *  casadas novamente por nome ao salvar: recebem um ID local persistente.
+ *  A ordem segue o cadastro atual; linhas órfãs vêm no fim. */
 export function inferirFotografia(grade: Escala, atuais: SitioSnapshot[]): SitioSnapshot[] {
   const linhas = new Map<string, SitioSnapshot>();
   for (const t of turnos) {
@@ -43,7 +53,7 @@ export function inferirFotografia(grade: Escala, atuais: SitioSnapshot[]): Sitio
     for (const exato of [true, false]) {
       const candidatos = new Map(chaves.filter(c => !pares.has(c)).map(chave => [chave,
         atuais.filter(s => !usados.has(s.id) && (exato
-          ? rotuloSitio(s, t) === chave : canon(rotuloSitio(s, t)) === canon(chave))),
+          ? rotuloSitio(s, t) === chave : nomeCanonico(rotuloSitio(s, t)) === nomeCanonico(chave))),
       ]));
       for (const [chave, lista] of candidatos) {
         if (lista.length !== 1) continue;
@@ -54,26 +64,72 @@ export function inferirFotografia(grade: Escala, atuais: SitioSnapshot[]): Sitio
     }
     for (const chave of chaves) {
       const s = pares.get(chave);
-      const id = s?.id ?? `legado:${chave}`;
-      const linha = linhas.get(id) ?? { ...(s ?? {
+      const id = s?.id ?? `${PREFIXO_LEGADO}${chave}`;
+      const linha: SitioSnapshot = linhas.get(id) ?? { ...(s ?? {
         id, nome: chave, nome_tarde: chave, categoria_permitida: 'ambos',
         opcional: true, prioridade_dupla: null, removido: true,
-      }), ordem: linhas.size, linhas: { manha: null, tarde: null } };
+      }), ordem: 0, linhas: { manha: null, tarde: null } };
       linha.linhas![t] = chave;
       if (t === 'manha') linha.nome = chave;
       else linha.nome_tarde = chave;
       linhas.set(id, linha);
     }
   }
-  return [...linhas.values()];
+  const ordemAtual = new Map(atuais.map(s => [s.id, s.ordem]));
+  const chegada = [...linhas.keys()];
+  return [...linhas.values()]
+    .sort((a, b) => (ordemAtual.get(a.id) ?? Infinity) - (ordemAtual.get(b.id) ?? Infinity)
+      || chegada.indexOf(a.id) - chegada.indexOf(b.id))
+    .map((s, ordem) => ({ ...s, ordem }));
+}
+
+/** Fotografia salva confrontada com o cadastro de agora: o sítio que sumiu do
+ *  cadastro depois do salvamento passa a constar como removido. Não altera
+ *  nomes, linhas nem ordem. */
+export function marcarRemovidos(foto: SitioSnapshot[], atuais: SitioSnapshot[]): SitioSnapshot[] {
+  const ids = new Set(atuais.map(s => s.id));
+  return foto.map(s => s.removido || ids.has(s.id) ? s : { ...s, removido: true });
+}
+
+/** Por turno, cada linha da grade sem sítio vivo no cadastro e o motivo, para
+ *  a tela e para o aviso. Com `atuais`, também detecta sítio apagado e nome
+ *  de grade antiga que casa com mais de um sítio. */
+export function linhasOrfas(grade: Escala, foto: SitioSnapshot[], atuais?: SitioSnapshot[]): Record<'manha' | 'tarde', Record<string, string>> {
+  const ids = atuais && new Set(atuais.map(s => s.id));
+  const r: Record<'manha' | 'tarde', Record<string, string>> = { manha: {}, tarde: {} };
+  for (const t of turnos) for (const n of Object.keys(grade[t] || {})) {
+    const s = foto.find(s => linhaSitio(s, t) === n);
+    if (!s) r[t][n] = 'linha sem fotografia de sítio';
+    else if (s.id.startsWith(PREFIXO_LEGADO)) {
+      const iguais = (atuais ?? []).filter(a => turnos.some(u => nomeCanonico(rotuloSitio(a, u)) === nomeCanonico(n))).length;
+      r[t][n] = iguais > 1
+        ? `grade antiga: o nome casa com ${iguais} sítios do cadastro`
+        : 'grade antiga: sem sítio correspondente no cadastro';
+    } else if (s.removido || (ids && !ids.has(s.id))) r[t][n] = 'sítio excluído do cadastro';
+  }
+  return r;
+}
+
+/** Grade com fotografia: confronta com o cadastro de agora. Grade antiga
+ *  (`sitios = NULL`): reconcilia os IDs pelo nome exato ou canônico; o que não
+ *  casar vira linha órfã preservada, com aviso. */
+export function fotografiaHistorica(historica: { grade: Escala; sitios?: SitioSnapshot[] | null }, atuais: SitioSnapshot[]) {
+  return historica.sitios ? marcarRemovidos(historica.sitios, atuais) : inferirFotografia(historica.grade, atuais);
+}
+
+/** Aviso de tela com cada linha órfã e o motivo; null se não houver. */
+export function avisoOrfaos(grade: Escala, sitios: SitioSnapshot[], atuais: SitioSnapshot[]): string | null {
+  const r = linhasOrfas(grade, sitios, atuais);
+  const motivos = new Map<string, string>();
+  for (const t of turnos) for (const [n, m] of Object.entries(r[t])) if (!motivos.has(n)) motivos.set(n, m);
+  return motivos.size
+    ? `A grade salva usa sítios removidos ou sem correspondência inequívoca: ${[...motivos].map(([n, m]) => `${n} (${m})`).join(', ')} — confira as linhas preservadas antes de salvar.`
+    : null;
 }
 
 export function orfaosDaGrade(grade: Escala, foto: SitioSnapshot[], atuais: SitioSnapshot[]): string[] {
-  const ids = new Set(atuais.map(s => s.id));
-  return [...new Set(turnos.flatMap(t => Object.keys(grade[t] || {}).filter(n => {
-    const s = foto.find(s => linhaSitio(s, t) === n);
-    return !s || s.removido || !ids.has(s.id);
-  })))];
+  const r = linhasOrfas(grade, foto, atuais);
+  return [...new Set(turnos.flatMap(t => Object.keys(r[t])))];
 }
 
 /** Somente salvar promove a fotografia para o cadastro atual. Não perde

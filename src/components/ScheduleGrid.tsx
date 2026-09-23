@@ -5,7 +5,8 @@ import { useWorkContext } from '../context/WorkContext';
 
 interface ScheduleGridProps {
   escala: Escala;
-  sitiosRemovidos?: string[];
+  /** Por turno: linha sem sítio vivo no cadastro → motivo (fica na grade, com aviso). */
+  linhasOrfas?: Record<'manha' | 'tarde', Record<string, string>>;
   violacoes: Violacao[];
   dias: string[];
   onUpdateEscala?: (novaEscala: Escala) => void;
@@ -16,7 +17,7 @@ interface ScheduleGridProps {
   bloqueio?: string | null;
 }
 
-export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, sitiosRemovidos = [], violacoes, dias, onUpdateEscala, onSalvar, textoSalvar = 'Salvar e Publicar', bloqueio = null }) => {
+export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, linhasOrfas, violacoes, dias, onUpdateEscala, onSalvar, textoSalvar = 'Salvar e Publicar', bloqueio = null }) => {
   const [soltarEm, setSoltarEm] = useState<string | null>(null);
   const { podeGravar, visitante } = useWorkContext();
   const getViolacoes = (turno: string, sitio: string, d: number) => {
@@ -89,10 +90,11 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, sitiosRemovi
             </tr>
           </thead>
           <tbody>
-            {sitios.map(s => (
-              <tr key={s} data-sitio-removido={sitiosRemovidos.includes(s) || undefined}>
-                <td className="border border-slate-300 bg-slate-50 px-3 py-2 font-bold text-slate-800" title={sitiosRemovidos.includes(s) ? 'Sítio excluído — linha preservada' : undefined}>{s}
-                  {sitiosRemovidos.includes(s) && <svg data-print-hide="true" aria-label="Sítio excluído — linha preservada" className="ml-1 inline h-4 w-4 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3 2 21h20L12 3Z M12 9v5 M12 17v1" /></svg>}
+            {sitios.map(s => { const orfa = linhasOrfas?.[turno]?.[s]; return (
+              <tr key={s} data-sitio-orfao={orfa ? 'true' : undefined}>
+                <td className="border border-slate-300 bg-slate-50 px-3 py-2 font-bold text-slate-800" title={orfa ? `${orfa} — linha preservada` : undefined}>{s}
+                  {orfa && <svg data-print-hide="true" aria-label={`${orfa} — linha preservada`} className="ml-1 inline h-4 w-4 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3 2 21h20L12 3Z M12 9v5 M12 17v1" /></svg>}
+                  {orfa && <span data-print-hide="true" className="mt-1 block text-xs font-normal text-amber-800">{orfa}</span>}
                 </td>
                 {dias.map((_, d) => {
                   const nomes = sourceData[s][d] || [];
@@ -129,7 +131,7 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, sitiosRemovi
                   );
                 })}
               </tr>
-            ))}
+            ); })}
           </tbody>
         </table>
       </div>
