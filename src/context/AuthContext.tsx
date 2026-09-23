@@ -24,7 +24,7 @@ const DEMO_PROFILE: UserProfile = {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<any | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [role, setRole] = useState<UserRole>('coordenador');
+  const [role, setRole] = useState<UserRole>('visualizador');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,38 +71,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Inicializar sessão real do Supabase
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        const p = await fetchProfile(session.user.id);
-        if (p) {
-          setProfile(p);
-          setRole(p.role);
-        }
+    let disposed = false;
+    let revision = 0;
+    let accepted: { id: string; promise: Promise<void> } | null = null;
+    const applySession = async (session: any) => {
+      const current = ++revision;
+      if (!session?.user) {
+        accepted = null;
+        setUser(null); setProfile(null); setRole('visualizador'); setIsLoading(false);
+        return;
       }
-      setIsLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (session?.user) {
-          setUser(session.user);
-          const p = await fetchProfile(session.user.id);
-          if (p) {
-            setProfile(p);
-            setRole(p.role);
+      setIsLoading(true);
+      setUser(session.user);
+      if (accepted?.id !== session.user.id) {
+        accepted = { id: session.user.id, promise: (async () => {
+          try {
+            const { error } = await supabase.rpc('aceitar_convite');
+            if (error) throw error;
+          } catch (e: any) {
+            if (!disposed) setError(`Não foi possível aceitar o convite: ${e?.message || e}`);
           }
-        } else {
-          setUser(null);
-          setProfile(null);
-          setRole('visualizador');
-        }
-        setIsLoading(false);
+        })() };
       }
-    );
-
+      await accepted!.promise;
+      const p = await fetchProfile(session.user.id);
+      if (disposed || current !== revision) return;
+      setProfile(p); setRole(p?.role ?? 'visualizador'); setIsLoading(false);
+      if (!p) setError('Não foi possível carregar seu perfil. Entre novamente.');
+    };
+    // O callback de auth não pode aguardar chamadas Supabase: ele detém o lock da sessão.
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const timer = setTimeout(() => { timers.delete(timer); if (!disposed) void applySession(session); }, 0);
+      timers.add(timer);
+    });
     return () => {
+      disposed = true;
+      timers.forEach(clearTimeout);
       subscription.unsubscribe();
     };
   }, []);
@@ -222,8 +227,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const isAdmin = role === 'admin';
-  const isCoordenador = role === 'admin' || role === 'coordenador';
+  const isAdmin = !!profile?.ativo && role === 'admin';
+  const isCoordenador = !!profile?.ativo && (role === 'admin' || role === 'coordenador');
 
   return (
     <AuthContext.Provider

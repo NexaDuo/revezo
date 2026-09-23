@@ -1,4 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { visitanteSemDados } from './supabase-mock';
+
+test.beforeEach(async ({ page }) => { await visitanteSemDados(page); });
 
 const ROTAS = ['/regras', '/equipe', '/sitios', '/disponibilidade', '/historico'] as const;
 

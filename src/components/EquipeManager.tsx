@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { useWorkContext } from '../context/WorkContext';
 import { getEquipes, addEquipe, updateEquipe, deleteEquipe } from '../lib/db';
 import { mensagemErroGravacao } from '../lib/errosGravacao';
 import { Edit2, Trash2, Plus, Save, X } from 'lucide-react';
 
 export const EquipeManager: React.FC = () => {
-  const { isAdmin, isCoordenador } = useAuth();
-  const { unidadeId, isLoading: unidadeCarregando } = useWorkContext();
-  const canEdit = isAdmin || isCoordenador;
+  const { podeGravar, unidadeId, isLoading: unidadeCarregando } = useWorkContext();
+  const canEdit = podeGravar;
   const [equipes, setEquipes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);

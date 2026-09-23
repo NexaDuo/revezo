@@ -1,3 +1,4 @@
+import { ConvitesManager } from './ConvitesManager';
 import React, { useEffect, useState } from 'react';
 import { useAuth, DEMO_UNIDADE_ID } from '../../context/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
@@ -11,13 +12,15 @@ interface UserManagementModalProps {
 }
 
 export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen, onClose }) => {
-  const { profile, updateUserRole, toggleUserActive } = useAuth();
+  const { profile, isAdmin, isCoordenador, updateUserRole, toggleUserActive } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [erro, setErro] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
   const loadUsers = async () => {
     setIsLoadingUsers(true);
+    setErro(null);
     if (!isSupabaseConfigured) {
       // Mock data para demonstração
       setUsers([
@@ -68,19 +71,19 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
       if (error) throw error;
       setUsers(data as UserProfile[]);
     } catch (err: any) {
-      console.error('Erro ao carregar usuários:', err);
+      setErro(`Não foi possível carregar usuários: ${err?.message || err}`);
     } finally {
       setIsLoadingUsers(false);
     }
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && isCoordenador) {
       loadUsers();
     }
-  }, [isOpen]);
+  }, [isOpen, profile?.id, profile?.unidade_id, isCoordenador]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !isCoordenador) return null;
 
   const filteredUsers = users.filter(u =>
     (u.nome?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
@@ -109,6 +112,9 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
           </button>
         </div>
 
+        <div className="overflow-y-auto">
+        <ConvitesManager />
+        {erro && <p role="alert">{erro}</p>}
         {/* Search bar */}
         <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
           <Search className="w-4 h-4 text-slate-400" />
@@ -161,7 +167,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
                   <RoleBadge role={u.role} showIcon={false} />
 
                   {/* Role select */}
-                  <select
+                  {isAdmin && <select
                     value={u.role}
                     disabled={u.id === profile?.id} // Impede de revogar o próprio admin
                     onChange={async e => {
@@ -174,10 +180,10 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
                     <option value="coordenador">Coordenador de Escala</option>
                     <option value="admin">Administrador</option>
                     <option value="visualizador">Visualizador (Somente Leitura)</option>
-                  </select>
+                  </select>}
 
                   {/* Status Toggle */}
-                  <button
+                  {isAdmin && <button
                     disabled={u.id === profile?.id}
                     onClick={async () => {
                       await toggleUserActive(u.id, u.ativo);
@@ -191,13 +197,14 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
                     ) : (
                       <XCircle className="w-5 h-5 text-red-500" />
                     )}
-                  </button>
+                  </button>}
                 </div>
               </div>
             ))
           )}
         </div>
 
+        </div>
         {/* Footer */}
         <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
           <div className="flex items-center gap-1.5">

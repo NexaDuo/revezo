@@ -31,8 +31,8 @@ import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade } from '.
 import { carregarConfigUnidade } from './lib/loadConfig';
 
 export const App: React.FC = () => {
-  const { user, profile, role, isAdmin, isCoordenador, signOut, isSupabaseConfigured } = useAuth();
-  const { unidadeId, semanaInicio, erro: erroUnidade, isLoading: unidadeCarregando, contextoInvalido, caminhoPadrao, tela, semanas, disponibilidades, unidadesDisponiveis, podeEscolherUnidade, setUnidadeId, setSemanaInicio, revalidarSemanas } = useWorkContext();
+  const { user, profile, role, isCoordenador, error: authError, signOut, isSupabaseConfigured } = useAuth();
+  const { podeGravar, visitante, unidadeId, semanaInicio, erro: erroUnidade, isLoading: unidadeCarregando, contextoInvalido, caminhoPadrao, tela, semanas, disponibilidades, unidadesDisponiveis, podeEscolherUnidade, setUnidadeId, setSemanaInicio, revalidarSemanas } = useWorkContext();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
 
@@ -89,19 +89,14 @@ export const App: React.FC = () => {
       const base = await carregarConfigUnidade(isSupabaseConfigured, unidadeId);
       if (contextoGeracao !== contextoAtual.current) return;
       const msgs = [...base.avisos];
+      if (isSupabaseConfigured && !base.doBanco) { setAvisos(msgs); return; }
 
       let equipe = eq || equipeOverride || base.config.equipe;
       let disp = dp || dispOverride;
       let dias = ds || diasOverride;
 
-      // Sem Equipe cadastrada: em modo demonstração `base.config.equipe` é
-      // vazio de propósito, e usar a lista de nomes do exemplo do caso-origem
-      // é seguro (fixture estática, sem rede). Com Supabase configurado, NÃO
-      // dá para usar `fetchEquipe` aqui: ela lê `profiles` sem filtrar por
-      // unidade (a policy `profiles_select` é `using(true)`), então o roster
-      // sairia com gente de OUTRAS unidades — vazamento de nome entre
-      // hospitais, e pior, uma escala salva e impressa com esses nomes.
-      // Bloqueia em vez disso, como na falta de disponibilidade.
+      // O roster online vem exclusivamente da equipe da unidade; perfis de
+      // acesso não são funcionários. O fallback abaixo é apenas offline.
       if (!equipe.length) {
         if (isSupabaseConfigured) {
           msgs.push(
@@ -186,15 +181,15 @@ export const App: React.FC = () => {
                 </div>
                 <div role="toolbar" aria-label="Ações da grade" data-print-hide className="flex flex-wrap items-center gap-2 print:hidden">
                   {/* Ações permitidas para Coordenador ou Admin */}
-                  {isCoordenador ? (
+                  {(podeGravar || visitante) ? (
                     <>
-                      <button
+                      {podeGravar && <button
                         className="flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors border border-slate-300"
                         onClick={() => setIsExcelModalOpen(true)}
                       >
                         <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
                         <span>Importar Planilha (.xlsx)</span>
-                      </button>
+                      </button>}
 
                       <button
                         onClick={() => handleGerarGrade()}
@@ -267,7 +262,7 @@ export const App: React.FC = () => {
                   </p>
                 </div>
               ) : (
-                <ScheduleGrid escala={escala} violacoes={violacoes} dias={diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala} />
+                <ScheduleGrid escala={escala} violacoes={violacoes} dias={currentConfig?.dias || diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala} />
               )}
             </div>
           } />
@@ -324,7 +319,7 @@ export const App: React.FC = () => {
                   v0.1
                 </span>
               </div>
-              <p className="hidden xl:block text-xs text-slate-400 -mt-0.5">Escala de Sítio de Enfermagem</p>
+              {visitante ? <p className="text-[9px] sm:text-xs text-slate-600">Visitante — somente leitura</p> : <p className="hidden xl:block text-xs text-slate-400 -mt-0.5">Escala de Sítio de Enfermagem</p>}
             </div>
           </div>
 
@@ -351,7 +346,7 @@ export const App: React.FC = () => {
             {user ? (
               <div className="flex items-center gap-3">
                 {/* Botão de Administração (apenas para admin) */}
-                {isAdmin && (
+                {isCoordenador && (
                   <button
                     onClick={() => setIsUserManagementOpen(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors"
@@ -419,12 +414,14 @@ export const App: React.FC = () => {
         </div>
       )}
 
+      {authError && <p role="alert" data-print-hide className="bg-amber-50 p-3 text-amber-900 print:hidden">{authError}</p>}
+      {visitante && <p data-print-hide className="bg-slate-100 p-3 text-sm print:hidden">Modo visitante: entre para salvar</p>}
       {/* Alerta de unidade de trabalho não resolvida — WorkContext falhou alto
           em vez de inventar uma unidade default. */}
       {erroUnidade && (
         <div className="bg-red-600 text-white text-xs py-2 px-4 text-center font-medium flex items-center justify-center gap-2 print:hidden">
           <Database className="w-4 h-4" />
-          <span>{erroUnidade} <Link className="underline" to={caminhoPadrao}>Ir para contexto válido</Link></span>
+          <span>{erroUnidade} {visitante && <button className="underline" onClick={() => setIsLoginModalOpen(true)}>Entrar para acessar</button>} <Link className="underline" to={caminhoPadrao}>Ir para contexto válido</Link></span>
         </div>
       )}
 
@@ -468,6 +465,7 @@ export const App: React.FC = () => {
           // A disponibilidade importada precisa sobreviver ao reload: até aqui
           // ela vivia só no estado do React. Reimportar a mesma semana
           // sobrescreve (chave: unidade + data_inicio).
+          if (!podeGravar) throw new Error('Modo visitante: entre para salvar');
           const extras: string[] = [];
           try {
             await salvarDisponibilidade({

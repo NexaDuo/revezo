@@ -1,5 +1,4 @@
-import { supabase } from './supabase';
-import { Pessoa, Categoria, Turno, StatusDisponibilidade } from './solver/types';
+import { Pessoa, Turno, StatusDisponibilidade } from './solver/types';
 import { DIAS } from './solver/defaultConfig';
 import mockData from '../../docs/referencia/disponibilidade_03a07.json';
 
@@ -46,33 +45,7 @@ export interface DadosEquipe {
 }
 
 export async function fetchEquipe(isSupabaseConfigured: boolean): Promise<DadosEquipe> {
-  if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase.from('profiles').select('*').eq('ativo', true);
-      if (!error && data && data.length > 0) {
-        const equipe: Pessoa[] = data.map((p: any) => ({
-          n: p.nome || p.email.split('@')[0],
-          c: (p.categoria || 'tec') as Categoria,
-          t: (p.turno || 'manha') as Turno,
-          fixo: p.fixo || undefined,
-          isentoAcoes: p.isento_acoes || undefined,
-          custoExtra: p.custo_extra ?? undefined,
-        }));
-        // Não existe fonte de folgas/férias ainda. Presumir "todo mundo livre"
-        // é aceitável como estado inicial, mas NUNCA em silêncio.
-        return {
-          equipe,
-          disp: completarDisp(equipe, {}),
-          avisos: [
-            `Sem dados de folga/férias: os ${equipe.length} profissionais foram tratados ` +
-            `como disponíveis nos ${DIAS.length} dias. Importe a planilha do mês antes de publicar.`,
-          ],
-        };
-      }
-    } catch (e) {
-      console.error('Error fetching from Supabase', e);
-    }
-  }
+  if (isSupabaseConfigured) throw new Error('Carregue a equipe pelo contexto da unidade.');
 
   const equipe = equipeDemo();
   return {

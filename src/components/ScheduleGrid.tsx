@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Escala, Violacao } from '../lib/solver/types';
 import { canon } from '../lib/solver/utils';
-import { useAuth } from '../context/AuthContext';
 import { useWorkContext } from '../context/WorkContext';
 import { saveSchedule } from '../lib/db';
 
@@ -13,8 +12,7 @@ interface ScheduleGridProps {
 }
 
 export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, dias, onUpdateEscala }) => {
-  const { isAdmin, isCoordenador } = useAuth();
-  const { unidadeId, semanaInicio, revalidarSemanas } = useWorkContext();
+  const { podeGravar, visitante, unidadeId, semanaInicio, revalidarSemanas } = useWorkContext();
   const getViolacoes = (turno: string, sitio: string, d: number) => {
     return violacoes.filter(v => v.turno === turno && canon(v.sitio) === canon(sitio) && v.d === d);
   };
@@ -23,7 +21,7 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
   const renderTurno = (turno: 'manha' | 'tarde', titulo: string) => {
     const sourceData = escala[turno] || {};
     const sitios = Object.keys(sourceData);
-    const canEdit = isAdmin || isCoordenador;
+    const canEdit = podeGravar || visitante;
 
     const handleDragStart = (e: React.DragEvent, nome: string, sourceTurno: string, sourceSitio: string, sourceD: number) => {
       e.dataTransfer.setData('application/json', JSON.stringify({ nome, sourceTurno, sourceSitio, sourceD }));
@@ -165,7 +163,7 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
       {renderTurno('manha', 'Manhã (M)')}
       {renderTurno('tarde', 'Tarde (T)')}
 
-      {(isAdmin || isCoordenador) && (
+      {podeGravar && (
         <div className="mt-6 flex justify-end print:hidden">
           <button
             onClick={handleSave}

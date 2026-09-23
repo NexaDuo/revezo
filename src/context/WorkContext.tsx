@@ -4,7 +4,7 @@ import { useAuth, DEMO_UNIDADE_ID } from './AuthContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { listarDisponibilidades, loadSchedules, SemanaDisponibilidade } from '../lib/db';
 
-export interface UnidadeOption { id: string; nome: string; slug: string }
+export interface UnidadeOption { id: string; nome: string; slug: string; publica?: boolean }
 const UNIDADE_DEMO: UnidadeOption = { id: DEMO_UNIDADE_ID, nome: 'Unidade Demonstração (offline)', slug: 'demonstracao' };
 const SEM_DISPONIBILIDADES: SemanaDisponibilidade[] = [];
 const TELAS = ['', 'regras', 'equipe', 'sitios', 'disponibilidade', 'historico'];
@@ -23,6 +23,8 @@ function semanaValida(iso: string): boolean {
 
 export interface WorkContextType {
   unidadeId: string | null;
+  podeGravar: boolean;
+  visitante: boolean;
   setUnidadeId: (id: string) => void;
   unidadesDisponiveis: UnidadeOption[];
   podeEscolherUnidade: boolean;
@@ -41,14 +43,14 @@ export interface WorkContextType {
 const WorkContext = createContext<WorkContextType | undefined>(undefined);
 
 export const WorkProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { profile, isAdmin, isLoading: authLoading } = useAuth();
+  const { user, profile, isAdmin, isCoordenador, isLoading: authLoading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [unidades, setUnidades] = useState<{ chave: string; lista: UnidadeOption[]; erro: string | null }>();
   const [revisao, setRevisao] = useState(0);
   const [lista, setLista] = useState<{ chave: string; disponibilidades: SemanaDisponibilidade[]; escalas: string[]; erro: string | null }>();
   // A identidade do perfil invalida consultas antigas, sem resetar a URL em refresh de token.
-  const chavePerfil = `${profile?.id ?? ''}:${profile?.unidade_id ?? ''}:${isAdmin}`;
+  const chavePerfil = `${user?.id ?? ''}:${profile?.id ?? ''}:${profile?.unidade_id ?? ''}:${isAdmin}`;
   useEffect(() => {
     if (authLoading) return;
     let cancelado = false;
@@ -57,9 +59,8 @@ export const WorkProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let erro: string | null = null;
       try {
         if (!isSupabaseConfigured) lista = [UNIDADE_DEMO];
-        else if (profile) {
-          if (!profile.unidade_id) throw new Error('Seu perfil não está vinculado a nenhuma unidade. Peça a um admin para vincular.');
-          const result = await supabase.from('unidades').select('id, nome, slug').order('nome');
+        else {
+          const result = await supabase.from('unidades').select('id, nome, slug, publica').order('nome');
           if (result.error) throw result.error;
           lista = result.data || [];
         }
@@ -72,7 +73,10 @@ export const WorkProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const partes = location.pathname.replace(/^\/+|\/+$/g, '').split('/');
   const antiga = partes.length === 1 && TELAS.includes(partes[0]);
   const tela = antiga ? partes[0] : partes.slice(2).join('/');
-  const padrao = unidadesDisponiveis.find(u => u.id === (isSupabaseConfigured ? profile?.unidade_id : DEMO_UNIDADE_ID));
+  const padrao = unidadesDisponiveis.find(u => u.id === (isSupabaseConfigured ? profile?.unidade_id : DEMO_UNIDADE_ID))
+    ?? unidadesDisponiveis.find(u => u.slug === 'demonstracao' && u.publica)
+    ?? unidadesDisponiveis.find(u => u.publica)
+    ?? (isAdmin ? unidadesDisponiveis[0] : undefined);
   const unidade = antiga ? padrao : unidadesDisponiveis.find(u => u.slug === partes[0]);
   const unidadeConsulta = unidade ?? padrao;
   const chaveLista = `${chavePerfil}:${unidadeConsulta?.id ?? ''}:${revisao}`;
@@ -101,7 +105,7 @@ export const WorkProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isLoading = authLoading || unidades?.chave !== chavePerfil || (!!unidadeConsulta && !dados);
   const contextoInvalido = !antiga && !isLoading && (!unidade || !semanaValida(semanaInicio) || !TELAS.includes(tela));
   const erro = unidades?.erro || dados?.erro || (contextoInvalido
-    ? !unidade ? 'Hospital inexistente ou sem acesso para este usuário.'
+    ? !unidade ? (!user && isSupabaseConfigured ? 'Esta unidade é privada — entre para acessar' : 'Hospital inexistente ou sem acesso para este usuário.')
       : !semanaValida(semanaInicio) ? 'Semana inválida: informe uma segunda-feira no formato YYYY-MM-DD.' : 'Tela inexistente.'
     : null);
   useEffect(() => {
@@ -110,7 +114,9 @@ export const WorkProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const caminhoTela = (destino: string) => unidade && !contextoInvalido ? caminho(unidade.slug, semanaInicio, destino.replace(/^\//, '')) : destino || '/';
   return <WorkContext.Provider value={{
     unidadeId: contextoInvalido ? null : unidade?.id ?? null,
-    unidadesDisponiveis, podeEscolherUnidade: isAdmin, semanaInicio,
+    visitante: isSupabaseConfigured && !user,
+    podeGravar: !contextoInvalido && !isLoading && !!unidade && (isAdmin || (isCoordenador && profile?.unidade_id === unidade.id)),
+    unidadesDisponiveis, podeEscolherUnidade: isAdmin || unidadesDisponiveis.length > 1, semanaInicio,
     setUnidadeId: id => { const u = unidadesDisponiveis.find(u => u.id === id); if (u) navigate(caminho(u.slug, semanaInicio, tela)); },
     setSemanaInicio: iso => { if (unidade) navigate(caminho(unidade.slug, iso, tela)); },
     isLoading, erro, contextoInvalido, caminhoPadrao, caminhoTela, tela,

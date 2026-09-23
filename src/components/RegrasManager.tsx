@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { useWorkContext } from '../context/WorkContext';
 import { getRegras, updateRegra } from '../lib/db';
 import { AlertTriangle, ShieldCheck, Info } from 'lucide-react';
@@ -17,9 +16,8 @@ interface Regra {
 }
 
 export const RegrasManager: React.FC = () => {
-  const { isAdmin, isCoordenador } = useAuth();
-  const { unidadeId, isLoading: unidadeCarregando } = useWorkContext();
-  const canEdit = isAdmin || isCoordenador;
+  const { podeGravar, unidadeId, isLoading: unidadeCarregando } = useWorkContext();
+  const canEdit = podeGravar;
 
   const [regras, setRegras] = useState<Regra[]>([]);
   const [loading, setLoading] = useState(true);
