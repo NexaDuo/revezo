@@ -90,12 +90,12 @@ const SitiosContent: React.FC = () => {
 
   const renderEditCells = () => (
     <>
-      <label className="block">Ordem<input aria-label="Ordem" type="number" value={editForm.ordem ?? ''} onChange={e => setEditForm({...editForm, ordem: e.target.value})} /></label>
-      <label className="block">Nome<input aria-label="Nome" type="text" value={editForm.nome ?? ''} onChange={e => setEditForm({...editForm, nome: e.target.value})} /></label>
-      <label className="block">Nome à tarde<input aria-label="Nome à tarde" type="text" value={editForm.nome_tarde ?? ''} onChange={e => setEditForm({...editForm, nome_tarde: e.target.value})} /></label>
-      <label className="block">Categoria permitida<select aria-label="Categoria permitida" value={editForm.categoria_permitida} onChange={e => setEditForm({...editForm, categoria_permitida: e.target.value})}><option value="enf">Enf</option><option value="tec">Téc</option><option value="ambos">Ambos</option></select></label>
-      <label className="block">Opcional<input aria-label="Opcional" type="checkbox" checked={!!editForm.opcional} onChange={e => setEditForm({...editForm, opcional: e.target.checked})} /></label>
-      <label className="block">Prioridade de dupla<input aria-label="Prioridade de dupla" type="number" value={editForm.prioridade_dupla ?? ''} onChange={e => setEditForm({...editForm, prioridade_dupla: e.target.value})} /></label>
+      <label>Ordem<input aria-label="Ordem" type="number" value={editForm.ordem ?? ''} onChange={e => setEditForm({...editForm, ordem: e.target.value})} /></label>
+      <label>Nome<input aria-label="Nome" type="text" value={editForm.nome ?? ''} onChange={e => setEditForm({...editForm, nome: e.target.value})} /></label>
+      <label>Nome à tarde<input aria-label="Nome à tarde" type="text" value={editForm.nome_tarde ?? ''} onChange={e => setEditForm({...editForm, nome_tarde: e.target.value})} /></label>
+      <label>Categoria permitida<select aria-label="Categoria permitida" value={editForm.categoria_permitida} onChange={e => setEditForm({...editForm, categoria_permitida: e.target.value})}><option value="enf">Enf</option><option value="tec">Téc</option><option value="ambos">Ambos</option></select></label>
+      <label>Opcional<input aria-label="Opcional" type="checkbox" checked={!!editForm.opcional} onChange={e => setEditForm({...editForm, opcional: e.target.checked})} /></label>
+      <label>Prioridade de dupla<input aria-label="Prioridade de dupla" type="number" value={editForm.prioridade_dupla ?? ''} onChange={e => setEditForm({...editForm, prioridade_dupla: e.target.value})} /></label>
       <div className="flex flex-wrap justify-end gap-2 pt-2">
         {editingId !== 'new' && <button data-perigo type="button" onClick={() => handleDelete(editingId!)}>Excluir</button>}
         <button type="button" onClick={handleCancel}>Cancelar</button>

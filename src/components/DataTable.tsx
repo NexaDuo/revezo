@@ -130,8 +130,8 @@ function TableContent<T>({
             <span>Novo</span>
           </button>
         )}
-        {descricao && <p className="basis-full max-w-prose text-sm text-slate-600">{descricao}</p>}
       </div>
+      {descricao && <p className="-mt-2 max-w-prose text-sm text-slate-600">{descricao}</p>}
 
       {buscaPesquisavel && (
         <div className="relative max-w-full sm:w-72">

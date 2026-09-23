@@ -52,24 +52,26 @@
 }
 
 /* Formulários dentro de modais (edição de registro, Configurações): estilo
-   base com especificidade zero, para que qualquer classe explícita vença. */
+   base com a especificidade de um atributo — o bastante para vencer o reset
+   do Tailwind (`[type='submit']`), e só para elementos sem classe: quem
+   tem classe própria (Configurações, login) não herda nada daqui. */
 @layer components {
-  :where([role="dialog"]) :where(label) {
+  [role="dialog"] :where(label:not([class])) {
     @apply block text-sm font-medium text-slate-700;
   }
-  :where([role="dialog"]) :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  [role="dialog"] :where(input:not([type="checkbox"]):not([type="radio"]):not([class]), select:not([class]), textarea:not([class])) {
     @apply mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-caneta-500 focus:border-caneta-500 disabled:bg-slate-100;
   }
-  :where([role="dialog"]) :where(input[type="checkbox"]) {
-    @apply ml-2 h-4 w-4 rounded border-slate-300 align-middle text-caneta-600 focus:ring-caneta-500;
+  [role="dialog"] :where(input[type="checkbox"]:not([class])) {
+    @apply ml-2 h-4 w-4 rounded border-slate-300 align-middle accent-caneta-600 focus:ring-caneta-500;
   }
-  :where([role="dialog"]) :where(button:not([class])) {
+  [role="dialog"] :where(button:not([class])) {
     @apply rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50;
   }
-  :where([role="dialog"]) :where(button[type="submit"]:not([class])) {
+  [role="dialog"] :where(button[type="submit"]:not([class])) {
     @apply border-caneta-600 bg-caneta-600 text-white hover:bg-caneta-700 hover:border-caneta-700;
   }
-  :where([role="dialog"]) :where(button[data-perigo]:not([class])) {
+  [role="dialog"] :where(button[data-perigo]:not([class])) {
     @apply border-red-300 text-red-700 hover:bg-red-50;
   }
 }
