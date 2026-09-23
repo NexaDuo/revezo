@@ -8,9 +8,9 @@ registro do que falta. Item feito sai daqui no mesmo PR que o resolve.
   `docs/referencia/`, `src/lib/solver/defaultConfig.ts` e os mocks com nome de
   pessoa real.
 
-- **Semana aberta pelo Histórico não revalida ao arrastar.** Ela entra com a
-  grade e as violações salvas, mas sem `Config`: editar a célula não recalcula a
-  conferência até gerar de novo.
+- **Grade salva ainda guarda sítio por nome.** O JSON de `escalas_semanais.grade`
+  é indexado pelo nome do sítio; renomear um sítio deixa as versões antigas
+  apontando para o nome velho (a migração de sítio por id não cobre a grade).
 
 ## Segurança (@sec, baixa)
 - Revogar `execute` de `public` em `is_admin()`, `is_coordenador()` e

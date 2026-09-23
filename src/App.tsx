@@ -1,7 +1,7 @@
 import { DataTable } from './components/DataTable';
 import { listarPagina, paginarMemoria } from './lib/paginacao';
 import React, { useState } from 'react';
-import { Link, Routes, Route, useNavigate } from 'react-router-dom';
+import { Link, Routes, Route, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { useWorkContext } from './context/WorkContext';
 import { RoleBadge } from './components/auth/RoleBadge';
@@ -24,6 +24,7 @@ import { formatarSemana } from './lib/datas';
 
 import { fetchEquipe } from './lib/fetchData';
 import { generateSchedule, defaultConfig, Escala, Violacao, validar } from './lib/solver';
+import type { Config } from './lib/solver/types';
 import { ScheduleGrid } from './components/ScheduleGrid';
 import { ExcelImportModal } from './components/ExcelImportModal';
 import { EquipeManager } from './components/EquipeManager';
@@ -32,9 +33,21 @@ import { RegrasManager } from './components/RegrasManager';
 import { RestricoesManager } from './components/RestricoesManager';
 import { DisponibilidadeManager } from './components/DisponibilidadeManager';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
-import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade, carregarEscala } from './lib/db';
+import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade, carregarEscala, carregarEscalaPorId, salvarEscalaNova, atualizarEscala, ativarEscala, ordenarVersoes, EscalaSalva } from './lib/db';
 import { semanaAnterior, sextaDaEscala } from './lib/sextaAnterior';
 import { carregarConfigUnidade } from './lib/loadConfig';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Mesma pontuação do validador: rígida = 100, alerta = 1. */
+const pontuar = (vs: Violacao[]) => vs.reduce((a, v) => a + (v.hard ? 100 : 1), 0);
+/** Soma dias a uma data YYYY-MM-DD, em UTC (sem escorregar no horário de verão). */
+function somarDias(iso: string, n: number) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+const dataHora = (iso?: string | null) => iso
+  ? new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 
 export const App: React.FC = () => {
   const { user, profile, role, error: authError, signOut, isSupabaseConfigured } = useAuth();
@@ -48,12 +61,20 @@ export const App: React.FC = () => {
   const [diasOverride, setDiasOverride] = useState<string[] | null>(null);
 
   const [escala, setEscala] = useState<Escala | null>(null);
-  const [currentConfig, setCurrentConfig] = useState<any>(null);
+  const [currentConfig, setCurrentConfig] = useState<Config | null>(null);
   const [violacoes, setViolacoes] = useState<Violacao[]>([]);
   const [score, setScore] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const navigate = useNavigate();
-  const semanaAbrir = React.useRef<any>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // `?escala=<id>` endereça uma versão específica; sem ele, a semana abre a ativa.
+  const escalaPedida = searchParams.get('escala');
+  // Versão salva aberta na tela. `null` com grade na tela = geração nova, ainda não salva.
+  const [versao, setVersao] = useState<EscalaSalva | null>(null);
+  const [modificada, setModificada] = useState(false);
+  const [cargaGrade, setCargaGrade] = useState<{ carregando: boolean; erro: string | null }>({ carregando: false, erro: null });
+  const [mensagemSalvar, setMensagemSalvar] = useState<{ erro: boolean; texto: string } | null>(null);
+  const [erroHistorico, setErroHistorico] = useState<string | null>(null);
   const [avisos, setAvisos] = useState<string[]>([]);
   // `semanas` vem da mais recente para a mais antiga.
   const semanaVizinha = (passo: -1 | 1) => {
@@ -61,29 +82,161 @@ export const App: React.FC = () => {
     return i < 0 ? undefined : semanas[i - passo];
   };
 
+  const contextoAtual = React.useRef('');
+  contextoAtual.current = `${unidadeId}:${semanaInicio}:${escalaPedida ?? ''}`;
+
+  /** Monta a Config da semana em contexto: unidade, disponibilidade salva e a
+   *  sexta da grade ATIVA da semana anterior. Serve para gerar e para conferir
+   *  uma grade salva. `config: null` = bloqueado; o motivo está em `avisos`.
+   *  Quem chama descarta o resultado se o contexto mudou no meio. */
+  const montarConfig = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[] | null):
+    Promise<{ config: Config | null; avisos: string[] }> => {
+    // A configuração (equipe, sítios, regras ligadas/desligadas, proibições,
+    // duplas e fixas) vem da unidade em contexto. É isto que faz o painel de
+    // Regras valer de verdade: desligar uma regra ali muda a geração aqui.
+    const base = await carregarConfigUnidade(isSupabaseConfigured, unidadeId);
+    const msgs = [...base.avisos];
+    if (isSupabaseConfigured && !base.doBanco) return { config: null, avisos: msgs };
+
+    let equipe = eq || equipeOverride || base.config.equipe;
+    let disp = dp || dispOverride;
+    let dias = ds || diasOverride;
+
+    // O roster online vem exclusivamente da equipe da unidade; perfis de
+    // acesso não são funcionários. O fallback abaixo é apenas offline.
+    if (!equipe.length) {
+      if (isSupabaseConfigured) {
+        msgs.push(
+          'Geração bloqueada: esta unidade não tem Equipe cadastrada. Cadastre a equipe da unidade ' +
+          '(aba Equipe) antes de gerar a grade.'
+        );
+        return { config: null, avisos: msgs };
+      }
+      const f = await fetchEquipe(isSupabaseConfigured);
+      equipe = f.equipe;
+      msgs.push('Modo demonstração: a equipe vem do exemplo do caso-origem, não de dados reais.');
+    }
+
+    // Sem disponibilidade em memória, usar a semana EM CONTEXTO — não mais
+    // "a última salva, seja qual for". Se a semana escolhida não tem nada
+    // salvo (ou a leitura falhar), a geração BLOQUEIA: presumir "todo mundo
+    // disponível" para rodar o solver é a alucinação de dado que o produto
+    // não pode cometer sozinho — a coordenadora precisa saneiar a semana
+    // (importar a planilha ou preencher a aba Disponibilidade) antes de ter
+    // qualquer grade na mão, não só ser avisada depois de já ter uma.
+    if (!disp) {
+      try {
+        const salva = await carregarDisponibilidade(semanaInicio, unidadeId);
+        if (salva) {
+          disp = salva.dados as Record<string, StatusDisponibilidade[]>;
+          dias = dias || salva.dias;
+          msgs.push(`Usando a disponibilidade salva da semana de ${salva.data_inicio} a ${salva.data_fim}.`);
+        }
+      } catch (e: any) {
+        msgs.push(`Não consegui ler a disponibilidade salva (${e?.message || e}).`);
+      }
+
+      if (!disp) {
+        msgs.push(
+          `Geração bloqueada: sem disponibilidade confiável para a semana de ${semanaInicio}. ` +
+          `Importe a planilha ou preencha a aba Disponibilidade antes de gerar a grade.`
+        );
+        return { config: null, avisos: msgs };
+      }
+    }
+
+    // "Sexta ≠ segunda" só vale com a escala da semana anterior em mãos — a
+    // versão ATIVA dela. Sem ela a regra não tem estado: avisar, nunca fingir
+    // que aplicou.
+    let sextaAnterior = base.config.sextaAnterior;
+    if (base.config.regras.sextaSegunda.on) {
+      const anterior = semanaAnterior(semanaInicio);
+      try {
+        const salva = await carregarEscala(anterior, unidadeId);
+        const sexta = sextaDaEscala(salva?.grade, salva?.dias);
+        if (sexta) {
+          sextaAnterior = sexta;
+          msgs.push(`Regra "sexta ≠ segunda" usando a grade ativa da semana de ${anterior}.`);
+        } else {
+          msgs.push(
+            salva
+              ? `A grade ativa da semana de ${anterior} não tem sexta-feira: a regra "sexta ≠ segunda" não foi aplicada.`
+              : `Sem escala salva da semana de ${anterior}: a regra "sexta ≠ segunda" não foi aplicada.`
+          );
+        }
+      } catch (e: any) {
+        msgs.push(`Não consegui ler a escala da semana de ${anterior} (${e?.message || e}): a regra "sexta ≠ segunda" não foi aplicada.`);
+      }
+    }
+
+    dias = dias || base.config.dias;
+    return { config: { ...base.config, equipe, disp, dias, sextaAnterior }, avisos: msgs };
+  };
+
+  // Entrar numa semana (seletor, setas, URL ou Histórico) abre a grade salva:
+  // a versão pedida em `?escala=` ou, sem ela, a ativa. Junto vem a Config da
+  // semana, para que arrastar refaça a conferência.
   React.useEffect(() => {
     setEscala(null); setCurrentConfig(null); setViolacoes([]); setScore(null);
     setEquipeOverride(null); setDispOverride(null); setDiasOverride(null); setAvisos([]);
     setIsExcelModalOpen(false); setIsGenerating(false);
-    const salva = semanaAbrir.current;
-    if (salva?.data_inicio === semanaInicio) {
+    setVersao(null); setModificada(false); setMensagemSalvar(null); setErroHistorico(null);
+    setCargaGrade({ carregando: false, erro: null });
+    if (!unidadeId || !semanaInicio) return;
+    const contexto = contextoAtual.current;
+    let cancelado = false;
+    const vivo = () => !cancelado && contexto === contextoAtual.current;
+    (async () => {
+      setCargaGrade({ carregando: true, erro: null });
+      let salva: EscalaSalva | null;
+      try {
+        if (escalaPedida && !UUID.test(escalaPedida)) throw new Error('o identificador da versão na URL é inválido');
+        salva = escalaPedida
+          ? await carregarEscalaPorId(escalaPedida, semanaInicio, unidadeId)
+          : await carregarEscala(semanaInicio, unidadeId);
+      } catch (e: any) {
+        if (vivo()) setCargaGrade({ carregando: false, erro: `Não consegui carregar a grade salva desta semana (${e?.message || e}).` });
+        return;
+      }
+      if (!vivo()) return;
+      if (!salva) {
+        setCargaGrade({ carregando: false, erro: escalaPedida ? 'A versão pedida na URL não existe nesta unidade e semana.' : null });
+        return;
+      }
       setEscala(salva.grade); setViolacoes(salva.violacoes ?? []); setScore(salva.score);
-      setDiasOverride(salva.dias); semanaAbrir.current = null;
-    }
-  }, [unidadeId, semanaInicio]);
+      setDiasOverride(salva.dias); setVersao(salva);
+      setCargaGrade({ carregando: false, erro: null });
+
+      let m: { config: Config | null; avisos: string[] };
+      try { m = await montarConfig(undefined, undefined, salva.dias); }
+      catch (e: any) { m = { config: null, avisos: [`Falha ao montar a configuração da semana: ${e?.message || e}`] }; }
+      if (!vivo()) return;
+      if (!m.config) {
+        setAvisos([...m.avisos,
+          'A grade salva foi aberta sem a configuração da semana: arrastar NÃO refaz a conferência, e as marcas mostradas são as da hora em que ela foi salva.']);
+        return;
+      }
+      const vs = validar(m.config, salva.grade);
+      const agora = pontuar(vs);
+      setCurrentConfig(m.config); setViolacoes(vs); setScore(agora);
+      setAvisos([...m.avisos, ...(agora !== salva.score
+        ? [`Conferência refeita com as regras e a disponibilidade de agora: score salvo ${salva.score}, agora ${agora}.`] : [])]);
+    })();
+    return () => { cancelado = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unidadeId, semanaInicio, escalaPedida]);
 
   const handleUpdateEscala = (novaEscala: Escala) => {
     setEscala(novaEscala);
+    setModificada(true);
+    setMensagemSalvar(null);
     if (currentConfig) {
       const novasViolacoes = validar(currentConfig, novaEscala);
       setViolacoes(novasViolacoes);
-      const novoScore = novasViolacoes.reduce((a, x) => a + (x.hard ? 100 : 1), 0);
-      setScore(novoScore);
+      setScore(pontuar(novasViolacoes));
     }
   };
 
-  const contextoAtual = React.useRef('');
-  contextoAtual.current = `${unidadeId}:${semanaInicio}`;
   const handleGerarGrade = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[]) => {
     if (!unidadeId) {
       // Sem unidade resolvida não há o que gerar — e não existe unidade
@@ -94,103 +247,75 @@ export const App: React.FC = () => {
     const contextoGeracao = contextoAtual.current;
     setIsGenerating(true);
     try {
-      // A configuração (equipe, sítios, regras ligadas/desligadas, proibições,
-      // duplas e fixas) vem da unidade em contexto. É isto que faz o painel de
-      // Regras valer de verdade: desligar uma regra ali muda a geração aqui.
-      const base = await carregarConfigUnidade(isSupabaseConfigured, unidadeId);
+      const { config, avisos: msgs } = await montarConfig(eq, dp, ds);
       if (contextoGeracao !== contextoAtual.current) return;
-      const msgs = [...base.avisos];
-      if (isSupabaseConfigured && !base.doBanco) { setAvisos(msgs); return; }
-
-      let equipe = eq || equipeOverride || base.config.equipe;
-      let disp = dp || dispOverride;
-      let dias = ds || diasOverride;
-
-      // O roster online vem exclusivamente da equipe da unidade; perfis de
-      // acesso não são funcionários. O fallback abaixo é apenas offline.
-      if (!equipe.length) {
-        if (isSupabaseConfigured) {
-          msgs.push(
-            'Geração bloqueada: esta unidade não tem Equipe cadastrada. Cadastre a equipe da unidade ' +
-            '(aba Equipe) antes de gerar a grade.'
-          );
-          setAvisos(msgs);
-          return;
-        }
-        const f = await fetchEquipe(isSupabaseConfigured);
-        if (contextoGeracao !== contextoAtual.current) return;
-        equipe = f.equipe;
-        msgs.push('Modo demonstração: a equipe vem do exemplo do caso-origem, não de dados reais.');
-      }
-
-      // Sem disponibilidade em memória, usar a semana EM CONTEXTO — não mais
-      // "a última salva, seja qual for". Se a semana escolhida não tem nada
-      // salvo (ou a leitura falhar), a geração BLOQUEIA: presumir "todo mundo
-      // disponível" para rodar o solver é a alucinação de dado que o produto
-      // não pode cometer sozinho — a coordenadora precisa saneiar a semana
-      // (importar a planilha ou preencher a aba Disponibilidade) antes de ter
-      // qualquer grade na mão, não só ser avisada depois de já ter uma.
-      if (!disp) {
-        try {
-          const salva = await carregarDisponibilidade(semanaInicio, unidadeId);
-          if (contextoGeracao !== contextoAtual.current) return;
-          if (salva) {
-            disp = salva.dados as Record<string, StatusDisponibilidade[]>;
-            dias = dias || salva.dias;
-            msgs.push(`Usando a disponibilidade salva da semana de ${salva.data_inicio} a ${salva.data_fim}.`);
-          }
-        } catch (e: any) {
-          msgs.push(`Não consegui ler a disponibilidade salva (${e?.message || e}).`);
-        }
-
-        if (!disp) {
-          msgs.push(
-            `Geração bloqueada: sem disponibilidade confiável para a semana de ${semanaInicio}. ` +
-            `Importe a planilha ou preencha a aba Disponibilidade antes de gerar a grade.`
-          );
-          setAvisos(msgs);
-          return;
-        }
-      }
-
-      // "Sexta ≠ segunda" só vale com a escala da semana anterior em mãos.
-      // Sem ela a regra não tem estado: avisar, nunca fingir que aplicou.
-      let sextaAnterior = base.config.sextaAnterior;
-      if (base.config.regras.sextaSegunda.on) {
-        const anterior = semanaAnterior(semanaInicio);
-        try {
-          const salva = await carregarEscala(anterior, unidadeId);
-          if (contextoGeracao !== contextoAtual.current) return;
-          const sexta = sextaDaEscala(salva?.grade, salva?.dias);
-          if (sexta) {
-            sextaAnterior = sexta;
-            msgs.push(`Regra "sexta ≠ segunda" usando a escala salva da semana de ${anterior}.`);
-          } else {
-            msgs.push(
-              salva
-                ? `A escala salva da semana de ${anterior} não tem sexta-feira: a regra "sexta ≠ segunda" não foi aplicada.`
-                : `Sem escala salva da semana de ${anterior}: a regra "sexta ≠ segunda" não foi aplicada.`
-            );
-          }
-        } catch (e: any) {
-          msgs.push(`Não consegui ler a escala da semana de ${anterior} (${e?.message || e}): a regra "sexta ≠ segunda" não foi aplicada.`);
-        }
-      }
-
-      dias = dias || base.config.dias;
-      const config = { ...base.config, equipe, disp, dias, sextaAnterior };
       setAvisos(msgs);
+      if (!config) return;
       const result = generateSchedule(config);
       setEscala(result.escala);
       setViolacoes(result.violacoes);
       setScore(result.score);
       setCurrentConfig(config);
+      // Grade gerada é sempre versão nova: salvar cria outra linha.
+      setVersao(null); setModificada(true); setMensagemSalvar(null); setCargaGrade({ carregando: false, erro: null });
     } catch (e) {
       console.error(e);
       if (contextoGeracao !== contextoAtual.current) return;
       setAvisos([`Falha ao gerar a grade: ${(e as any)?.message || e}`]);
     } finally {
       if (contextoGeracao === contextoAtual.current) setIsGenerating(false);
+    }
+  };
+
+  /** Grade nova → versão nova (vira a ativa). Grade aberta → atualiza a
+   *  própria linha pelo id, sem trocar a ativa. */
+  const handleSalvar = async () => {
+    if (!escala) return;
+    const contexto = contextoAtual.current;
+    const dias = currentConfig?.dias || diasOverride || defaultConfig.dias;
+    const resultado = { escala, violacoes, score: pontuar(violacoes) };
+    const rigidas = violacoes.filter(v => v.hard).length;
+    const situacao = rigidas ? ` Rascunho: ainda tem ${rigidas} violação(ões) rígida(s).` : ' Marcada como validada.';
+    setMensagemSalvar(null);
+    try {
+      let salva: EscalaSalva;
+      if (versao) {
+        salva = await atualizarEscala(versao.id, unidadeId, { resultado, dias });
+      } else {
+        const fim = somarDias(semanaInicio, 4);
+        salva = await salvarEscalaNova(unidadeId, {
+          titulo: `Escala de ${semanaInicio} a ${fim}`, data_inicio: semanaInicio, data_fim: fim, dias, resultado,
+        });
+      }
+      revalidarSemanas();
+      if (contexto !== contextoAtual.current) return;
+      setVersao(salva); setModificada(false);
+      setMensagemSalvar({ erro: false, texto: (versao
+        ? `Alterações salvas nesta versão${salva.ativa ? ' (a ativa da semana)' : ' — a versão ativa da semana não mudou'}.`
+        : 'Nova versão salva: agora é a ativa desta semana.') + situacao });
+      // A URL apontava para outra versão; a nova é a ativa, que a semana abre sem parâmetro.
+      if (!versao && escalaPedida) setSearchParams({}, { replace: true });
+    } catch (e: any) {
+      console.error(e);
+      if (contexto !== contextoAtual.current) return;
+      setMensagemSalvar({ erro: true, texto: `A grade NÃO foi salva: ${e?.message || e}` });
+    }
+  };
+
+  const handleAtivar = async (alvo: EscalaSalva) => {
+    setErroHistorico(null);
+    try {
+      const ativa = await ativarEscala(alvo.id, unidadeId);
+      revalidarSemanas();
+      // A versão aberta na grade pode ter acabado de ganhar ou perder o posto.
+      setVersao(v => !v || v.data_inicio !== ativa.data_inicio ? v
+        : v.id === ativa.id ? { ...v, ativa: true, substituida_em: null }
+        : v.ativa ? { ...v, ativa: false, substituida_em: new Date().toISOString() } : v);
+      if (versao?.id === ativa.id) setMensagemSalvar({ erro: false, texto: 'Esta versão agora é a ativa da semana.' });
+    } catch (e: any) {
+      const msg = `Não consegui tornar a versão ativa: ${e?.message || e}`;
+      setErroHistorico(msg);
+      if (versao?.id === alvo.id) setMensagemSalvar({ erro: true, texto: msg });
     }
   };
 
@@ -261,9 +386,38 @@ export const App: React.FC = () => {
                 </div>
               )}
 
+              {cargaGrade.erro && (
+                <p role="alert" data-print-hide className="rounded-md border-l-4 border-marca-rigida bg-white px-3 py-2 text-sm font-bold text-red-900 print:hidden">
+                  {cargaGrade.erro}
+                </p>
+              )}
+
+              {escala && (
+                <div data-testid="versao-grade" data-versao-id={versao?.id} data-print-hide className={`flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border-l-4 bg-white px-3 py-2 text-sm print:hidden ${!versao ? 'border-slate-400' : versao.ativa ? 'border-caneta-600' : 'border-marca'}`}>
+                  {!versao ? (
+                    <span><b>Grade nova, ainda não salva.</b> Salvar cria uma nova versão e a torna a ativa desta semana.</span>
+                  ) : versao.ativa ? (
+                    <span><b>Versão ativa</b> · salva em {dataHora(versao.created_at)}{versao.updated_at && versao.updated_at !== versao.created_at && <> · atualizada em {dataHora(versao.updated_at)}</>}</span>
+                  ) : (
+                    <>
+                      <span><b>Versão substituída em {dataHora(versao.substituida_em)}</b>: editar e salvar muda só esta versão, não a ativa.</span>
+                      {podeGravar && <button type="button" onClick={() => handleAtivar(versao)} className="font-bold text-caneta-700 underline">Tornar ativa</button>}
+                      <button type="button" onClick={() => setSearchParams({})} className="font-bold text-caneta-700 underline">Abrir a versão ativa</button>
+                    </>
+                  )}
+                  {modificada && versao && <span className="font-bold text-amber-800">Alterações não salvas.</span>}
+                </div>
+              )}
+
+              {mensagemSalvar && (
+                <p role={mensagemSalvar.erro ? 'alert' : 'status'} data-print-hide className={`rounded-md border-l-4 bg-white px-3 py-2 text-sm print:hidden ${mensagemSalvar.erro ? 'border-marca-rigida font-bold text-red-900' : 'border-caneta-600 text-slate-800'}`}>
+                  {mensagemSalvar.texto}
+                </p>
+              )}
+
               {!escala ? (
                 <div data-print-hide className="print:hidden rounded-lg border border-dashed border-slate-300 px-6 py-12 text-center">
-                  <p className="text-lg font-bold text-slate-900">Nenhuma grade gerada</p>
+                  <p className="text-lg font-bold text-slate-900">{cargaGrade.carregando ? 'Carregando a grade salva...' : 'Nenhuma grade gerada'}</p>
                   <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
                     Clique em "Gerar Grade" para visualizar a escala gerada pelo solver.
                   </p>
@@ -275,7 +429,8 @@ export const App: React.FC = () => {
                     <span><span className="marca-rigida px-1 text-slate-900">Regra rígida</span> bloqueia</span>
                     <span><span className="marca-alerta px-1 text-slate-900">Alerta</span> só avisa</span>
                   </p>
-                  <ScheduleGrid escala={escala} violacoes={violacoes} dias={currentConfig?.dias || diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala} />
+                  <ScheduleGrid escala={escala} violacoes={violacoes} dias={currentConfig?.dias || diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala}
+                    onSalvar={handleSalvar} textoSalvar={versao ? 'Salvar nesta versão' : 'Salvar e Publicar'} />
                 </>
               )}
             </div>
@@ -286,17 +441,29 @@ export const App: React.FC = () => {
           <Route path="sitios" element={<SitiosManager />} />
           <Route path="disponibilidade" element={<DisponibilidadeManager />} />
           <Route path="historico" element={
-            <div>
-              <DataTable<any> titulo="Histórico" descricao={'Semanas salvas desta unidade. A escala da semana anterior é usada na regra "sexta ≠ segunda".'} queryKey={['escalas_semanais', unidadeId]} enabled={!unidadeCarregando}
-                fetchPage={async f => isSupabaseConfigured ? listarPagina('escalas_semanais', unidadeId, {...f, ordem:'data_inicio', crescente:false}) : paginarMemoria(await loadSchedules(unidadeId), f)}
-                getRowId={s => s.id} columns={[{key:'titulo',header:'Título',searchable:true},{key:'data_inicio',header:'Início'},{key:'data_fim',header:'Fim'}]}
+            <div className="space-y-3">
+              {erroHistorico && <p role="alert" className="rounded-md border-l-4 border-marca-rigida bg-white px-3 py-2 text-sm font-bold text-red-900">{erroHistorico}</p>}
+              <DataTable<EscalaSalva> titulo="Histórico" descricao={'Todas as versões salvas desta unidade. Cada semana tem uma versão ativa: é ela que abre na grade e que a regra "sexta ≠ segunda" usa na semana seguinte.'} queryKey={['escalas_semanais', unidadeId]} enabled={!unidadeCarregando}
+                fetchPage={async f => isSupabaseConfigured
+                  ? listarPagina<EscalaSalva>('escalas_semanais', unidadeId, { ...f, ordem: 'data_inicio', crescente: false,
+                      desempate: [{ coluna: 'ativa', crescente: false }, { coluna: 'created_at', crescente: false }] })
+                  : paginarMemoria((await loadSchedules(unidadeId)).sort(ordenarVersoes), f)}
+                getRowId={s => s.id} textoAbrir="Abrir versão"
+                columns={[
+                  { key: 'titulo', header: 'Título', searchable: true },
+                  { key: 'ativa', header: 'Situação', render: s => s.ativa
+                    ? <span className="rounded-sm bg-caneta-100 px-1.5 py-0.5 text-sm font-bold text-caneta-800">Ativa</span>
+                    : <span className="text-sm text-slate-600">Substituída em {dataHora(s.substituida_em)}</span> },
+                  { key: 'created_at', header: 'Criada', render: s => dataHora(s.created_at) },
+                  { key: 'updated_at', header: 'Atualizada', render: s => dataHora(s.updated_at ?? s.created_at) },
+                  { key: 'score', header: 'Score', render: s => String(s.score ?? '—') },
+                  { key: 'acoes_versao', header: '', render: s => !s.ativa && podeGravar
+                    ? <button type="button" onClick={() => handleAtivar(s)} className="rounded-md px-2 py-1 text-sm font-bold text-caneta-700 hover:bg-caneta-50">Tornar ativa</button>
+                    : null },
+                ]}
                 onRowClick={s => {
-                  semanaAbrir.current = s;
-                  if (s.data_inicio === semanaInicio) {
-                    setEscala(s.grade); setViolacoes(s.violacoes ?? []); setScore(s.score); setDiasOverride(s.dias); setCurrentConfig(null); semanaAbrir.current = null;
-                  }
                   const unidade = unidadesDisponiveis.find(u => u.id === unidadeId);
-                  if (unidade) navigate(`/${unidade.slug}/${s.data_inicio}`);
+                  if (unidade) navigate(`/${unidade.slug}/${s.data_inicio}?escala=${s.id}`);
                 }} />
             </div>
           } />

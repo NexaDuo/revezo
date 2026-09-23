@@ -2,7 +2,11 @@ import { supabase, isSupabaseConfigured } from './supabase';
 import { exigirUnidade } from './db';
 export const TAMANHO_PAGINA = 10;
 export interface Pagina<T> { linhas: T[]; total: number }
-export interface FiltroPagina { pagina: number; busca: string; colunasBusca?: string[]; ordem?: string; crescente?: boolean }
+export interface FiltroPagina {
+  pagina: number; busca: string; colunasBusca?: string[]; ordem?: string; crescente?: boolean;
+  /** Critérios extras depois de `ordem`, antes do desempate final por id. */
+  desempate?: { coluna: string; crescente: boolean }[];
+}
 const demo = new Map<string, any[]>();
 export function dadosDemo(tabela: string, unidadeId: string | null, iniciais: any[] = []) {
   const chave = JSON.stringify([tabela, unidadeId]);
@@ -23,7 +27,9 @@ export async function listarPagina<T = any>(tabela: string, unidadeId: string | 
     const pattern = JSON.stringify(`%${termo}%`);
     query = query.or(filtro.colunasBusca.map(c => `${c}.ilike.${pattern}`).join(','));
   }
-  query = query.order(filtro.ordem ?? 'id', { ascending: filtro.crescente ?? true }).order('id');
+  query = query.order(filtro.ordem ?? 'id', { ascending: filtro.crescente ?? true });
+  for (const d of filtro.desempate ?? []) query = query.order(d.coluna, { ascending: d.crescente });
+  query = query.order('id');
   const { data, count, error } = await query.range((filtro.pagina - 1) * TAMANHO_PAGINA, filtro.pagina * TAMANHO_PAGINA - 1);
   if (error) throw error;
   if (count === null) throw new Error('O servidor não informou o total de registros.');

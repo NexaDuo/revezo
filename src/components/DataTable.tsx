@@ -81,6 +81,8 @@ interface Props<T> {
   /** Quem controla o próprio modal passa `onEdit`; os demais usam `renderForm`. */
   onEdit?: (r: T | null) => void;
   onRowClick?: (r: T) => void;
+  /** Rótulo do botão que acompanha `onRowClick`. */
+  textoAbrir?: string;
   renderForm?: (r: T | null, fechar: () => void) => React.ReactNode;
 }
 
@@ -93,7 +95,7 @@ export function DataTable<T>(props: Props<T>) {
 
 function TableContent<T>({
   queryKey, fetchPage, columns, getRowId, titulo, descricao, enabled = true,
-  podeEditar = false, podeCriar = true, onEdit, onRowClick, renderForm,
+  podeEditar = false, podeCriar = true, onEdit, onRowClick, textoAbrir = 'Abrir semana', renderForm,
 }: Props<T>) {
   const [pagina, setPagina] = useState(1);
   const [busca, setBusca] = useState('');
@@ -196,7 +198,7 @@ function TableContent<T>({
                             onClick={() => onRowClick(r)}
                             className="rounded-md px-2 py-1 text-sm font-bold text-caneta-700 hover:bg-caneta-50"
                           >
-                            Abrir semana
+                            {textoAbrir}
                           </button>
                         )}
                       </td>
