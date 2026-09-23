@@ -180,6 +180,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       setProfile(null);
       setRole('visualizador');
+      // Recarregar a página inteira: o Clarity não tem "des-identificar", e sem
+      // isso a gravação continuaria marcada com o uuid de quem saiu (computador
+      // compartilhado no hospital). Também descarta estado em memória da conta.
+      if (isSupabaseConfigured) window.location.assign(import.meta.env.BASE_URL);
     } catch (err: any) {
       console.error('Erro ao sair:', err);
     }
