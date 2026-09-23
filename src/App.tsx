@@ -1,7 +1,7 @@
 import { DataTable } from './components/DataTable';
 import { listarPagina, paginarMemoria } from './lib/paginacao';
 import React, { useState } from 'react';
-import { Link, Routes, Route, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Routes, Route, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { useWorkContext } from './context/WorkContext';
 import { RoleBadge } from './components/auth/RoleBadge';
@@ -34,10 +34,11 @@ import { RegrasManager } from './components/RegrasManager';
 import { RestricoesManager } from './components/RestricoesManager';
 import { DisponibilidadeManager } from './components/DisponibilidadeManager';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
-import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade, carregarEscala, carregarEscalaPorId, salvarEscalaNova, atualizarEscala, ativarEscala, ordenarVersoes, EscalaSalva, getEquipes, getSitios } from './lib/db';
+import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade, carregarEscala, carregarEscalaPorId, listarVersoesSemana, salvarEscalaNova, atualizarEscala, ativarEscala, ordenarVersoes, EscalaSalva, getEquipes, getSitios } from './lib/db';
 import { semanaAnterior, sextaDaEscala } from './lib/sextaAnterior';
 import { avisarOrfaos, carregarConfigUnidade, pessoaDaLinha } from './lib/loadConfig';
 import { indexarRotulos } from './lib/referenciasSitio';
+import { definirGuardaVoltar } from './lib/guardaVoltar';
 import { useQuery } from '@tanstack/react-query';
 
 // Referência estável: o importador recalcula quando a equipe muda.
@@ -85,6 +86,13 @@ export const App: React.FC = () => {
   const [mensagemSalvar, setMensagemSalvar] = useState<{ erro: boolean; texto: string } | null>(null);
   const [erroHistorico, setErroHistorico] = useState<string | null>(null);
   const [avisos, setAvisos] = useState<string[]>([]);
+  // Semana sem versão ativa (apagada ou substituída fora do app, por escrita
+  // direta): distingue "nenhuma grade gerada ainda" de "tem grade, nenhuma
+  // é a ativa". Populado só quando `carregarEscala` volta vazio.
+  const [versoesSemAtiva, setVersoesSemAtiva] = useState<EscalaSalva[]>([]);
+  // Bumped só pela ação "Tornar ativa" da tela vazia (semana sem ativa): força
+  // o efeito de carga a rodar de novo sem depender de navegação de URL.
+  const [recarregarTick, setRecarregarTick] = useState(0);
   // Equipe cadastrada: dá ao importador os nomes curtos e os postos fixos.
   const equipeBase = useQuery({
     queryKey: ['equipe', unidadeId, 'importador'],
@@ -222,6 +230,23 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('beforeunload', aviso);
   }, [modificada]);
 
+  // Voltar/avançar do navegador (ver src/lib/guardaVoltar.ts). Cancelou? A
+  // URL da tela volta com pushState, que não dispara popstate.
+  const location = useLocation();
+  const entradaAtual = React.useRef({ state: window.history.state, url: window.location.href });
+  React.useEffect(() => {
+    entradaAtual.current = { state: window.history.state, url: window.location.href };
+  }, [location]);
+  React.useEffect(() => {
+    if (!modificada) return;
+    definirGuardaVoltar(() => {
+      if (window.confirm('A grade tem alterações que não foram salvas. Descartar as alterações?')) return false;
+      window.history.pushState(entradaAtual.current.state, '', entradaAtual.current.url);
+      return true;
+    });
+    return () => definirGuardaVoltar(null);
+  }, [modificada]);
+
   // Entrar numa semana (seletor, setas, URL ou Histórico) abre a grade salva:
   // a versão pedida em `?escala=` ou, sem ela, a ativa. Junto vem a Config da
   // semana, para que arrastar refaça a conferência. Enquanto carrega, gerar,
@@ -233,6 +258,7 @@ export const App: React.FC = () => {
     setVersao(null); setModificada(false); setEditadaManualmente(false); setErroHistorico(null);
     setMensagemSalvar(mensagemAposRecarga.current); mensagemAposRecarga.current = null;
     setCargaGrade({ carregando: false, erro: null });
+    setVersoesSemAtiva([]);
     if (!unidadeId || !semanaInicio) return;
     const contexto = contextoAtual.current;
     const edicao = edicaoRef.current;
@@ -253,7 +279,21 @@ export const App: React.FC = () => {
         return encerrar(`Não consegui carregar a grade salva desta semana (${e?.message || e}).`);
       }
       if (!vivo()) return encerrar();
-      if (!salva) return encerrar(escalaPedida ? 'A versão pedida na URL não existe nesta unidade e semana.' : null);
+      if (!salva) {
+        if (escalaPedida) return encerrar('A versão pedida na URL não existe nesta unidade e semana.');
+        // Sem ativa: pode ser "nunca gerou" ou "a ativa foi apagada/desmarcada
+        // por fora do app" — só o histórico da semana distingue os dois casos.
+        try {
+          const outras = await listarVersoesSemana(semanaInicio, unidadeId);
+          if (!vivo()) return encerrar();
+          setVersoesSemAtiva(outras);
+        } catch (e: any) {
+          // Não trava a tela, mas não esconde: sem o histórico não dá para
+          // saber se a semana tem versões sem ativa.
+          return encerrar(`Não consegui verificar as versões salvas desta semana (${e?.message || e}).`);
+        }
+        return encerrar();
+      }
       setEscala(ordenarGradeFotografada(salva.grade, salva.sitios)); setViolacoes(salva.violacoes ?? []); setScore(salva.score);
       setDiasOverride(salva.dias); setVersao(salva);
 
@@ -283,7 +323,7 @@ export const App: React.FC = () => {
     })();
     return () => { cancelado = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unidadeId, semanaInicio, escalaPedida]);
+  }, [unidadeId, semanaInicio, escalaPedida, recarregarTick]);
 
   const handleUpdateEscala = (novaEscala: Escala) => {
     edicaoRef.current++;
@@ -408,6 +448,20 @@ export const App: React.FC = () => {
     }
   };
 
+  /** "Tornar ativa" a partir da tela vazia (semana sem nenhuma versão ativa):
+   *  não há `versao` nem `escala` na tela para atualizar localmente, então
+   *  recarrega o efeito de carga inteiro em vez de mexer em estado espalhado. */
+  const handleAtivarSemGrade = async (alvo: EscalaSalva) => {
+    setErroHistorico(null);
+    try {
+      await ativarEscala(alvo.id, unidadeId);
+      revalidarSemanas();
+      setRecarregarTick(t => t + 1);
+    } catch (e: any) {
+      setErroHistorico(`Não consegui tornar a versão ativa: ${e?.message || e}`);
+    }
+  };
+
   // Enquanto a grade salva carrega, ou se ela não pôde ser conferida, a grade
   // na tela é só leitura: editar sem conferência seria pintar às cegas.
   const bloqueioEdicao = salvando ? 'Salvando a grade…' : cargaGrade.carregando ? 'Carregando a grade salva…'
@@ -513,10 +567,39 @@ export const App: React.FC = () => {
 
               {!escala ? (
                 <div data-print-hide className="print:hidden rounded-lg border border-dashed border-slate-300 px-6 py-12 text-center">
-                  <p className="text-lg font-bold text-slate-900">{cargaGrade.carregando ? 'Carregando a grade salva...' : 'Nenhuma grade gerada'}</p>
-                  <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
-                    Clique em "Gerar Grade" para visualizar a escala gerada pelo solver.
-                  </p>
+                  {!cargaGrade.carregando && versoesSemAtiva.length > 0 ? (
+                    <div data-testid="semana-sem-ativa">
+                      <p className="text-lg font-bold text-slate-900">
+                        {versoesSemAtiva.length === 1 ? '1 versão salva' : `${versoesSemAtiva.length} versões salvas`}, nenhuma ativa
+                      </p>
+                      <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
+                        A versão ativa desta semana foi apagada ou substituída fora do app. Veja o histórico
+                        ou torne uma delas ativa de novo.
+                      </p>
+                      <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                        <Link to="historico" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:bg-slate-100">
+                          Ver histórico
+                        </Link>
+                        {podeGravar && (
+                          <button
+                            type="button"
+                            onClick={() => handleAtivarSemGrade(versoesSemAtiva[0])}
+                            className="rounded-md bg-caneta-600 px-3 py-2 text-sm font-bold text-white hover:bg-caneta-700"
+                          >
+                            Tornar ativa a versão mais recente
+                          </button>
+                        )}
+                      </div>
+                      {erroHistorico && <p role="alert" className="mt-3 text-sm font-bold text-red-900">{erroHistorico}</p>}
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-lg font-bold text-slate-900">{cargaGrade.carregando ? 'Carregando a grade salva...' : 'Nenhuma grade gerada'}</p>
+                      <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
+                        Clique em "Gerar Grade" para visualizar a escala gerada pelo solver.
+                      </p>
+                    </>
+                  )}
                 </div>
               ) : (
                 <>

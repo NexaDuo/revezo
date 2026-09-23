@@ -28,8 +28,8 @@ export function validar(config: Config, escala: Escala): Violacao[] {
           if (config.regras.categoria.on && !cabeNoSitio(config, pessoaMap, n, s.n, turno))
             add(true, "categoria", turno, s.n, d, `${n} é ${pessoaMap[n]?.c === "enf" ? "enfermeiro" : "técnico"} e este sítio é de ${s.quem === "enf" ? "enfermeiros" : "técnicos"}`);
           
-          if (config.regras.mariaVacina.on && sitioProibido(config, n, s.n))
-            add(true, "mariaVacina", turno, s.n, d, `${n} não pode ficar em ${canon(s.n)}`);
+          if (config.regras.proibicoesSitio.on && sitioProibido(config, n, s.n))
+            add(true, "proibicoesSitio", turno, s.n, d, `${n} não pode ficar em ${canon(s.n)}`);
           
           if (config.regras.plantaoMesmo.on && ehPlantao(config.disp, n, d) && turno === "tarde") {
             if (ondeEsteve(escala, config, n, d, "manha").map(canon).includes(canon(s.n)))

@@ -54,7 +54,7 @@ export const REGRAS_DEFAULT: Regras = {
   disponibilidade: { on: true, hard: true, txt: "Não escalar quem está de F / FC / FE / AT no dia" },
   turnoBase: { on: true, hard: true, txt: "Cada um só no seu turno-base (exceto plantão P)." },
   categoria: { on: true, hard: true, txt: "Sala 1/5, Supervisão e Ensino só enfermeiro; Procedimento→Curativo só técnico" },
-  mariaVacina: { on: true, hard: true, txt: "Respeitar as proibições de pessoa por sítio" },
+  proibicoesSitio: { on: true, hard: true, txt: "Respeitar as proibições de pessoa por sítio" },
   plantaoMesmo: { on: true, hard: true, txt: "Quem está de plantão não fica no mesmo sítio de manhã e de tarde" },
   diasSeguidos: { on: true, hard: true, txt: "Não repetir o mesmo sítio em dias seguidos (vale para Ações)" },
   sextaSegunda: { on: true, hard: true, txt: "Não repetir o sítio da sexta anterior na segunda" },
