@@ -21,27 +21,27 @@ where u.slug = 'caso-origem';
 insert into public.equipe (unidade_id, nome, nome_curto, categoria, turno_base, fixo_sitio, isento_acoes, custo_extra, ordem)
 select u.id, v.nome, v.curto, v.cat, v.turno, v.fixo, v.isento, v.custo, v.ordem
 from public.unidades u, (values
-  ('May',                             'May',         'enf', 'manha', null::text, false, 0, 1),
-  ('Shana',                           'Shana',       'enf', 'manha', null,       false, 0, 2),
-  ('Ana Cláudia',                     'Ana Claudia', 'enf', 'manha', null,       false, 0, 3),
-  ('Sandra',                          'Sandra',      'enf', 'manha', null,       false, 0, 4),
-  ('Michele Ferreira',                'Michele',     'enf', 'tarde', null,       false, 0, 5),
-  ('Fernanda',                        'Fernanda',    'enf', 'tarde', null,       false, 0, 6),
-  ('Carolina K',                      'Carolina K',  'enf', 'tarde', null,       false, 0, 7),
-  ('Carolina Feijó Voigt',            'Carol V',     'enf', 'noite', null,       false, 0, 8),
-  ('Letícia',                         'Leticia',     'enf', 'ambos', 'Ensino',   true,  0, 9),
-  ('Allan',                           'Allan',       'enf', 'ambos', null,       true,  3, 10),
-  ('Vanessa',                         'Vanessa',     'tec', 'manha', null,       false, 0, 11),
-  ('Maria',                           'Maria',       'tec', 'manha', null,       false, 0, 12),
-  ('Andressa',                        'Andressa',    'tec', 'manha', null,       false, 0, 13),
-  ('Daniele de Souza Prado Dorneles', 'Dani P',      'tec', 'manha', null,       false, 0, 14),
-  ('Luciana',                         'Luciana',     'tec', 'manha', null,       false, 0, 15),
-  ('Fabiano',                         'Fabiano',     'tec', 'tarde', null,       false, 0, 16),
-  ('Daniele Volkmer Jacobsen',        'Dani J',      'tec', 'tarde', null,       false, 0, 17),
-  ('Nicole',                          'Nicole',      'tec', 'tarde', null,       false, 0, 18),
-  ('Paula',                           'Paula',       'tec', 'tarde', null,       false, 0, 19),
-  ('Regina',                          'Regina',      'tec', 'noite', null,       false, 0, 20),
-  ('Jomalba',                         'Jomalba',     'tec', 'noite', null,       false, 0, 21)
+  ('Lia',                             'Lia',         'enf', 'manha', null::text, false, 0, 1),
+  ('Tainá',                           'Tainá',       'enf', 'manha', null,       false, 0, 2),
+  ('Ana Lúcia',                     'Ana Lucia', 'enf', 'manha', null,       false, 0, 3),
+  ('Sônia',                          'Sônia',      'enf', 'manha', null,       false, 0, 4),
+  ('Mirela Fontes',                'Mirela',     'enf', 'tarde', null,       false, 0, 5),
+  ('Flávia',                        'Flávia',    'enf', 'tarde', null,       false, 0, 6),
+  ('Clara K',                      'Clara K',  'enf', 'tarde', null,       false, 0, 7),
+  ('Clara Fonseca Valente',            'Clara V',     'enf', 'noite', null,       false, 0, 8),
+  ('Lívia',                         'Livia',     'enf', 'ambos', 'Ensino',   true,  0, 9),
+  ('Artur',                           'Artur',       'enf', 'ambos', null,       true,  3, 10),
+  ('Valéria',                         'Valéria',     'tec', 'manha', null,       false, 0, 11),
+  ('Marta',                           'Marta',       'tec', 'manha', null,       false, 0, 12),
+  ('Adriana',                        'Adriana',    'tec', 'manha', null,       false, 0, 13),
+  ('Beatriz Paiva Nunes', 'Bia P',      'tec', 'manha', null,       false, 0, 14),
+  ('Luana',                         'Luana',     'tec', 'manha', null,       false, 0, 15),
+  ('Fábio',                         'Fábio',     'tec', 'tarde', null,       false, 0, 16),
+  ('Beatriz Juliano Vidal',        'Bia J',      'tec', 'tarde', null,       false, 0, 17),
+  ('Noemi',                          'Noemi',      'tec', 'tarde', null,       false, 0, 18),
+  ('Pâmela',                           'Pâmela',       'tec', 'tarde', null,       false, 0, 19),
+  ('Rita',                          'Rita',      'tec', 'noite', null,       false, 0, 20),
+  ('Joana',                         'Joana',     'tec', 'noite', null,       false, 0, 21)
 ) as v(nome, curto, cat, turno, fixo, isento, custo, ordem)
 where u.slug = 'caso-origem';
 
@@ -65,11 +65,11 @@ from public.unidades u, (values
 where u.slug = 'caso-origem';
 
 insert into public.proibicoes (unidade_id, pessoa_curto, sitio_nome, motivo)
-select u.id, 'Maria', 'Vacina', 'Restrição da unidade'
+select u.id, 'Marta', 'Vacina', 'Restrição da unidade'
 from public.unidades u where u.slug = 'caso-origem';
 
 insert into public.duplas_proibidas (unidade_id, pessoa_a, pessoa_b, motivo)
-select u.id, 'Vanessa', 'Dani P', 'Restrição da unidade'
+select u.id, 'Valéria', 'Bia P', 'Restrição da unidade'
 from public.unidades u where u.slug = 'caso-origem';
 
 -- dia: 0 = segunda .. 4 = sexta. Todas as fixas abaixo são no sítio de Ações.
@@ -78,20 +78,20 @@ select u.id, v.pessoa, v.dia, v.turno,
        'Ações de vigilância/VD/PSE/Ensino/cursos/grupos',
        v.tipo, v.descricao, v.dep
 from public.unidades u, (values
-  ('Dani P',  1, 'manha', 'fixa_sitio', 'Ações terça manhã',           false),
-  ('Dani P',  3, 'tarde', 'fixa_sitio', 'Ações quinta tarde',          false),
-  ('Luciana', 3, 'manha', 'fixa_sitio', 'Grupo de caminhada',          false),
-  ('Regina',  0, 'tarde', 'fixa_sitio', 'Grupo de caminhada',          false),
-  ('Regina',  2, 'tarde', 'fixa_sitio', 'Grupo de caminhada',          false),
-  ('Sandra',  4, 'manha', 'fixa_sitio', 'Tabagismo',                   false),
-  ('Sandra',  3, 'tarde', 'fixa_sitio', 'Viva Leve',                   false),
-  ('Vanessa', 2, 'tarde', 'fixa_sitio', 'Ações quarta tarde',          false),
-  ('Fabiano', 2, 'manha', 'fixa_sitio', 'Ações quarta manhã',          false),
-  ('Paula',   1, 'tarde', 'fixa_sitio', 'Ações terça tarde',           false),
-  ('Dani J',  3, 'tarde', 'fixa_sitio', 'Ações quinta tarde',          false),
+  ('Bia P',  1, 'manha', 'fixa_sitio', 'Ações terça manhã',           false),
+  ('Bia P',  3, 'tarde', 'fixa_sitio', 'Ações quinta tarde',          false),
+  ('Luana', 3, 'manha', 'fixa_sitio', 'Grupo de caminhada',          false),
+  ('Rita',  0, 'tarde', 'fixa_sitio', 'Grupo de caminhada',          false),
+  ('Rita',  2, 'tarde', 'fixa_sitio', 'Grupo de caminhada',          false),
+  ('Sônia',  4, 'manha', 'fixa_sitio', 'Tabagismo',                   false),
+  ('Sônia',  3, 'tarde', 'fixa_sitio', 'Viva Leve',                   false),
+  ('Valéria', 2, 'tarde', 'fixa_sitio', 'Ações quarta tarde',          false),
+  ('Fábio', 2, 'manha', 'fixa_sitio', 'Ações quarta manhã',          false),
+  ('Pâmela',   1, 'tarde', 'fixa_sitio', 'Ações terça tarde',           false),
+  ('Bia J',  3, 'tarde', 'fixa_sitio', 'Ações quinta tarde',          false),
   -- estas duas só fecham porque caem no dia de plantão da pessoa
-  ('Paula',   1, 'manha', 'fora_do',    'Escalada, mas fora de Ações', true),
-  ('Dani J',  3, 'manha', 'fora_do',    'Escalada, mas fora de Ações', true)
+  ('Pâmela',   1, 'manha', 'fora_do',    'Escalada, mas fora de Ações', true),
+  ('Bia J',  3, 'manha', 'fora_do',    'Escalada, mas fora de Ações', true)
 ) as v(pessoa, dia, turno, tipo, descricao, dep)
 where u.slug = 'caso-origem';
 

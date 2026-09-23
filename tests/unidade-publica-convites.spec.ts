@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { responderPagina, HAS_ENV, FAKE_UNIT_ID, autenticarComoCoordenador } from './supabase-mock';
+import { responderPagina, HAS_ENV, FAKE_UNIT_ID, autenticarComoCoordenador, autenticarComoAdmin } from './supabase-mock';
 function segundaAtualISO() {
   const d = new Date();
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
@@ -82,7 +82,7 @@ test('coordenador cria convite normalizado e login aceita convite uma vez', asyn
   });
   await page.goto('/');
   await page.getByRole('button', { name: 'Configurações', exact: true }).click();
-  await page.getByRole('tab', { name: 'Usuários', exact: true }).click();
+  await page.getByRole('tab', { name: 'Convites', exact: true }).click();
   await page.getByRole('region', {name:'Convites',exact:true}).getByRole('button', {name:'Novo',exact:true}).click();
   const papel = page.getByLabel('Papel do convite');
   await expect(papel.locator('option[value="admin"]')).toHaveCount(0);
@@ -113,10 +113,39 @@ test('coordenador vê públicas e não grava fora da própria unidade', async ({
     { id: PUBLIC_ID, slug: 'demonstracao', nome: 'Hospital Demonstração', publica: true },
   ] }));
   await page.goto('/');
-  const hospital = page.getByRole('combobox', { name: 'Hospital', exact: true });
+  const hospital = page.getByRole('combobox', { name: 'Unidade de saúde', exact: true });
   await expect(hospital.locator('option')).toHaveCount(2);
   await hospital.selectOption(PUBLIC_ID);
   await expect(page).toHaveURL(/demonstracao/);
   await page.getByRole('link', { name: 'Equipe', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Novo', exact: true })).toHaveCount(0);
+});
+
+test('admin vê convites de todas as unidades e filtra ao lado da busca', async ({ page }) => {
+  test.skip(!HAS_ENV, 'Requisições PostgREST exigem configuração; são todas interceptadas.');
+  await autenticarComoAdmin(page);
+  const filtros: (string | null)[] = [];
+  let payload: any;
+  await page.route('**/rest/v1/convites*', async route => {
+    if (route.request().method() === 'POST') { payload = route.request().postDataJSON(); return route.fulfill({ status: 201, json: [{ id: 'c-1' }] }); }
+    filtros.push(new URL(route.request().url()).searchParams.get('unidade_id'));
+    return responderPagina(route, []);
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Configurações', exact: true }).click();
+  await page.getByRole('tab', { name: 'Convites', exact: true }).click();
+  const filtro = page.getByLabel('Filtrar por unidade');
+  await expect(filtro).toHaveValue('');
+  await expect.poll(() => filtros[0]).toBeNull();
+  await filtro.selectOption(FAKE_UNIT_ID);
+  await expect.poll(() => filtros.at(-1)).toBe(`eq.${FAKE_UNIT_ID}`);
+
+  await filtro.selectOption('');
+  await page.getByRole('region', { name: 'Convites', exact: true }).getByRole('button', { name: 'Novo', exact: true }).click();
+  await page.getByLabel('E-mail do convite').fill('lia@example.com');
+  await page.getByRole('button', { name: 'Criar convite' }).click();
+  await expect(page.getByRole('dialog').getByRole('alert')).toHaveText('Escolha a unidade do convite.');
+  await page.getByLabel('Unidade do convite').selectOption(FAKE_UNIT_ID);
+  await page.getByRole('button', { name: 'Criar convite' }).click();
+  await expect.poll(() => payload).toMatchObject({ email: 'lia@example.com', unidade_id: FAKE_UNIT_ID, role: 'visualizador' });
 });

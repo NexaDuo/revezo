@@ -34,9 +34,13 @@ import { RegrasManager } from './components/RegrasManager';
 import { RestricoesManager } from './components/RestricoesManager';
 import { DisponibilidadeManager } from './components/DisponibilidadeManager';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
-import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade, carregarEscala, carregarEscalaPorId, salvarEscalaNova, atualizarEscala, ativarEscala, ordenarVersoes, EscalaSalva } from './lib/db';
+import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade, carregarEscala, carregarEscalaPorId, salvarEscalaNova, atualizarEscala, ativarEscala, ordenarVersoes, EscalaSalva, getEquipes } from './lib/db';
 import { semanaAnterior, sextaDaEscala } from './lib/sextaAnterior';
-import { carregarConfigUnidade } from './lib/loadConfig';
+import { carregarConfigUnidade, pessoaDaLinha } from './lib/loadConfig';
+import { useQuery } from '@tanstack/react-query';
+
+// Referência estável: o importador recalcula quando a equipe muda.
+const SEM_EQUIPE: Pessoa[] = [];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Mesma pontuação do validador: rígida = 100, alerta = 1. */
@@ -110,6 +114,14 @@ export const App: React.FC = () => {
   const [mensagemSalvar, setMensagemSalvar] = useState<{ erro: boolean; texto: string } | null>(null);
   const [erroHistorico, setErroHistorico] = useState<string | null>(null);
   const [avisos, setAvisos] = useState<string[]>([]);
+  // Equipe cadastrada: dá ao importador os nomes curtos e os postos fixos.
+  const equipeBase = useQuery({
+    queryKey: ['equipe', unidadeId, 'importador'],
+    enabled: isExcelModalOpen && !!unidadeId,
+    queryFn: async () => isSupabaseConfigured
+      ? (await getEquipes(unidadeId)).filter((r: any) => r.ativo !== false).map(pessoaDaLinha)
+      : (await fetchEquipe(false)).equipe,
+  });
   // `semanas` vem da mais recente para a mais antiga.
   const semanaVizinha = (passo: -1 | 1) => {
     const i = semanas.indexOf(semanaInicio);
@@ -559,7 +571,7 @@ export const App: React.FC = () => {
   return (
     <SidebarProvider>
     <div className="min-h-screen flex flex-col">
-      {/* Cabeçalho = título da folha: hospital e semana, como no papel. */}
+      {/* Cabeçalho = título da folha: unidade de saúde e semana, como no papel. */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 print:hidden">
         <div className="px-4 sm:px-6 h-28 md:h-16 flex flex-wrap md:flex-nowrap items-center gap-x-6 gap-y-1 py-2">
           <div className="flex items-center gap-2 md:w-52 md:shrink-0">
@@ -570,13 +582,13 @@ export const App: React.FC = () => {
 
           <div className="order-last md:order-none w-full md:w-auto min-w-0 flex items-end gap-4">
             <label className="min-w-0 flex-1 md:flex-none">
-              <span className="sr-only md:not-sr-only block text-xs text-slate-500">Hospital</span>
+              <span className="sr-only md:not-sr-only block text-xs text-slate-500">Unidade de saúde</span>
               {podeEscolherUnidade ? (
-                <select aria-label="Hospital" value={unidadeId ?? ''} onChange={e => { if (podeDescartar()) setUnidadeId(e.target.value); }} className="w-full md:max-w-56 truncate border-0 bg-transparent p-0 pr-6 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-caneta-500 rounded-sm">
+                <select aria-label="Unidade de saúde" value={unidadeId ?? ''} onChange={e => { if (podeDescartar()) setUnidadeId(e.target.value); }} className="w-full md:max-w-56 truncate border-0 bg-transparent p-0 pr-6 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-caneta-500 rounded-sm">
                   {!unidadeId && <option value="">Selecione</option>}
                   {unidadesDisponiveis.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
                 </select>
-              ) : <span className="block truncate md:max-w-56 text-sm font-bold">{unidadesDisponiveis.find(u => u.id === unidadeId)?.nome ?? (unidadeCarregando ? 'Carregando hospital...' : 'Entre para escolher hospital')}</span>}
+              ) : <span className="block truncate md:max-w-56 text-sm font-bold">{unidadesDisponiveis.find(u => u.id === unidadeId)?.nome ?? (unidadeCarregando ? 'Carregando unidade de saúde...' : 'Entre para escolher a unidade de saúde')}</span>}
             </label>
             <div className="shrink-0">
             <span aria-hidden="true" className="hidden md:block pl-7 text-xs text-slate-500">Semana</span>
@@ -675,7 +687,7 @@ export const App: React.FC = () => {
       <Sidebar />
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 min-w-0 max-w-7xl w-full px-4 sm:px-6 lg:px-10 py-6 space-y-6">
+      <main className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-6 space-y-6">
         {contextoInvalido ? <p role="alert">Corrija o contexto da URL para continuar.</p> : <>
         {!unidadeCarregando && !erroUnidade && unidadeId && !disponibilidades.some(s => s.data_inicio === semanaInicio) && tela !== 'disponibilidade' && (
           <p role="status" data-print-hide className="rounded-md border-l-4 border-marca bg-white px-3 py-2 text-sm text-slate-800 print:hidden">Nenhuma disponibilidade salva para a semana de {semanaInicio}. Importe a planilha ou confira a Disponibilidade.</p>
@@ -704,8 +716,8 @@ export const App: React.FC = () => {
       <ExcelImportModal
         isOpen={isExcelModalOpen}
         onClose={() => setIsExcelModalOpen(false)}
-        baseEquipe={defaultConfig.equipe}
-        onApply={async (equipe, disp, dias, semana) => {
+        baseEquipe={equipeBase.data ?? SEM_EQUIPE}
+        onApply={async (equipe, disp, dias, semana, presumidos) => {
 
 
           // A disponibilidade importada precisa sobreviver ao reload: até aqui
@@ -713,6 +725,10 @@ export const App: React.FC = () => {
           // sobrescreve (chave: unidade + data_inicio).
           if (!podeGravar) throw new Error('Modo visitante: entre para salvar');
           const extras: string[] = [];
+          if (presumidos.length)
+            extras.push(`Estão na Equipe mas não na planilha, e entraram como disponíveis a semana toda: ${presumidos.join(', ')}.`);
+          if (equipeBase.isError)
+            extras.push(`Não foi possível ler a Equipe da unidade (${equipeBase.error.message}): nomes curtos e postos fixos vieram só da planilha.`);
           try {
             await salvarDisponibilidade({
               data_inicio: semana.data_inicio,

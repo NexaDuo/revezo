@@ -35,6 +35,13 @@
   }
 }
 
+/* Lista dentro de modal (Configurações): título na escala do modal. */
+@layer components {
+  [role="dialog"] .titulo-lista {
+    @apply text-lg;
+  }
+}
+
 /* O único movimento do app: ao gerar, a grade é preenchida dia a dia. */
 @keyframes preencher {
   from { opacity: 0; transform: translateY(-3px); }

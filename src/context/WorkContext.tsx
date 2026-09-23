@@ -108,7 +108,7 @@ export const WorkProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isLoading = authLoading || unidades?.chave !== chavePerfil || (!!unidadeConsulta && !dados);
   const contextoInvalido = !antiga && !isLoading && (!unidade || !semanaValida(semanaInicio) || !TELAS.includes(tela));
   const erro = unidades?.erro || dados?.erro || (contextoInvalido
-    ? !unidade ? (!user && isSupabaseConfigured ? 'Esta unidade é privada — entre para acessar' : 'Hospital inexistente ou sem acesso para este usuário.')
+    ? !unidade ? (!user && isSupabaseConfigured ? 'Esta unidade é privada — entre para acessar' : 'Unidade de saúde inexistente ou sem acesso para este usuário.')
       : !semanaValida(semanaInicio) ? 'Semana inválida: informe uma segunda-feira no formato YYYY-MM-DD.' : 'Tela inexistente.'
     : null);
   useEffect(() => {

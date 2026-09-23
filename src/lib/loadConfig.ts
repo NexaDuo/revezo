@@ -65,6 +65,19 @@ function montarRegras(linhas: any[], avisos: string[]): Regras {
  * do caso-origem — sempre com aviso, porque gerar escala com a equipe errada
  * é exatamente a falha silenciosa que o produto não pode ter.
  */
+/** Linha da tabela `equipe` → `Pessoa` do solver. */
+export function pessoaDaLinha(p: any): Pessoa {
+  return {
+    n: p.nome_curto,
+    c: p.categoria as Categoria,
+    t: p.turno_base as Turno,
+    fixo: p.fixo_sitio || undefined,
+    isentoAcoes: p.isento_acoes || undefined,
+    custoExtra: Number(p.custo_extra) || undefined,
+    completo: p.nome || undefined,
+  };
+}
+
 export async function carregarConfigUnidade(
   isSupabaseConfigured: boolean,
   unidadeId: string | null
@@ -108,14 +121,7 @@ export async function carregarConfigUnidade(
       };
     }
 
-    const equipe: Pessoa[] = eq.data.map((p: any) => ({
-      n: p.nome_curto,
-      c: p.categoria as Categoria,
-      t: p.turno_base as Turno,
-      fixo: p.fixo_sitio || undefined,
-      isentoAcoes: p.isento_acoes || undefined,
-      custoExtra: Number(p.custo_extra) || undefined,
-    }));
+    const equipe: Pessoa[] = eq.data.map(pessoaDaLinha);
 
     const { manha, tarde, prioridadeDupla } = montarSitios(st.data as LinhaSitio[]);
 
