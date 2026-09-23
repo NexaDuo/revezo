@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, FileSpreadsheet, UploadCloud } from 'lucide-react';
+import { AVISO_NAO_SALVO, useFecharAoClicarFora } from '../lib/modal';
 import { Pessoa, StatusDisponibilidade } from '../lib/solver/types';
 import {
   parseExcel,
@@ -19,7 +20,8 @@ interface ExcelImportModalProps {
     equipe: Pessoa[],
     disp: Record<string, StatusDisponibilidade[]>,
     diasRotulos: string[],
-    semana: { data_inicio: string; data_fim: string; origem: { arquivo?: string; aba?: string; semana?: string } }
+    semana: { data_inicio: string; data_fim: string; origem: { arquivo?: string; aba?: string; semana?: string } },
+    presumidos: string[]
   ) => void;
 }
 
@@ -124,12 +126,16 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ isOpen, onCl
       horario: l.p.horario,
     })) as Pessoa[];
     
-    for (const extra of [
-      { n: "Leticia", c: "enf", t: "ambos", fixo: "Ensino" },
-      { n: "Allan", c: "enf", t: "ambos", isentoAcoes: true, custoExtra: 3 },
-    ]) {
-      if (!newEquipe.some(p => p.n === extra.n)) newEquipe.push(extra as Pessoa);
+    // Posto fixo, isenção de Ações e custo extra vêm da Equipe da unidade; quem
+    // está cadastrado mas fora da planilha entra presumido disponível — e a
+    // tela diz quem é (`presumidos`), nunca em silêncio.
+    const cadastro = new Map(baseEquipe.map(p => [p.n, p]));
+    for (const p of newEquipe) {
+      const c = cadastro.get(p.n);
+      if (c) Object.assign(p, { fixo: c.fixo, isentoAcoes: c.isentoAcoes, custoExtra: c.custoExtra });
     }
+    const presumidos = baseEquipe.filter(p => !newEquipe.some(x => x.n === p.n));
+    newEquipe.push(...presumidos.map(p => ({ ...p })));
     
     const newDisp: Record<string, StatusDisponibilidade[]> = {};
     for (const l of linhasParsed) {
@@ -143,14 +149,17 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ isOpen, onCl
       data_inicio: sem.inicio,
       data_fim: sem.fim,
       origem: { arquivo: file?.name, aba: String(selAba ?? ''), semana: sem.label },
-    });
+    }, presumidos.map(p => p.n));
     onClose();
   };
+
+  // Arquivo escolhido é trabalho em andamento: clique fora não descarta.
+  const fora = useFecharAoClicarFora(onClose, !!file);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+    <div {...fora.fundo} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-slate-100">
           <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
@@ -161,6 +170,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ isOpen, onCl
             <X className="w-5 h-5" />
           </button>
         </div>
+        {fora.bloqueado && <p role="status" className="mx-4 mt-3 rounded-md border-l-4 border-marca bg-white px-3 py-2 text-sm text-slate-800">{AVISO_NAO_SALVO}</p>}
         
         <div className="p-5 flex-1 overflow-y-auto">
           <p className="text-sm text-slate-600 mb-4">

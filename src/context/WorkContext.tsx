@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, DEMO_UNIDADE_ID } from './AuthContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { listarDisponibilidades, loadSchedules, SemanaDisponibilidade } from '../lib/db';
+import { listarDisponibilidades, listarSemanasComEscala, SemanaDisponibilidade } from '../lib/db';
 
 export interface UnidadeOption { id: string; nome: string; slug: string; publica?: boolean }
 const UNIDADE_DEMO: UnidadeOption = { id: DEMO_UNIDADE_ID, nome: 'Unidade Demonstração (offline)', slug: 'demonstracao' };
@@ -89,9 +89,9 @@ export const WorkProvider: React.FC<{ children: React.ReactNode }> = ({ children
     (async () => {
       try {
         const [disponibilidades, escalas] = await Promise.all([
-          listarDisponibilidades(unidadeConsulta.id), loadSchedules(unidadeConsulta.id),
+          listarDisponibilidades(unidadeConsulta.id), listarSemanasComEscala(unidadeConsulta.id),
         ]);
-        if (!cancelado) setLista({ chave: chaveLista, disponibilidades, escalas: escalas.map((s: any) => s.data_inicio), erro: null });
+        if (!cancelado) setLista({ chave: chaveLista, disponibilidades, escalas, erro: null });
       } catch (e: any) {
         if (!cancelado) setLista({ chave: chaveLista, disponibilidades: [], escalas: [], erro: `Falha ao carregar semanas: ${e?.message || e}` });
       }
@@ -108,7 +108,7 @@ export const WorkProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isLoading = authLoading || unidades?.chave !== chavePerfil || (!!unidadeConsulta && !dados);
   const contextoInvalido = !antiga && !isLoading && (!unidade || !semanaValida(semanaInicio) || !TELAS.includes(tela));
   const erro = unidades?.erro || dados?.erro || (contextoInvalido
-    ? !unidade ? (!user && isSupabaseConfigured ? 'Esta unidade é privada — entre para acessar' : 'Hospital inexistente ou sem acesso para este usuário.')
+    ? !unidade ? (!user && isSupabaseConfigured ? 'Esta unidade é privada — entre para acessar' : 'Unidade de saúde inexistente ou sem acesso para este usuário.')
       : !semanaValida(semanaInicio) ? 'Semana inválida: informe uma segunda-feira no formato YYYY-MM-DD.' : 'Tela inexistente.'
     : null);
   useEffect(() => {

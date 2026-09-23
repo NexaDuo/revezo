@@ -3,6 +3,9 @@ import { Config } from './solver/types';
 import { defaultConfig } from './solver/defaultConfig';
 import { montarConfig, LinhaSitio } from './montarConfig';
 
+// Compatibilidade com o importador; o mapeamento permanece puro.
+export { pessoaDaLinha } from './montarConfig';
+
 /** O que foi carregado do banco e o que o produto não sabe. */
 export interface ConfigCarregada {
   config: Config;
