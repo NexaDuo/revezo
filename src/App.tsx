@@ -84,7 +84,8 @@ export const App: React.FC = () => {
   };
 
   const contextoAtual = React.useRef('');
-  contextoAtual.current = `${unidadeId}:${semanaInicio}`;  const handleGerarGrade = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[]) => {
+  contextoAtual.current = `${unidadeId}:${semanaInicio}`;
+  const handleGerarGrade = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[]) => {
     if (!unidadeId) {
       // Sem unidade resolvida não há o que gerar — e não existe unidade
       // "padrão" segura para inventar aqui (WorkContext já mostra o erro).

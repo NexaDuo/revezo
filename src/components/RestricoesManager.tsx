@@ -9,6 +9,7 @@ import {
 import { listarPagina } from '../lib/paginacao';
 import { DataTable } from './DataTable';
 import { RecordForm } from './RecordForm';
+import { nomeDoSitio } from '../lib/referenciasSitio';
 
 const DIAS_SEMANA = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 const TURNOS: [string, string][] = [['manha', 'Manhã'], ['tarde', 'Tarde']];
@@ -31,11 +32,7 @@ export function RestricoesManager() {
   // O formulário grava o ID do sítio (FK); a tela mostra o nome atual.
   // Renomear um sítio muda o rótulo aqui e não deixa nenhuma regra órfã.
   const opcoesSitios: [string, string][] = (sitios.data ?? []).map((s: any) => [s.id, s.nome]);
-  const nomeSitio = (id: string | null) => {
-    if (!id) return '—';
-    const s = (sitios.data ?? []).find((x: any) => x.id === id);
-    return s ? s.nome : sitios.isLoading ? '…' : 'Sítio não encontrado';
-  };
+  const nomeSitio = (id: string | null) => nomeDoSitio(sitios, id);
   const semOpcoes = equipe.isError || sitios.isError
     ? 'Não foi possível carregar a equipe e os sítios desta unidade para montar o formulário.'
     : equipe.data && !equipe.data.length ? 'Cadastre a equipe da unidade antes de criar restrições.' : null;

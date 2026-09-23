@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { useWorkContext } from '../context/WorkContext';
 import { addEquipe, updateEquipe, deleteEquipe, getSitios } from '../lib/db';
 import { mensagemErroGravacao } from '../lib/errosGravacao';
+import { nomeDoSitio } from '../lib/referenciasSitio';
 
 export const EquipeManager: React.FC = () => { const { unidadeId } = useWorkContext(); return <EquipeContent key={unidadeId} />; };
 const EquipeContent: React.FC = () => {
@@ -18,11 +19,7 @@ const EquipeContent: React.FC = () => {
   // Posto fixo grava o ID do sítio (FK) e mostra o nome atual: renomear o
   // sítio não deixa a pessoa apontando para um nome que não existe mais.
   const sitios = useQuery({ queryKey: ['sitios', unidadeId, 'opcoes'], queryFn: () => getSitios(unidadeId), enabled: !unidadeCarregando && !!unidadeId });
-  const nomeSitio = (id: string | null) => {
-    if (!id) return '—';
-    const s = (sitios.data ?? []).find((x: any) => x.id === id);
-    return s ? s.nome : sitios.isLoading ? '…' : 'Sítio não encontrado';
-  };
+  const nomeSitio = (id: string | null) => nomeDoSitio(sitios, id);
 
   const fetchData = () => client.invalidateQueries({ queryKey: ['equipe', unidadeId] });
   const handleAdd = async () => {

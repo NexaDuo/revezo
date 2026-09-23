@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { HAS_ENV, autenticarComoCoordenador, mockarUnidade } from './supabase-mock';
 import { defaultConfig, generateSchedule, validar, criarEscalaVazia } from '../src/lib/solver';
 import { indexarRotulos, sitiosForaDaUnidade } from '../src/lib/referenciasSitio';
+import { montarConfig } from '../src/lib/montarConfig';
 import type { Config, Escala } from '../src/lib/solver/types';
 
 // Regressão: renomear um sítio em Configurações deixou 11 colocações fixas
@@ -45,6 +46,76 @@ test.describe('sítio que não existe na grade', () => {
     expect(depois('s-2', 'tarde')).toBe('Curativo 16h');
     expect(depois('s-2', 'manha')).toBe('Curativo');
     expect(depois('nao-existe', 'manha')).toBeNull();
+  });
+});
+
+// O mapeamento real id -> nome (linhas do banco -> Config), sem Supabase: roda
+// com e sem `.env`, inclusive no CI.
+test.describe('montarConfig: linhas da unidade -> Config', () => {
+  const sitios = [
+    { id: 's1', ordem: 1, nome: 'Consulta', nome_tarde: null, categoria_permitida: 'enf' as const, opcional: false, prioridade_dupla: null },
+    { id: 's2', ordem: 2, nome: 'Curativo', nome_tarde: 'Curativo tarde', categoria_permitida: 'tec' as const, opcional: false, prioridade_dupla: null },
+    { id: 's3', ordem: 3, nome: 'Ações antigo', nome_tarde: null, categoria_permitida: 'ambos' as const, opcional: false, prioridade_dupla: null },
+  ];
+  const pessoaLinha = (nome_curto: string, categoria: string, fixo_sitio_id: string | null = null) =>
+    ({ nome_curto, categoria, turno_base: 'ambos', fixo_sitio_id, isento_acoes: false, custo_extra: 0 });
+  const base = {
+    equipe: [pessoaLinha('Ana', 'enf'), pessoaLinha('Bia', 'tec'), pessoaLinha('Caio', 'tec', 's2'), pessoaLinha('Duda', 'tec')],
+    sitios, regras: [], duplas: [],
+    proibicoes: [{ pessoa_curto: 'Bia', sitio_id: 's2' }],
+    fixas: [
+      { pessoa_curto: 'Duda', dia: 0, turno: 'tarde', tipo: 'fixa_sitio', sitio_id: 's2' },
+      { pessoa_curto: 'Duda', dia: 2, turno: 'manha', tipo: 'fixa_sitio', sitio_id: 's2' },
+      { pessoa_curto: 'Ana', dia: 1, turno: 'manha', tipo: 'fixa_sitio', sitio_id: 's3' },
+    ],
+  };
+
+  test('fixa à tarde usa o nome da tarde; de manhã, o da manhã', () => {
+    const { config, avisos } = montarConfig(base);
+    expect(config.fixas).toContainEqual({ p: 'Duda', d: 0, t: 'tarde', s: 'Curativo tarde' });
+    expect(config.fixas).toContainEqual({ p: 'Duda', d: 2, t: 'manha', s: 'Curativo' });
+    expect(avisos.join(' ')).not.toMatch(/não foi encontrado/);
+  });
+
+  test('proibição entra com os dois rótulos do sítio', () => {
+    const { config } = montarConfig(base);
+    expect(config.proibicoes).toEqual([{ pessoa: 'Bia', sitio: 'Curativo' }, { pessoa: 'Bia', sitio: 'Curativo tarde' }]);
+  });
+
+  test('posto fixo vale à tarde pelo nome da tarde (solver 4.1 e isenção de dias seguidos)', () => {
+    const { config } = montarConfig(base);
+    const caio = config.equipe.find(p => p.n === 'Caio')!;
+    expect(caio).toMatchObject({ fixo: 'Curativo', fixoTarde: 'Curativo tarde' });
+    const r = generateSchedule({ ...config, disp: {} });
+    for (let d = 0; d < config.dias.length; d++) {
+      expect(r.escala.manha['Curativo'][d]).toContain('Caio');
+      expect(r.escala.tarde['Curativo tarde'][d]).toContain('Caio');
+    }
+    expect(r.violacoes.filter(v => v.regra === 'diasSeguidos' && v.msg.startsWith('Caio'))).toEqual([]);
+  });
+
+  test('sítio renomeado: mesmo id, nome novo, fixa continua valendo', () => {
+    const renomeado = { ...base, sitios: sitios.map(s => s.id === 's3' ? { ...s, nome: 'Ações novo' } : s) };
+    const { config, avisos } = montarConfig(renomeado);
+    expect(config.fixas).toContainEqual({ p: 'Ana', d: 1, t: 'manha', s: 'Ações novo' });
+    expect(config.acoes).toBe('Ações novo');
+    expect(avisos.join(' ')).not.toMatch(/não foi encontrado/);
+  });
+
+  test('id órfão: aviso nomeia pessoa, dia e turno (sem id, sem "undefined")', () => {
+    const { config, avisos } = montarConfig({
+      ...base,
+      equipe: [...base.equipe, pessoaLinha('Eva', 'tec', 'sumiu')],
+      proibicoes: [{ pessoa_curto: 'Bia', sitio_id: 'sumiu' }],
+      fixas: [{ pessoa_curto: 'Ana', dia: 1, turno: 'manha', tipo: 'fixa_sitio', sitio_id: 'sumiu' }],
+    });
+    const texto = avisos.join('\n');
+    expect(texto).toContain('Colocações fixas apontam para sítio que não foi encontrado nesta unidade (1 regra): Ana (Terça, manhã)');
+    expect(texto).toContain('Proibições apontam para sítio que não foi encontrado nesta unidade: Bia');
+    expect(texto).toContain('Posto fixo aponta para sítio que não foi encontrado nesta unidade: Eva');
+    expect(texto).not.toMatch(/sumiu|undefined/);
+    expect(config.fixas).toEqual([]);
+    expect(config.equipe.find(p => p.n === 'Eva')?.fixo).toBeUndefined();
   });
 });
 
@@ -117,7 +188,9 @@ test('fixas apontando para sítio que a unidade não tem: grade gera e o aviso a
 
   const aviso = page.getByRole('listitem').filter({ hasText: 'Colocações fixas apontam para sítio que não foi encontrado' });
   await expect(aviso).toBeVisible();
-  await expect(aviso).toContainText('"sitio-apagado" (11 regras)');
+  await expect(aviso).toContainText('(11 regras)');
+  await expect(aviso).toContainText('Aurora Estelar (Segunda, manhã)');
   await expect(aviso).toContainText('foram ignoradas');
+  await expect(aviso).not.toContainText('sitio-apagado');
   expect(erros).toEqual([]);
 });

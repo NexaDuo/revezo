@@ -69,14 +69,21 @@ export function ondeEsteve(escala: Escala, config: Config, n: string, d: number,
 
 /** Posto fixo: a pessoa ocupa o sítio todos os dias. Quem tem posto fixo fica
  *  isento de `diasSeguidos` — sem essa isenção o solver nunca fecha. */
-export function ehPostoFixo(pessoaMap: Record<string, Pessoa>, n: string, sitio: string): boolean {
-  const f = pessoaMap[n]?.fixo;
+export function ehPostoFixo(pessoaMap: Record<string, Pessoa>, n: string, sitio: string, turno: "manha" | "tarde"): boolean {
+  const f = postoFixoNoTurno(pessoaMap[n], turno);
   return !!f && canon(f) === canon(sitio);
 }
 
+/** Rótulo do posto fixo da pessoa na grade daquele turno (o sítio pode ter
+ *  outro nome à tarde). `undefined` = sem posto fixo. */
+export function postoFixoNoTurno(p: Pessoa | undefined, turno: "manha" | "tarde"): string | undefined {
+  if (!p?.fixo) return undefined;
+  return turno === "tarde" ? (p.fixoTarde || p.fixo) : p.fixo;
+}
+
 /** Alguém tem este sítio como posto fixo? Então o sítio é isento de `diasSeguidos`. */
-export function sitioTemPostoFixo(equipe: Pessoa[], sitio: string): boolean {
-  return equipe.some(p => p.fixo && canon(p.fixo) === canon(sitio));
+export function sitioTemPostoFixo(equipe: Pessoa[], sitio: string, turno: "manha" | "tarde"): boolean {
+  return equipe.some(p => { const f = postoFixoNoTurno(p, turno); return !!f && canon(f) === canon(sitio); });
 }
 
 export function sitioProibido(config: Config, n: string, sitio: string): boolean {

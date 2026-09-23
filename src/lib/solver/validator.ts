@@ -36,7 +36,7 @@ export function validar(config: Config, escala: Escala): Violacao[] {
               add(true, "plantaoMesmo", turno, s.n, d, `${n} está de plantão e já ficou em ${canon(s.n)} de manhã`);
           }
           
-          if (config.regras.diasSeguidos.on && !ehPostoFixo(pessoaMap, n, s.n) && d > 0 && celula(escala, turno, s.n, d - 1).includes(n))
+          if (config.regras.diasSeguidos.on && !ehPostoFixo(pessoaMap, n, s.n, turno) && d > 0 && celula(escala, turno, s.n, d - 1).includes(n))
             add(true, "diasSeguidos", turno, s.n, d, `${n} já estava em ${canon(s.n)} no dia anterior`);
           
           if (config.regras.sextaSegunda.on && d === 0) {

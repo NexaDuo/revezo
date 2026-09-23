@@ -21,11 +21,18 @@ export function indexarRotulos(linhas: RotulosSitio[]) {
   };
 }
 
-/** `"X" (11 regras), "Y" (1 regra)` — agrupado por sítio, na ordem em que apareceu. */
-export function listarOrfas(sitios: string[], unidade: [string, string] = ['regra', 'regras']): string {
-  const cont = new Map<string, number>();
-  for (const s of sitios) cont.set(s, (cont.get(s) || 0) + 1);
-  return [...cont].map(([s, n]) => `"${s}" (${n} ${n === 1 ? unidade[0] : unidade[1]})`).join(', ');
+/** Nome atual do sítio para as tabelas de Equipe e Regras, que guardam só o id.
+ *  Falha de leitura não pode parecer dado corrompido: "não foi possível
+ *  carregar" é diferente de "sítio não encontrado". */
+export function nomeDoSitio(
+  sitios: { data?: { id: string; nome: string }[]; isLoading: boolean; isError: boolean },
+  id: string | null | undefined
+): string {
+  if (!id) return '—';
+  if (sitios.isError) return 'Não foi possível carregar os sítios';
+  const s = (sitios.data ?? []).find(x => x.id === id);
+  if (s) return s.nome;
+  return sitios.isLoading ? '…' : 'Sítio não encontrado';
 }
 
 /** Sítios que a grade (salva ou da semana anterior) tem e a unidade não tem
