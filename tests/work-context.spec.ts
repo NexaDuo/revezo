@@ -396,3 +396,72 @@ test.describe('Grade — ações e conferência locais', () => {
     });
   }
 });
+for (const tela of ['equipe', 'sitios'] as const) {
+  test(`${tela}: criar e editar enviam apenas colunas do schema e mostram erro legível`, async ({ page }) => {
+    test.skip(!HAS_ENV, 'Payload REST exige Supabase configurado; demonstração não envia requisições.');
+    await autenticarComoCoordenador(page);
+    const inicial = tela === 'equipe'
+      ? { nome: 'Pessoa teste', nome_curto: 'PT', categoria: 'tec', turno_base: 'manha', fixo_sitio: null, isento_acoes: false, custo_extra: 0, ativo: true, ordem: 7 }
+      : { nome: 'Sítio teste', nome_tarde: null, categoria_permitida: 'ambos', opcional: false, prioridade_dupla: null, ordem: 7 };
+    const linhas: Record<string, unknown>[] = [{ ...inicial, id: 'existente', unidade_id: FAKE_UNIT_ID, created_at: '2026-09-01' }];
+    const escritas: { metodo: string; dados: Record<string, unknown> }[] = [];
+    let falhar = false;
+    await page.route(`**/rest/v1/${tela}*`, async route => {
+      const metodo = route.request().method();
+      if (metodo === 'POST' || metodo === 'PATCH') {
+        const body = route.request().postDataJSON();
+        const dados = Array.isArray(body) ? body[0] : body;
+        escritas.push({ metodo, dados });
+        if (falhar) {
+          await route.fulfill({ status: 409, json: { code: '23505', message: 'duplicate key value violates unique constraint' } });
+          return;
+        }
+        if (metodo === 'POST') linhas.push({ ...dados, id: 'novo', created_at: '2026-09-23' });
+        else Object.assign(linhas[1], dados);
+        await route.fulfill({ status: 200, json: [{ id: 'novo' }] });
+      } else await route.fulfill({ json: linhas });
+    });
+    await page.goto(`/${tela}`);
+    await page.getByRole('button', { name: 'Novo', exact: true }).click();
+    await expect(page.getByLabel('Ordem', { exact: true })).toHaveValue('8');
+    await page.getByLabel('Nome', { exact: true }).fill('Novo registro');
+    if (tela === 'equipe') {
+      await page.getByRole('button', { name: 'Salvar', exact: true }).click();
+      await expect(page.getByRole('alert')).toHaveText('Informe o nome curto.');
+      expect(escritas).toHaveLength(0);
+      await page.getByLabel('Nome curto', { exact: true }).fill('NR');
+    }
+    await page.getByRole('button', { name: 'Salvar', exact: true }).click();
+    const esperado = { ...inicial, nome: 'Novo registro', ordem: 8, ...(tela === 'equipe' ? { nome_curto: 'NR' } : {}) };
+    await expect.poll(() => escritas.length).toBe(1);
+    expect(escritas[0]).toEqual({ metodo: 'POST', dados: { ...esperado, unidade_id: FAKE_UNIT_ID } });
+    const linha = page.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Novo registro', exact: true }) });
+    await linha.getByRole('button', { name: 'Editar', exact: true }).click();
+    if (tela === 'equipe') {
+      await page.getByLabel('Categoria', { exact: true }).selectOption('enf');
+      await page.getByLabel('Turno base').selectOption('noite');
+      await page.getByLabel('Isento de Ações').check();
+      await page.getByLabel('Custo extra').fill('1.5');
+      await page.getByLabel('Ativo', { exact: true }).uncheck();
+      await page.getByLabel('Sítio fixo').fill('   ');
+    } else {
+      await page.getByLabel('Categoria permitida').selectOption('tec');
+      await page.getByLabel('Opcional').check();
+      await page.getByLabel('Prioridade de dupla').fill('2');
+      await page.getByLabel('Nome à tarde').fill('   ');
+    }
+    await page.getByRole('button', { name: 'Salvar', exact: true }).click();
+    await expect.poll(() => escritas.length).toBe(2);
+    expect(escritas[1]).toEqual({ metodo: 'PATCH', dados: {
+      ...esperado,
+      ...(tela === 'equipe'
+        ? { categoria: 'enf', turno_base: 'noite', isento_acoes: true, custo_extra: 1.5, ativo: false }
+        : { categoria_permitida: 'tec', opcional: true, prioridade_dupla: 2 }),
+    } });
+    await linha.getByRole('button', { name: 'Editar', exact: true }).click();
+    falhar = true;
+    await page.getByRole('button', { name: 'Salvar', exact: true }).click();
+    await expect(page.getByRole('alert')).toHaveText('Já existe um registro com esse nome curto/ordem nesta unidade');
+    await expect(page.getByRole('button', { name: 'Salvar', exact: true })).toBeVisible();
+  });
+}
