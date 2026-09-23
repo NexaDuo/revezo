@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { useWorkContext } from '../context/WorkContext';
 import {
   salvarDisponibilidade,
@@ -28,9 +27,8 @@ const fmt = (iso: string) => {
 };
 
 export const DisponibilidadeManager: React.FC = () => {
-  const { isAdmin, isCoordenador } = useAuth();
-  const { unidadeId, semanaInicio, isLoading: unidadeCarregando, disponibilidades: semanas, revalidarSemanas: carregarLista, setSemanaInicio: setSel } = useWorkContext();
-  const canEdit = isAdmin || isCoordenador;
+  const { podeGravar, unidadeId, semanaInicio, isLoading: unidadeCarregando, disponibilidades: semanas, revalidarSemanas: carregarLista, setSemanaInicio: setSel } = useWorkContext();
+  const canEdit = podeGravar;
 
   const sel = semanaInicio;
   const [atual, setAtual] = useState<SemanaDisponibilidade | null>(null);

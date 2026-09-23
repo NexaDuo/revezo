@@ -104,7 +104,7 @@ export async function carregarConfigUnidade(
       return {
         config: defaultConfig,
         doBanco: false,
-        avisos: ['A unidade não tem equipe ou sítios cadastrados: usando a configuração de demonstração.'],
+        avisos: ['A unidade não tem equipe ou sítios cadastrados: geração bloqueada.'],
       };
     }
 
@@ -175,7 +175,7 @@ export async function carregarConfigUnidade(
     return {
       config: defaultConfig,
       doBanco: false,
-      avisos: [`Falha ao ler a configuração da unidade (${e?.message || e}): usando a demonstração.`],
+      avisos: [`Falha ao ler a configuração da unidade (${e?.message || e}): geração bloqueada.`],
     };
   }
 }

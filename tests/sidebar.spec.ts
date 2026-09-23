@@ -1,4 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { visitanteSemDados } from './supabase-mock';
+
+test.beforeEach(async ({ page }) => { await visitanteSemDados(page); });
 
 test('o estado colapsado do menu persiste entre reloads', async ({ page }) => {
   await page.goto('/');

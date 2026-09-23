@@ -1,4 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { visitanteSemDados } from './supabase-mock';
+
+test.beforeEach(async ({ page }) => { await visitanteSemDados(page); });
 
 test('regras page loads and displays header', async ({ page }) => {
   await page.goto('/regras');

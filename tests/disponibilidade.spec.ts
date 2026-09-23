@@ -1,4 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { visitanteSemDados } from './supabase-mock';
+
+test.beforeEach(async ({ page }) => { await visitanteSemDados(page); });
 
 test('tela de disponibilidade abre e explica o estado vazio', async ({ page }) => {
   await page.goto('/disponibilidade');
