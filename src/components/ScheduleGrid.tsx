@@ -14,7 +14,7 @@ interface ScheduleGridProps {
 
 export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, dias, onUpdateEscala }) => {
   const { isAdmin, isCoordenador } = useAuth();
-  const { unidadeId, semanaInicio } = useWorkContext();
+  const { unidadeId, semanaInicio, revalidarSemanas } = useWorkContext();
   const getViolacoes = (turno: string, sitio: string, d: number) => {
     return violacoes.filter(v => v.turno === turno && canon(v.sitio) === canon(sitio) && v.d === d);
   };
@@ -147,6 +147,7 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
         `Escala de ${iso(segunda)} a ${iso(sexta)}`,
         iso(segunda), iso(sexta), dias
       );
+      revalidarSemanas();
       const rigidas = violacoes.filter(v => v.hard).length;
       alert(rigidas
         ? `Escala salva como rascunho: ainda tem ${rigidas} violação(ões) rígida(s).`

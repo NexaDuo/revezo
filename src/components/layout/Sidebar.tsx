@@ -1,3 +1,4 @@
+import { useWorkContext } from '../../context/WorkContext';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
@@ -107,6 +108,7 @@ const ROTAS = [
 export const Sidebar: React.FC = () => {
   const { collapsed: colapsadoSalvo, toggleCollapsed, mobileOpen, setMobileOpen } = useSidebarState();
   const location = useLocation();
+  const { caminhoTela } = useWorkContext();
   const desktop = useDesktop();
   const asideRef = useRef<HTMLElement>(null);
 
@@ -148,7 +150,7 @@ export const Sidebar: React.FC = () => {
           cobrir o botão que fecha o menu. */}
       {mobileOpen && (
         <div
-          className="fixed inset-x-0 top-16 bottom-0 bg-slate-900/40 z-40 md:hidden print:hidden"
+          className="fixed inset-x-0 top-28 md:top-16 bottom-0 bg-slate-900/40 z-40 md:hidden print:hidden"
           onClick={() => setMobileOpen(false)}
           aria-hidden="true"
         />
@@ -159,7 +161,7 @@ export const Sidebar: React.FC = () => {
         className={`
           bg-white border-r border-slate-200 shrink-0 print:hidden
           flex flex-col
-          fixed top-16 bottom-0 left-0 z-50
+          fixed top-28 md:top-16 bottom-0 left-0 z-50
           md:sticky md:h-[calc(100vh-4rem)]
           transition-all duration-200
           ${collapsed ? 'w-16' : 'w-60'}
@@ -168,11 +170,11 @@ export const Sidebar: React.FC = () => {
       >
         <nav aria-label="Navegação principal" className="flex-1 py-3 space-y-1 px-2 overflow-y-auto">
           {ROTAS.map(({ to, label, icon: Icon }) => {
-            const ativo = location.pathname === to;
+            const ativo = location.pathname.replace(/\/$/, '') === caminhoTela(to).replace(/\/$/, '');
             return (
               <Link
                 key={to}
-                to={to}
+                to={caminhoTela(to)}
                 aria-label={label}
                 aria-current={ativo ? 'page' : undefined}
                 title={collapsed ? label : undefined}
