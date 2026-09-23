@@ -12,6 +12,7 @@ interface ScheduleGridProps {
 }
 
 export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, dias, onUpdateEscala }) => {
+  const [soltarEm, setSoltarEm] = useState<string | null>(null);
   const { podeGravar, visitante, unidadeId, semanaInicio, revalidarSemanas } = useWorkContext();
   const getViolacoes = (turno: string, sitio: string, d: number) => {
     return violacoes.filter(v => v.turno === turno && canon(v.sitio) === canon(sitio) && v.d === d);
@@ -65,51 +66,57 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
     };
 
     if (sitios.length === 0) return null;
+    const faixa = turno === 'manha' ? 'bg-manha text-manha-tinta' : 'bg-tarde text-tarde-tinta';
 
     return (
-      <div className="mb-6 overflow-x-auto">
-        <h3 className="text-md font-bold mb-2">{titulo}</h3>
-        <table className="w-full border-collapse border border-slate-200">
+      <div className="mb-8 overflow-x-auto">
+        <h3 className="mb-2 flex items-center gap-2 text-base font-bold text-slate-900">
+          <span aria-hidden="true" className={`h-3 w-6 rounded-sm ${faixa}`} />
+          {titulo}
+        </h3>
+        <table className="w-full min-w-[720px] table-fixed border-collapse bg-white text-sm">
           <thead>
-            <tr className="bg-slate-100">
-              <th className="border border-slate-200 p-2 text-left">Sítio</th>
+            <tr className={faixa}>
+              <th className="w-44 border border-slate-300 px-3 py-2 text-left font-bold">Sítio</th>
               {dias.map((d, i) => (
-                <th key={i} className="border border-slate-200 p-2">{d}</th>
+                <th key={i} className="border border-slate-300 px-3 py-2 text-left font-bold">{d}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {sitios.map(s => (
               <tr key={s}>
-                <td className="border border-slate-200 p-2 font-semibold bg-slate-50 text-xs w-48">{s}</td>
+                <td className="border border-slate-300 bg-slate-50 px-3 py-2 font-bold text-slate-800">{s}</td>
                 {dias.map((_, d) => {
                   const nomes = sourceData[s][d] || [];
                   const vs = getViolacoes(turno, s, d);
-                  const isHard = vs.some(v => v.hard);
-                  const isSoft = vs.some(v => !v.hard);
-                  const bgClass = isHard ? 'bg-red-100' : (isSoft ? 'bg-yellow-100' : '');
+                  const marca = vs.some(v => v.hard) ? 'marca-rigida' : vs.length ? 'marca-alerta' : '';
+                  const alvo = `${turno}|${s}|${d}`;
 
                   return (
-                    <td 
-                      key={d} 
-                      className={`border border-slate-200 p-2 ${bgClass}`}
-                      onDrop={canEdit ? (e) => handleDrop(e, turno, s, d) : undefined}
-                      onDragOver={canEdit ? handleDragOver : undefined}
+                    <td
+                      key={d}
+                      style={{ '--dia': d } as React.CSSProperties}
+                      className={`preencher-dia border border-slate-300 px-3 py-2 align-top ${soltarEm === alvo ? 'bg-caneta-50 outline outline-2 -outline-offset-2 outline-caneta-500' : ''}`}
+                      onDrop={canEdit ? (e) => { setSoltarEm(null); handleDrop(e, turno, s, d); } : undefined}
+                      onDragOver={canEdit ? (e) => { handleDragOver(e); if (soltarEm !== alvo) setSoltarEm(alvo); } : undefined}
+                      onDragLeave={canEdit ? () => setSoltarEm(atual => atual === alvo ? null : atual) : undefined}
                     >
                       {nomes.map((nome, i) => (
-                        <div 
-                          key={i} 
-                          className={`inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded m-0.5 ${canEdit ? 'cursor-move' : ''}`}
+                        <div
+                          key={i}
+                          className={`w-fit rounded-sm px-1 font-medium leading-6 text-slate-900 ${marca} ${canEdit ? 'cursor-grab hover:bg-slate-100 active:cursor-grabbing' : ''}`}
                           draggable={canEdit}
                           onDragStart={canEdit ? (e) => handleDragStart(e, nome, turno, s, d) : undefined}
+                          onDragEnd={() => setSoltarEm(null)}
                         >
                           {nome}
                         </div>
                       ))}
                       {vs.length > 0 && (
-                        <div data-print-hide="true" className="text-[10px] text-red-600 mt-1">
-                          {vs.map((v, i) => <div key={i}>• {v.msg}</div>)}
-                        </div>
+                        <ul data-print-hide="true" className={`mt-1 space-y-0.5 text-xs ${vs.some(v => v.hard) ? 'text-red-800' : 'text-slate-600'}`}>
+                          {vs.map((v, i) => <li key={i}>{v.msg}</li>)}
+                        </ul>
                       )}
                     </td>
                   );
@@ -160,15 +167,15 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
 
   return (
     <div>
-      {renderTurno('manha', 'Manhã (M)')}
-      {renderTurno('tarde', 'Tarde (T)')}
+      {renderTurno('manha', 'Manhã')}
+      {renderTurno('tarde', 'Tarde')}
 
       {podeGravar && (
         <div className="mt-6 flex justify-end print:hidden">
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 rounded-md bg-caneta-600 px-4 py-2 text-sm font-bold text-white hover:bg-caneta-700 disabled:opacity-50"
           >
             {isSaving ? 'Salvando...' : 'Salvar e Publicar'}
           </button>

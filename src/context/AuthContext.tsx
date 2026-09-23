@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { queryClient } from '../lib/queryClient';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { AuthContextType, UserProfile, UserRole } from '../types/auth';
 
@@ -12,9 +13,9 @@ export const DEMO_UNIDADE_ID = 'demo-unidade-1';
 const DEMO_PROFILE: UserProfile = {
   id: 'demo-user-1',
   unidade_id: DEMO_UNIDADE_ID,
-  email: 'michele.ferreira@saude.gov.br',
-  nome: 'Michele Ferreira',
-  avatar_url: 'https://images.unsplash.com/photo-1594824813571-638f02614d3f?w=150&auto=format&fit=crop&q=80',
+  email: 'coordenacao@exemplo.invalid',
+  nome: 'Coordenação Demonstração',
+  avatar_url: null,
   role: 'coordenador',
   ativo: true,
   created_at: new Date().toISOString(),
@@ -65,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!isSupabaseConfigured) {
       // Modo Mock/Demo para desenvolvimento inicial sem travar a tela
-      setUser({ id: 'demo-user-1', email: 'michele.ferreira@saude.gov.br' });
+      setUser({ id: 'demo-user-1', email: 'coordenacao@exemplo.invalid' });
       setProfile(DEMO_PROFILE);
       setRole(DEMO_PROFILE.role);
       setIsLoading(false);
@@ -102,7 +103,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     // O callback de auth não pode aguardar chamadas Supabase: ele detém o lock da sessão.
     const timers = new Set<ReturnType<typeof setTimeout>>();
+    let usuarioAtual: string | null | undefined;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Troca de usuário (login, logout, outra conta no mesmo computador do
+      // hospital) não pode reaproveitar listas em cache do usuário anterior.
+      const usuario = session?.user?.id ?? null;
+      if (usuarioAtual !== undefined && usuario !== usuarioAtual) queryClient.clear();
+      usuarioAtual = usuario;
       const timer = setTimeout(() => { timers.delete(timer); if (!disposed) void applySession(session); }, 0);
       timers.add(timer);
     });

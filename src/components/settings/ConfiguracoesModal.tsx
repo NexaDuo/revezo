@@ -27,7 +27,7 @@ function ModalAberto({ onClose }: { onClose: () => void }) {
   }, []);
   return createPortal(<div className="fixed inset-0 z-50 bg-black/50 sm:p-6 flex items-center justify-center print:hidden">
     <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="configuracoes-titulo" tabIndex={-1}
-      className="bg-white w-full h-[100dvh] sm:h-[85vh] max-w-5xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden outline-none"
+      className="bg-white w-full h-[100dvh] sm:h-[85vh] max-w-5xl sm:rounded-lg shadow-xl flex flex-col overflow-hidden outline-none"
       onKeyDown={e => {
         if (e.key === 'Escape') { e.stopPropagation(); fechar.current(); }
         if (e.key === 'Tab') {

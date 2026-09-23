@@ -4,8 +4,75 @@
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900 antialiased selection:bg-emerald-200 selection:text-emerald-900;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    @apply bg-slate-50 text-slate-900 antialiased selection:bg-marca selection:text-slate-900;
+    font-feature-settings: "tnum";
+  }
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+  :focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-caneta-600;
+  }
+}
+
+/* Conferência da grade: a violação é marcada como a coordenadora marcaria o
+   papel — um traço de marca-texto atrás do texto, não uma célula inteira
+   pintada. Amarelo = alerta; vermelho = regra rígida. */
+@layer components {
+  .marca-alerta,
+  .marca-rigida {
+    background-repeat: no-repeat;
+    background-size: 100% 70%;
+    background-position: 0 60%;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+  .marca-alerta {
+    background-image: linear-gradient(100deg, transparent 0.3em, rgb(255 228 92 / 0.85) 0.5em, rgb(255 228 92 / 0.7) calc(100% - 0.5em), transparent calc(100% - 0.3em));
+  }
+  .marca-rigida {
+    background-image: linear-gradient(100deg, transparent 0.3em, rgb(209 52 56 / 0.28) 0.5em, rgb(209 52 56 / 0.2) calc(100% - 0.5em), transparent calc(100% - 0.3em));
+  }
+}
+
+/* O único movimento do app: ao gerar, a grade é preenchida dia a dia. */
+@keyframes preencher {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: none; }
+}
+.preencher-dia {
+  animation: preencher 0.28s ease-out both;
+  animation-delay: calc(var(--dia, 0) * 90ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .preencher-dia,
+  .animate-fade-in {
+    animation: none;
+  }
+}
+
+/* Formulários dentro de modais (edição de registro, Configurações): estilo
+   base com a especificidade de um atributo — o bastante para vencer o reset
+   do Tailwind (`[type='submit']`), e só para elementos sem classe: quem
+   tem classe própria (Configurações, login) não herda nada daqui. */
+@layer components {
+  [role="dialog"] :where(label:not([class])) {
+    @apply block text-sm font-medium text-slate-700;
+  }
+  [role="dialog"] :where(input:not([type="checkbox"]):not([type="radio"]):not([class]), select:not([class]), textarea:not([class])) {
+    @apply mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-caneta-500 focus:border-caneta-500 disabled:bg-slate-100;
+  }
+  [role="dialog"] :where(input[type="checkbox"]:not([class])) {
+    @apply ml-2 h-4 w-4 rounded border-slate-300 align-middle accent-caneta-600 focus:ring-caneta-500;
+  }
+  [role="dialog"] :where(button:not([class])) {
+    @apply rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  [role="dialog"] :where(button[type="submit"]:not([class])) {
+    @apply border-caneta-600 bg-caneta-600 text-white hover:bg-caneta-700 hover:border-caneta-700;
+  }
+  [role="dialog"] :where(button[data-perigo]:not([class])) {
+    @apply border-red-300 text-red-700 hover:bg-red-50;
   }
 }
 
@@ -96,6 +163,10 @@
   /* as mensagens de violação são ferramenta de conferência, não vão no papel */
   [data-print-hide="true"] {
     display: none !important;
+  }
+
+  .preencher-dia {
+    animation: none !important;
   }
 
   h3 {

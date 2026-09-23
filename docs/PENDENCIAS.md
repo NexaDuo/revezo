@@ -4,16 +4,16 @@ Até a primeira versão oficial o Revezo roda sem issues/board: este arquivo é 
 registro do que falta. Item feito sai daqui no mesmo PR que o resolve.
 
 ## Produto
-- **Padrão único de tabela.** Toda lista de registros (Equipe, Sítios, Regras,
-  Histórico, Usuários, Convites, Unidades) com carregamento paginado de 10
-  registros, edição da linha em modal e cache dos dados na navegação entre
-  telas. Em andamento (`feat/tabelas-padrao`).
 - **Telas para proibições, duplas proibidas e colocações fixas.** O solver já lê
   essas tabelas por unidade (`src/lib/loadConfig.ts`), mas não há tela para
-  cadastrá-las: hoje só entram por SQL. Fazer depois do padrão de tabela, já nele.
+  cadastrá-las: hoje só entram por SQL. Fazer já no padrão de tabela (`DataTable` + `RecordForm`).
 - **Anonimizar os dados de exemplo** antes de abrir o repositório:
   `docs/referencia/`, `src/lib/solver/defaultConfig.ts` e os mocks com nome de
   pessoa real.
+
+- **Semana aberta pelo Histórico não revalida ao arrastar.** Ela entra com a
+  grade e as violações salvas, mas sem `Config`: editar a célula não recalcula a
+  conferência até gerar de novo.
 
 ## Segurança (@sec, baixa)
 - Revogar `execute` de `public` em `is_admin()`, `is_coordenador()` e

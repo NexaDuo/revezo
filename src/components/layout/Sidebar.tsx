@@ -159,7 +159,7 @@ export const Sidebar: React.FC = () => {
       <aside
         ref={asideRef}
         className={`
-          bg-white border-r border-slate-200 shrink-0 print:hidden
+          bg-slate-50 border-r border-slate-200 shrink-0 print:hidden
           flex flex-col
           fixed top-28 md:top-16 bottom-0 left-0 z-50
           md:sticky md:h-[calc(100vh-4rem)]
@@ -179,13 +179,14 @@ export const Sidebar: React.FC = () => {
                 aria-current={ativo ? 'page' : undefined}
                 title={collapsed ? label : undefined}
                 className={`
-                  flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors
-                  focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500
-                  ${ativo ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}
+                  relative flex items-center gap-3 px-3 py-2.5 rounded-md text-[15px] transition-colors
+                  ${ativo
+                    ? 'bg-white font-bold text-slate-900 before:absolute before:inset-y-1.5 before:left-0 before:w-1 before:rounded-full before:bg-caneta-600'
+                    : 'font-medium text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'}
                   ${collapsed ? 'justify-center' : ''}
                 `}
               >
-                <Icon className={`w-[18px] h-[18px] shrink-0 ${ativo ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <Icon className={`w-[18px] h-[18px] shrink-0 ${ativo ? 'text-caneta-600' : 'text-slate-500'}`} />
                 {!collapsed && <span className="truncate">{label}</span>}
               </Link>
             );
@@ -200,12 +201,12 @@ export const Sidebar: React.FC = () => {
           aria-expanded={!collapsed}
           aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
           title={collapsed ? 'Expandir menu' : 'Recolher menu'}
-          className="hidden md:flex items-center justify-center gap-2 m-2 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
+          className="hidden md:flex items-center justify-center gap-2 m-2 p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 rounded-md transition-colors"
         >
           {collapsed ? <ChevronRight className="w-4 h-4" /> : (
             <>
               <ChevronLeft className="w-4 h-4" />
-              <span className="text-xs font-semibold">Recolher</span>
+              <span className="text-sm font-medium">Recolher</span>
             </>
           )}
         </button>

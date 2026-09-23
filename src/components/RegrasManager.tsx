@@ -1,141 +1,49 @@
-import React, { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useWorkContext } from '../context/WorkContext';
-import { getRegras, updateRegra } from '../lib/db';
-import { AlertTriangle, ShieldCheck, Info } from 'lucide-react';
-
-/** Uma linha de `regras_config`. A `chave` casa 1:1 com `Regras` em
- *  src/lib/solver/types.ts — é por ela que o motor encontra a regra. */
-interface Regra {
-  id: string;
-  chave: string;
-  nome: string;
-  descricao: string | null;
-  ativa: boolean;
-  rigida: boolean;
-  ordem: number;
-}
-
-export const RegrasManager: React.FC = () => {
-  const { podeGravar, unidadeId, isLoading: unidadeCarregando } = useWorkContext();
-  const canEdit = podeGravar;
-
-  const [regras, setRegras] = useState<Regra[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [erro, setErro] = useState<string | null>(null);
-  const [salvando, setSalvando] = useState<string | null>(null);
-
-  const loadData = async () => {
-    setLoading(true);
-    setErro(null);
-    try {
-      setRegras((await getRegras(unidadeId)) as Regra[]);
-    } catch (e: any) {
-      setErro(e?.message || 'Não foi possível carregar as regras.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    // Sem esperar o WorkContext resolver, `unidadeId` chega nulo aqui durante
-    // o carregamento do perfil e `getRegras` lança "nenhuma unidade
-    // selecionada" — um erro real virando falso positivo por causa da ordem
-    // de renderização, não da falta de unidade de fato.
-    if (unidadeCarregando) return;
-    loadData();
-  }, [unidadeId, unidadeCarregando]);
-
-  /** Gravação otimista com reversão: se o banco recusar, a chave volta ao
-   *  estado anterior e o erro aparece — nunca um toggle que mente. */
-  const alternar = async (r: Regra, campo: 'ativa' | 'rigida') => {
-    if (!canEdit) return;
-    const anterior = r[campo];
-    const novo = !anterior;
-    setSalvando(r.id);
-    setErro(null);
-    setRegras(rs => rs.map(x => (x.id === r.id ? { ...x, [campo]: novo } : x)));
-    try {
-      await updateRegra(r.id, { [campo]: novo }, unidadeId);
-    } catch (e: any) {
-      setRegras(rs => rs.map(x => (x.id === r.id ? { ...x, [campo]: anterior } : x)));
-      setErro(e?.message || 'Não foi possível gravar a alteração.');
-    } finally {
-      setSalvando(null);
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
-      <div>
-        <h2 className="text-lg font-bold text-slate-900">Gerenciador de Regras</h2>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Desligar uma regra aqui muda a próxima geração da grade. Serve para descobrir
-          na prática quais regras são inegociáveis: desligue uma e veja se a escala melhora.
-        </p>
-      </div>
-
-      <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-        <Info className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
-        <p className="text-xs text-slate-600">
-          <strong>Rígida</strong> bloqueia e pinta a célula de vermelho (peso 100 na
-          pontuação do solver). <strong>Alerta</strong> apenas avisa, em amarelo (peso 1).
-          Quem é proibido de quê se cadastra em Equipe, não aqui.
-        </p>
-      </div>
-
-      {erro && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
-          {erro}
-        </div>
-      )}
-
-      {loading || unidadeCarregando ? (
-        <div className="text-center py-8 text-slate-500 text-sm">Carregando...</div>
-      ) : regras.length === 0 ? (
-        <div className="p-6 text-center text-xs text-slate-500 border border-dashed border-slate-300 rounded-xl">
-          Nenhuma regra cadastrada para esta unidade. A grade vai usar os padrões do motor.
-        </div>
-      ) : (
-        <table className="w-full">
-          <thead>
-            <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
-              <th className="pb-2 font-semibold">Regra</th>
-              <th className="pb-2 font-semibold w-28">Severidade</th>
-              <th className="pb-2 font-semibold w-24">Estado</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {regras.map(r => (
-              <tr key={r.id} className={r.ativa ? '' : 'opacity-50'}>
-                <td className="py-3 pr-4">
-                  <div className="text-sm font-semibold text-slate-900">{r.nome}</div>
-                  <div className="text-xs text-slate-500">{r.descricao}</div>
-                  <code className="text-[10px] text-slate-400">{r.chave}</code>
-                </td>
-                <td className="py-3">
-                  <button
+import { addRegra, updateRegra, deleteRegra } from '../lib/db';
+import { listarPagina } from '../lib/paginacao';
+import { mensagemErroGravacao } from '../lib/errosGravacao';
+import { DataTable } from './DataTable';
+import { RecordForm } from './RecordForm';
+import { AlertTriangle, ShieldCheck } from 'lucide-react';
+export function RegrasManager() {
+ const { unidadeId, podeGravar: canEdit, isLoading } = useWorkContext();
+ const client = useQueryClient();
+ const [erro, setErro] = useState(''); const [salvando, setSalvando] = useState<string | null>(null);
+ const invalidar = () => client.invalidateQueries({ queryKey: ['regras_config', unidadeId] });
+ async function alternar(r: any, campo: 'ativa' | 'rigida') {
+   if (!canEdit || salvando) return;
+   setSalvando(r.id); setErro('');
+   try { await updateRegra(r.id, { [campo]: !r[campo] }, unidadeId); await invalidar(); }
+   catch (e: any) { setErro(mensagemErroGravacao(e)); } finally { setSalvando(null); }
+ }
+ return <div className="space-y-3">
+ {erro && <p role="alert" className="rounded-md border-l-4 border-marca-rigida bg-white px-3 py-2 text-sm text-red-900">{erro}</p>}
+ <DataTable<any> titulo="Regras" descricao="Desligar uma regra aqui muda a próxima geração da grade. Rígida bloqueia (peso 100); alerta apenas avisa (peso 1)." queryKey={['regras_config', unidadeId]} enabled={!isLoading}
+ fetchPage={f => listarPagina('regras_config', unidadeId, {...f, ordem: 'ordem'})} getRowId={r => r.id} podeEditar={canEdit}
+ columns={[
+ {key:'nome', header:'Regra', searchable:true, render:r => <><span className="font-bold">{r.nome}</span><span className="block text-xs text-slate-500">{r.chave}</span></>},
+ {key:'descricao', header:'Descrição', searchable:true},
+ {key:'rigida', header:'Severidade', render:r => (                  <button
                     onClick={() => alternar(r, 'rigida')}
                     disabled={!canEdit || salvando === r.id}
                     title={canEdit ? 'Alternar entre rígida e alerta' : 'Somente leitura'}
                     data-testid={`regra-severidade-${r.chave}`}
-                    className={`inline-flex align-middle items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold border transition-colors disabled:cursor-not-allowed ${
-                      r.rigida
-                        ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
-                        : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                    className={`inline-flex align-middle items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-sm font-bold text-slate-900 hover:underline disabled:cursor-not-allowed disabled:no-underline ${
+                      r.rigida ? 'marca-rigida' : 'marca-alerta'
                     }`}
                   >
                     {r.rigida ? <ShieldCheck className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
                     {r.rigida ? 'Rígida' : 'Alerta'}
-                  </button>
-                </td>
-                <td className="py-3">
-                  <button
+                  </button>)},
+ {key:'ativa', header:'Estado', render:r => (                  <button
                     onClick={() => alternar(r, 'ativa')}
                     disabled={!canEdit || salvando === r.id}
                     aria-pressed={r.ativa}
                     data-testid={`regra-toggle-${r.chave}`}
                     className={`relative align-middle w-11 h-6 rounded-full transition-colors disabled:cursor-not-allowed ${
-                      r.ativa ? 'bg-emerald-500' : 'bg-slate-300'
+                      r.ativa ? 'bg-caneta-600' : 'bg-slate-300'
                     }`}
                   >
                     {/* `left-0.5` fixa a posição de repouso dentro da trilha —
@@ -148,13 +56,12 @@ export const RegrasManager: React.FC = () => {
                         r.ativa ? 'translate-x-5' : 'translate-x-0'
                       }`}
                     />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-};
+                  </button>)}
+ ]}
+ renderForm={(r, fechar) => <RecordForm inicial={r ?? { chave:'', nome:'', descricao:'', ativa:true, rigida:true, ordem:1 }} fechar={fechar}
+ fields={[{key:'chave',label:'Chave',required:true,disabled:!!r},{key:'nome',label:'Nome',required:true},{key:'descricao',label:'Descrição'},{key:'ativa',label:'Ativa',type:'checkbox'},{key:'rigida',label:'Rígida',type:'checkbox'},{key:'ordem',label:'Ordem',type:'number',required:true}]}
+ salvar={async d => { const payload = {chave:d.chave.trim(),nome:d.nome.trim(),descricao:d.descricao,ativa:d.ativa,rigida:d.rigida,ordem:d.ordem}; if (!payload.nome || !payload.chave || !Number.isInteger(payload.ordem)) throw new Error('Informe chave, nome e ordem válida.'); if (r) await updateRegra(r.id,payload,unidadeId); else await addRegra(payload,unidadeId); await invalidar(); }}
+ excluir={r ? async () => { await deleteRegra(r.id,unidadeId); await invalidar(); } : undefined} />}
+ />
+ </div>;
+}

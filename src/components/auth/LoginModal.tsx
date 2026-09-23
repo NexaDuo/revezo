@@ -24,17 +24,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 animate-fade-in">
+      <div className="relative w-full max-w-md bg-white rounded-lg shadow-2xl border border-slate-200 overflow-hidden">
         {/* Header */}
         <div className="p-6 pb-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-xl shadow-md shadow-emerald-200">
-              R
-            </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Entrar no Revezo</h2>
-              <p className="text-xs text-slate-500">Gestão & Editor de Escala de Sítio</p>
+              <h2 className="text-xl font-extrabold tracking-tight text-slate-900">Entrar no <span className="text-caneta-700">Revezo</span></h2>
+              <p className="text-sm text-slate-600">Escala de sítio da enfermagem</p>
             </div>
           </div>
           <button
@@ -47,9 +44,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
 
         {/* Content */}
         <div className="p-6 space-y-5">
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-600 space-y-2">
+          <div className="bg-slate-50 border border-slate-200 rounded-md p-4 text-xs text-slate-600 space-y-2">
             <div className="flex items-center gap-2 font-semibold text-slate-800">
-              <Sparkles className="w-4 h-4 text-emerald-600" />
+              <Sparkles className="w-4 h-4 text-caneta-600" />
               <span>Papéis e Níveis de Acesso:</span>
             </div>
             <ul className="list-disc pl-4 space-y-1">
@@ -60,7 +57,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
           </div>
 
           {!isSupabaseConfigured && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-800">
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2.5 text-xs text-amber-800">
               <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div>
                 <strong>Modo Demonstração:</strong> O Supabase ainda não foi configurado no arquivo <code className="bg-amber-100 px-1 py-0.5 rounded">.env</code>. Clicar no botão simulará o login localmente com perfil coordenador/admin.
@@ -69,7 +66,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
           )}
 
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md text-xs text-red-600">
               {error}
             </div>
           )}
@@ -86,7 +83,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="voce@exemplo.com"
-                  className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-caneta-500 focus:outline-none"
                 />
               </div>
             </label>
@@ -102,7 +99,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                   value={senha}
                   onChange={e => setSenha(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-caneta-500 focus:outline-none"
                 />
               </div>
             </label>
@@ -110,7 +107,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
             <button
               type="submit"
               disabled={entrando}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-sm transition-all active:scale-[0.99] disabled:opacity-60"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-caneta-600 hover:bg-caneta-700 text-white font-semibold rounded-md transition-all active:scale-[0.99] disabled:opacity-60"
             >
               <LogIn className="w-4 h-4" />
               <span>{entrando ? 'Entrando...' : 'Entrar'}</span>
@@ -128,7 +125,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
               await signInWithGoogle();
               onClose();
             }}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white hover:bg-slate-50 text-slate-700 font-medium rounded-xl border border-slate-300 shadow-sm hover:shadow transition-all duration-150 active:scale-[0.99]"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white hover:bg-slate-50 text-slate-700 font-medium rounded-md border border-slate-300 hover:shadow transition-all duration-150 active:scale-[0.99]"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path

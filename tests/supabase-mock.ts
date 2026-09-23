@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { expect, type Page } from '@playwright/test';
+import { expect, type Page, type Route } from '@playwright/test';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -50,7 +50,7 @@ export async function autenticarComoCoordenador(
     { key: storageKey, session: fakeSession }
   );
 
-  await page.route('**/rest/v1/**', route => route.fulfill({ json: [] }));
+  await page.route('**/rest/v1/**', route => responderPagina(route, []));
   await page.route('**/rest/v1/rpc/aceitar_convite', route => route.fulfill({ status: 204 }));
   await page.route('**/rest/v1/profiles*', async route => {
     if (opts.profileDelayMs) await new Promise(r => setTimeout(r, opts.profileDelayMs));
@@ -59,19 +59,16 @@ export async function autenticarComoCoordenador(
       nome: 'Teste E2E', avatar_url: null, role: opts.role ?? 'coordenador', ativo: true,
       created_at: fakeUser.created_at, updated_at: fakeUser.created_at,
     };
-    await route.fulfill({ json: new URL(route.request().url()).searchParams.has('id') ? profile : [profile] });
+    if (new URL(route.request().url()).searchParams.has('id')) await route.fulfill({json:profile});
+    else await responderPagina(route, [profile]);
   });
-  await page.route('**/rest/v1/disponibilidade_semanal*', route => route.fulfill({ json: [] }));
-  await page.route('**/rest/v1/escalas_semanais*', route => route.fulfill({ json: [] }));
+  await page.route('**/rest/v1/disponibilidade_semanal*', route => responderPagina(route, []));
+  await page.route('**/rest/v1/escalas_semanais*', route => responderPagina(route, []));
   await page.route('**/rest/v1/regras_config*', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(opts.regrasConfig ?? []) })
+    responderPagina(route, opts.regrasConfig ?? [])
   );
   await page.route('**/rest/v1/unidades*', route =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([{ id: FAKE_UNIT_ID, nome: 'Unidade Teste', slug: 'hospital-teste', publica: false }]),
-    })
+    responderPagina(route, [{ id: FAKE_UNIT_ID, nome: 'Unidade Teste', slug: 'hospital-teste', publica: false }])
   );
   await page.route('**/auth/v1/user*', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fakeUser) })
@@ -92,7 +89,7 @@ export const HAS_ENV = fs.existsSync(path.resolve(__dirname, '..', '.env'));
 /** Cenário público vazio para testes de navegação, sem depender do banco remoto. */
 export async function visitanteSemDados(page: Page) {
   if (!HAS_ENV) return;
-  await page.route('**/rest/v1/**', route => route.fulfill({ json: [] }));
+  await page.route('**/rest/v1/**', route => responderPagina(route, []));
   await page.route('**/rest/v1/unidades*', route => route.fulfill({ json: [
     { id: FAKE_UNIT_ID, nome: 'Hospital Demonstração', slug: 'demonstracao', publica: true },
   ] }));
@@ -100,4 +97,36 @@ export async function visitanteSemDados(page: Page) {
 
 export async function autenticarComoAdmin(page: Page) {
   await autenticarComoCoordenador(page, { role: 'admin' });
+}
+
+/** PostgREST uses offset/limit for range() in supabase-js v2; also accepts Range. */
+export async function responderPagina(route: Route, dados: any[]) {
+  const url = new URL(route.request().url());
+  let linhas = [...dados];
+  const unidade = url.searchParams.get('unidade_id');
+  if (unidade?.startsWith('eq.')) linhas = linhas.filter(r => r.unidade_id === undefined || r.unidade_id === unidade.slice(3));
+  const or = url.searchParams.get('or');
+  if (or) {
+    const termos = [...or.matchAll(/([a-z_]+)\.ilike\.("(?:\\.|[^"\\])*"|[^,()]+)/g)];
+    linhas = linhas.filter(r => termos.some(([, coluna, valor]) => {
+      let texto = valor.startsWith('"') ? JSON.parse(valor) : valor;
+      texto = texto.slice(1, -1).replace(/\\([%_\\])/g, '$1').toLocaleLowerCase();
+      return String(r[coluna] ?? '').toLocaleLowerCase().includes(texto);
+    }));
+  }
+  const ordem = url.searchParams.get('order')?.split(',') ?? [];
+  linhas.sort((a,b) => {
+    for (const spec of ordem) { const [campo, direcao] = spec.split('.'); const cmp = a[campo] < b[campo] ? -1 : a[campo] > b[campo] ? 1 : 0; if(cmp) return direcao === 'desc' ? -cmp : cmp; }
+    return 0;
+  });
+  const total = linhas.length;
+  const range = route.request().headers()['range']?.match(/(\d+)-(\d+)/);
+  const from = range ? Number(range[1]) : Number(url.searchParams.get('offset') ?? 0);
+  const limite = range ? Number(range[2]) - from + 1 : Number(url.searchParams.get('limit') ?? total);
+  linhas = linhas.slice(from, from + limite);
+  const count = route.request().headers()['prefer']?.includes('count=exact');
+  return route.fulfill({ json: linhas, headers: count ? {
+    'Content-Range': total ? `${from}-${from + linhas.length - 1}/${total}` : '*/0',
+    'Access-Control-Expose-Headers': 'Content-Range',
+  } : {} });
 }
