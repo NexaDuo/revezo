@@ -80,7 +80,7 @@ begin
   select * into perfil from public.profiles where id = usuario for update;
   if perfil.id is null then raise exception 'Perfil não encontrado para aceitar convite'; end if;
   if perfil.role = 'admin' then return; end if;
-  if not exists (select 1 from public.profiles where id = convite.convidado_por and role = 'admin')
+  if not exists (select 1 from public.profiles where id = convite.convidado_por and role = 'admin' and ativo)
      and not (perfil.unidade_id is null
        or (perfil.unidade_id = convite.unidade_id and perfil.role = 'visualizador')) then
     return;
