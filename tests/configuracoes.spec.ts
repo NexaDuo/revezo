@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { HAS_ENV, FAKE_UNIT_ID, FAKE_USER_ID, autenticarComoCoordenador, autenticarComoAdmin } from './supabase-mock';
+import { responderPagina, HAS_ENV, FAKE_UNIT_ID, FAKE_USER_ID, autenticarComoCoordenador, autenticarComoAdmin } from './supabase-mock';
 
 async function abrir(page: Page) {
   await page.goto('/');
@@ -74,18 +74,21 @@ test.describe('Configurações com Supabase', () => {
         return route.fulfill({ json: [{ id: FAKE_UNIT_ID }] });
       }
       leituras++;
-      return route.fulfill({ json: [{ id: FAKE_UNIT_ID, nome: 'Unidade Teste', slug: 'hospital-teste', publica }] });
+      return responderPagina(route, [{ id: FAKE_UNIT_ID, nome: 'Unidade Teste', slug: 'hospital-teste', publica }]);
     });
     await abrir(page);
     await page.getByRole('tab', { name: 'Unidades', exact: true }).click();
+    await page.getByRole('button', { name: 'Editar', exact: true }).click();
     await page.getByRole('button', { name: 'Tornar pública', exact: true }).click();
     await expect(page.getByText('Qualquer pessoa, sem login, poderá ver equipe, sítios, disponibilidade e escalas desta unidade.')).toBeVisible();
     expect(patches).toEqual([]);
-    await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+    await page.getByRole('button', { name: 'Cancelar', exact: true }).last().click();
     expect(patches).toEqual([]);
     const antes = leituras;
     await page.getByRole('button', { name: 'Tornar pública', exact: true }).click();
     await page.getByRole('button', { name: 'Confirmar tornar pública', exact: true }).click();
+    await expect(page.getByRole('dialog', {name:'Editar Unidades',exact:true})).toHaveCount(0);
+    await page.getByRole('button', { name: 'Editar', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Tornar privada', exact: true })).toBeVisible();
     expect(patches).toEqual([{ publica: true }]);
     expect(leituras).toBeGreaterThan(antes);
@@ -95,9 +98,10 @@ test.describe('Configurações com Supabase', () => {
     await autenticarComoAdmin(page);
     await page.route('**/rest/v1/unidades*', route => route.request().method() === 'PATCH'
       ? route.fulfill({ status: 403, json: { code: '42501' } })
-      : route.fulfill({ json: [{ id: FAKE_UNIT_ID, nome: 'Unidade Teste', slug: 'hospital-teste', publica: false }] }));
+      : responderPagina(route, [{ id: FAKE_UNIT_ID, nome: 'Unidade Teste', slug: 'hospital-teste', publica: false }]));
     await abrir(page);
     await page.getByRole('tab', { name: 'Unidades', exact: true }).click();
+    await page.getByRole('button', { name: 'Editar', exact: true }).click();
     await page.getByRole('button', { name: 'Renomear', exact: true }).click();
     await expect(page.getByRole('alert')).toHaveText('Sem permissão para esta unidade');
   });

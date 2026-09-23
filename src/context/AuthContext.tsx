@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { queryClient } from '../lib/queryClient';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { AuthContextType, UserProfile, UserRole } from '../types/auth';
 
@@ -102,7 +103,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     // O callback de auth não pode aguardar chamadas Supabase: ele detém o lock da sessão.
     const timers = new Set<ReturnType<typeof setTimeout>>();
+    let usuarioAtual: string | null | undefined;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Troca de usuário (login, logout, outra conta no mesmo computador do
+      // hospital) não pode reaproveitar listas em cache do usuário anterior.
+      const usuario = session?.user?.id ?? null;
+      if (usuarioAtual !== undefined && usuario !== usuarioAtual) queryClient.clear();
+      usuarioAtual = usuario;
       const timer = setTimeout(() => { timers.delete(timer); if (!disposed) void applySession(session); }, 0);
       timers.add(timer);
     });

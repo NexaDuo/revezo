@@ -8,12 +8,8 @@ test('regras page loads and displays header', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'Gerenciador de Regras' })).toBeVisible();
 
-  // Sem Supabase configurado (o caso do CI) a lista volta vazia na hora, então
-  // não há tabela nem frame de "Carregando...". Os três estados são válidos —
-  // o que não pode é a tela ficar em branco.
-  const carregando = page.locator('text=Carregando...');
-  const tabela = page.locator('table');
-  const vazio = page.locator('text=Nenhuma regra cadastrada');
-
-  await expect(carregando.or(tabela.first()).or(vazio)).toBeVisible();
+  // A tabela padrão mostra "Carregando..." e depois a própria tabela — vazia
+  // ou não, "Nenhum registro encontrado." fica dentro dela. O que não pode é
+  // a tela ficar em branco.
+  await expect(page.locator('text=Carregando...').or(page.locator('table')).first()).toBeVisible();
 });

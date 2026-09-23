@@ -1,3 +1,5 @@
+import { dadosDemo } from './paginacao';
+import { queryClient } from './queryClient';
 import { ScheduleResult } from './solver/types';
 import { supabase, isSupabaseConfigured } from './supabase';
 
@@ -17,7 +19,7 @@ export async function minhaUnidade(): Promise<string | null> {
 /** Nenhuma função aqui embaixo assume unidade: quem chama tem que trazer o
  *  `unidadeId` do `WorkContext`. Sem unidade resolvida, falha alto — nunca
  *  um default silencioso que grava (ou lê) na unidade errada. */
-function exigirUnidade(unidadeId: string | null | undefined): string {
+export function exigirUnidade(unidadeId: string | null | undefined): string {
   if (!unidadeId) {
     throw new Error('Nenhuma unidade selecionada. Peça a um admin para vincular seu perfil a uma unidade.');
   }
@@ -62,6 +64,7 @@ export async function saveSchedule(
       localStorage.setItem('demo_escalas', JSON.stringify(existing));
     } catch { throw new Error('Não foi possível salvar as escalas no armazenamento local.'); }
   }
+  await queryClient.invalidateQueries({ queryKey: ['escalas_semanais', unidadeId] });
 }
 
 export async function loadSchedules(unidadeId: string | null) {
@@ -99,7 +102,7 @@ export async function carregarEscala(dataInicio: string, unidadeId: string | nul
 }
 
 async function listar(tabela: string, ordem: string, unidadeId: string | null) {
-  if (!isSupabaseConfigured) return [];
+  if (!isSupabaseConfigured) return [...dadosDemo(tabela, unidadeId)].sort((a,b) => a[ordem] > b[ordem] ? 1 : -1);
   const { data, error } = await supabase
     .from(tabela)
     .select('*')
@@ -110,7 +113,7 @@ async function listar(tabela: string, ordem: string, unidadeId: string | null) {
 }
 
 async function inserir(tabela: string, item: any, unidadeId: string | null) {
-  if (!isSupabaseConfigured) return;
+  if (!isSupabaseConfigured) { const row = { ...item, id: crypto.randomUUID() }; dadosDemo(tabela, unidadeId).push(row); return row; }
   const unidade_id = exigirUnidade(unidadeId);
   const { data, error } = await supabase.from(tabela).insert([{ ...item, unidade_id }]).select();
   if (error) throw error;
@@ -118,7 +121,7 @@ async function inserir(tabela: string, item: any, unidadeId: string | null) {
 }
 
 async function atualizar(tabela: string, id: string, item: any, unidadeId: string | null) {
-  if (!isSupabaseConfigured) return;
+  if (!isSupabaseConfigured) { const row = dadosDemo(tabela, unidadeId).find(r => r.id === id); if (!row) throw new Error('Registro não encontrado.'); Object.assign(row, item); return row; }
   // unidade_id nunca vem do formulário: mover linha de unidade é operação de admin
   const { unidade_id: _ignorado, ...campos } = item;
   const { data, error } = await supabase
@@ -139,7 +142,7 @@ async function atualizar(tabela: string, id: string, item: any, unidadeId: strin
 }
 
 async function remover(tabela: string, id: string, unidadeId: string | null) {
-  if (!isSupabaseConfigured) return;
+  if (!isSupabaseConfigured) { const rows = dadosDemo(tabela, unidadeId); const i = rows.findIndex(r => r.id === id); if (i < 0) throw new Error('Registro não encontrado.'); rows.splice(i, 1); return; }
   const { data, error } = await supabase
     .from(tabela)
     .delete()

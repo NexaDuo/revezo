@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { HAS_ENV, FAKE_UNIT_ID, autenticarComoCoordenador } from './supabase-mock';
+import { responderPagina, HAS_ENV, FAKE_UNIT_ID, autenticarComoCoordenador } from './supabase-mock';
 function segundaAtualISO() {
   const d = new Date();
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
@@ -13,15 +13,15 @@ async function unidadePublica(page: Page) {
   await page.route('**/rest/v1/unidades*', route => route.fulfill({ json: [
     { id: PUBLIC_ID, slug: 'demonstracao', nome: 'Hospital Demonstração', publica: true },
   ] }));
-  await page.route('**/rest/v1/equipe*', route => route.fulfill({ json: nomes.map((nome, i) => ({
+  await page.route('**/rest/v1/equipe*', route => responderPagina(route, nomes.map((nome, i) => ({
     id: `pessoa-${i}`, unidade_id: PUBLIC_ID, nome, nome_curto: nome,
     categoria: i % 4 < 2 ? 'enf' : 'tec', turno_base: i < 4 ? 'manha' : 'tarde', ordem: i, ativo: true,
-  })) }));
-  await page.route('**/rest/v1/sitios*', route => route.fulfill({ json: [
-    { ordem: 1, nome: 'Consulta demonstrativa', categoria_permitida: 'enf' },
-    { ordem: 2, nome: 'Cuidados demonstrativos', categoria_permitida: 'tec' },
-    { ordem: 3, nome: 'Ações educativas', categoria_permitida: 'ambos' },
-  ] }));
+  }))));
+  await page.route('**/rest/v1/sitios*', route => responderPagina(route, [
+    { id:'sitio-1', ordem: 1, nome: 'Consulta demonstrativa', categoria_permitida: 'enf' },
+    { id:'sitio-2', ordem: 2, nome: 'Cuidados demonstrativos', categoria_permitida: 'tec' },
+    { id:'sitio-3', ordem: 3, nome: 'Ações educativas', categoria_permitida: 'ambos' },
+  ]));
   await page.route('**/rest/v1/disponibilidade_semanal*', route => {
     const semana = { data_inicio: segundaAtualISO(), data_fim: segundaAtualISO(),
       dias: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'],
@@ -75,14 +75,15 @@ test('coordenador cria convite normalizado e login aceita convite uma vez', asyn
   await page.route('**/rest/v1/convites*', async route => {
     if (route.request().method() === 'POST') {
       payload = route.request().postDataJSON();
-      await route.fulfill({ status: 201, json: [] });
+      await route.fulfill({ status: 201, json: [{id:'convite-1'}] });
     } else if (route.request().method() === 'DELETE') {
       revogado = true; await route.fulfill({ json: [{ id: 'convite-1' }] });
-    } else await route.fulfill({ json: payload && !revogado ? [{ ...payload, id: 'convite-1', aceito_em: null }] : [] });
+    } else await responderPagina(route, payload && !revogado ? [{ ...payload, id: 'convite-1', aceito_em: null }] : []);
   });
   await page.goto('/');
   await page.getByRole('button', { name: 'Configurações', exact: true }).click();
   await page.getByRole('tab', { name: 'Usuários', exact: true }).click();
+  await page.getByRole('region', {name:'Convites',exact:true}).getByRole('button', {name:'Novo',exact:true}).click();
   const papel = page.getByLabel('Papel do convite');
   await expect(papel.locator('option[value="admin"]')).toHaveCount(0);
   await expect(page.getByLabel('Unidade do convite')).toHaveCount(0);
@@ -90,6 +91,8 @@ test('coordenador cria convite normalizado e login aceita convite uma vez', asyn
   await papel.selectOption('coordenador');
   await page.getByRole('button', { name: 'Criar convite' }).click();
   await expect.poll(() => payload).toMatchObject({ email: 'aurora@example.com', unidade_id: FAKE_UNIT_ID, role: 'coordenador' });
+  await page.getByRole('row').filter({hasText:'aurora@example.com'}).getByRole('button', {name:'Editar',exact:true}).click();
+  page.once('dialog', d => d.accept());
   await page.getByRole('button', { name: 'Revogar convite' }).click();
   await expect.poll(() => revogado).toBe(true);
   expect(rpc).toBe(1);

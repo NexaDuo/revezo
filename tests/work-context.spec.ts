@@ -1,6 +1,6 @@
 import { defaultConfig } from '../src/lib/solver/defaultConfig';
 import { test, expect } from '@playwright/test';
-import { HAS_ENV, FAKE_USER_ID, FAKE_UNIT_ID, autenticarComoCoordenador } from './supabase-mock';
+import { HAS_ENV, FAKE_USER_ID, FAKE_UNIT_ID, autenticarComoCoordenador, responderPagina } from './supabase-mock';
 
 test.describe('WorkContext — semana e unidade dirigem o que a tela carrega', () => {
   test('a semana aparece no seletor do header, sem título duplicado', async ({ page }) => {
@@ -326,7 +326,7 @@ for (const tela of ['equipe', 'sitios'] as const) {
         if (metodo === 'POST') linhas.push({ ...dados, id: 'novo', created_at: '2026-09-23' });
         else Object.assign(linhas[1], dados);
         await route.fulfill({ status: 200, json: [{ id: 'novo' }] });
-      } else await route.fulfill({ json: linhas });
+      } else await responderPagina(route, linhas);
     });
     await page.goto(`/${tela}`);
     await page.getByRole('button', { name: 'Novo', exact: true }).click();

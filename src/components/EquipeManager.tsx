@@ -1,48 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import { DataTable, TableModal } from './DataTable';
+import { listarPagina, proximaOrdem } from '../lib/paginacao';
+import { useQueryClient } from '@tanstack/react-query';
+import React, { useState } from 'react';
 import { useWorkContext } from '../context/WorkContext';
-import { getEquipes, addEquipe, updateEquipe, deleteEquipe } from '../lib/db';
+import { addEquipe, updateEquipe, deleteEquipe } from '../lib/db';
 import { mensagemErroGravacao } from '../lib/errosGravacao';
-import { Edit2, Trash2, Plus, Save, X } from 'lucide-react';
 
-export const EquipeManager: React.FC = () => {
+export const EquipeManager: React.FC = () => { const { unidadeId } = useWorkContext(); return <EquipeContent key={unidadeId} />; };
+const EquipeContent: React.FC = () => {
   const { podeGravar, unidadeId, isLoading: unidadeCarregando } = useWorkContext();
   const canEdit = podeGravar;
-  const [equipes, setEquipes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const client = useQueryClient();
   const [erro, setErro] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
 
-  useEffect(() => {
-    // WorkContext ainda resolvendo a unidade (perfil carregando): esperar em
-    // vez de consultar com `unidadeId` nulo, que lança "nenhuma unidade
-    // selecionada" mesmo quando a unidade está a um instante de existir.
-    if (unidadeCarregando) return;
-    fetchData();
-  }, [unidadeId, unidadeCarregando]);
-
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = () => client.invalidateQueries({ queryKey: ['equipe', unidadeId] });
+  const handleAdd = async () => {
     setErro(null);
-    try {
-      const data = await getEquipes(unidadeId);
-      setEquipes(data);
-    } catch (error: any) {
-      console.error(error);
-      setErro(error?.message || 'Não foi possível carregar a equipe.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAdd = () => {
-    const newItem = { nome: '', nome_curto: '', categoria: 'tec', turno_base: 'manha', fixo_sitio: '', isento_acoes: false, custo_extra: 0, ativo: true, ordem: equipes.length ? Math.max(...equipes.map(item => item.ordem)) + 1 : 1 };
+    let ordem = 1;
+    try { ordem = await proximaOrdem('equipe', unidadeId); }
+    catch (e: any) { setErro(mensagemErroGravacao(e)); }
+    const newItem = { nome: '', nome_curto: '', categoria: 'tec', turno_base: 'manha', fixo_sitio: '', isento_acoes: false, custo_extra: 0, ativo: true, ordem };
     setEditForm(newItem);
     setEditingId('new');
   };
 
   const handleEdit = (item: any) => {
-    setEditForm(item);
+    setErro(null);
+    setEditForm({...item});
     setEditingId(item.id);
   };
 
@@ -100,100 +86,42 @@ export const EquipeManager: React.FC = () => {
       setErro(null);
       try {
         await deleteEquipe(id, unidadeId);
+        setEditingId(null);
         fetchData();
       } catch (error: any) {
         console.error(error);
-        setErro(error?.message || 'Não foi possível excluir.');
+        setErro(mensagemErroGravacao(error));
       }
     }
   };
 
   const renderEditCells = () => (
     <>
-      <td className="px-4 py-2"><input aria-label="Nome" type="text" className="w-full border rounded p-1" value={editForm.nome ?? ''} onChange={e => setEditForm({...editForm, nome: e.target.value})} /></td>
-      <td className="px-4 py-2"><input aria-label="Nome curto" type="text" className="w-full border rounded p-1" value={editForm.nome_curto ?? ''} onChange={e => setEditForm({...editForm, nome_curto: e.target.value})} /></td>
-      <td className="px-4 py-2"><select aria-label="Categoria" className="w-full border rounded p-1" value={editForm.categoria} onChange={e => setEditForm({...editForm, categoria: e.target.value})}><option value="enf">Enfermeira</option><option value="tec">Técnica</option></select></td>
-      <td className="px-4 py-2"><select aria-label="Turno base" className="w-full border rounded p-1" value={editForm.turno_base} onChange={e => setEditForm({...editForm, turno_base: e.target.value})}><option value="manha">Manhã</option><option value="tarde">Tarde</option><option value="noite">Noite</option><option value="ambos">Ambos</option></select></td>
-      <td className="px-4 py-2"><input aria-label="Sítio fixo" type="text" className="w-full border rounded p-1" value={editForm.fixo_sitio ?? ''} onChange={e => setEditForm({...editForm, fixo_sitio: e.target.value})} /></td>
-      <td className="px-4 py-2"><input aria-label="Isento de Ações" type="checkbox" checked={!!editForm.isento_acoes} onChange={e => setEditForm({...editForm, isento_acoes: e.target.checked})} /></td>
-      <td className="px-4 py-2"><input aria-label="Custo extra" type="number" step="any" className="w-full border rounded p-1" value={editForm.custo_extra ?? ''} onChange={e => setEditForm({...editForm, custo_extra: e.target.value})} /></td>
-      <td className="px-4 py-2"><input aria-label="Ativo" type="checkbox" checked={!!editForm.ativo} onChange={e => setEditForm({...editForm, ativo: e.target.checked})} /></td>
-      <td className="px-4 py-2"><input aria-label="Ordem" type="number" className="w-full border rounded p-1" value={editForm.ordem ?? ''} onChange={e => setEditForm({...editForm, ordem: e.target.value})} /></td>
-      <td className="px-4 py-2 text-right">
-        <div className="flex justify-end gap-2">
-          <button aria-label="Salvar" onClick={handleSave} className="text-emerald-600"><Save className="w-4 h-4" /></button>
-          <button aria-label="Cancelar" onClick={handleCancel} className="text-red-600"><X className="w-4 h-4" /></button>
-        </div>
-      </td>
+      <label className="block">Nome<input aria-label="Nome" type="text" value={editForm.nome ?? ''} onChange={e => setEditForm({...editForm, nome: e.target.value})} /></label>
+      <label className="block">Nome curto<input aria-label="Nome curto" type="text" value={editForm.nome_curto ?? ''} onChange={e => setEditForm({...editForm, nome_curto: e.target.value})} /></label>
+      <label className="block">Categoria<select aria-label="Categoria" value={editForm.categoria} onChange={e => setEditForm({...editForm, categoria: e.target.value})}><option value="enf">Enfermeira</option><option value="tec">Técnica</option></select></label>
+      <label className="block">Turno base<select aria-label="Turno base" value={editForm.turno_base} onChange={e => setEditForm({...editForm, turno_base: e.target.value})}><option value="manha">Manhã</option><option value="tarde">Tarde</option><option value="noite">Noite</option><option value="ambos">Ambos</option></select></label>
+      <label className="block">Sítio fixo<input aria-label="Sítio fixo" type="text" value={editForm.fixo_sitio ?? ''} onChange={e => setEditForm({...editForm, fixo_sitio: e.target.value})} /></label>
+      <label className="block">Isento de Ações<input aria-label="Isento de Ações" type="checkbox" checked={!!editForm.isento_acoes} onChange={e => setEditForm({...editForm, isento_acoes: e.target.checked})} /></label>
+      <label className="block">Custo extra<input aria-label="Custo extra" type="number" step="any" value={editForm.custo_extra ?? ''} onChange={e => setEditForm({...editForm, custo_extra: e.target.value})} /></label>
+      <label className="block">Ativo<input aria-label="Ativo" type="checkbox" checked={!!editForm.ativo} onChange={e => setEditForm({...editForm, ativo: e.target.checked})} /></label>
+      <label className="block">Ordem<input aria-label="Ordem" type="number" value={editForm.ordem ?? ''} onChange={e => setEditForm({...editForm, ordem: e.target.value})} /></label>
+      <div className="flex flex-wrap justify-end gap-2 pt-2">
+        {editingId !== 'new' && <button data-perigo type="button" onClick={() => handleDelete(editingId!)}>Excluir</button>}
+        <button type="button" onClick={handleCancel}>Cancelar</button>
+        <button type="submit" onClick={handleSave}>Salvar</button>
+      </div>
     </>
   );
 
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-base font-bold text-slate-900">Gerenciar Equipe</h2>
-        {canEdit && !editingId && (
-          <button onClick={handleAdd} className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold">
-            <Plus className="w-4 h-4" />
-            Novo
-          </button>
-        )}
-      </div>
-
-      {erro && (
-        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
-          {erro}
-        </div>
-      )}
-
-      {loading || unidadeCarregando ? (
-        <div className="text-sm text-slate-500">Carregando...</div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Nome</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Nome curto</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Categoria</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Turno base</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Sítio fixo</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Isento de Ações</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Custo extra</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Ativo</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Ordem</th>
-                {canEdit && <th className="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Ações</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 bg-white text-sm">
-              {editingId === 'new' && <tr>{renderEditCells()}</tr>}
-              {equipes.map(item => (
-                <tr key={item.id}>
-                  {editingId === item.id ? renderEditCells() : (
-                    <>
-                      <td className="px-4 py-2">{item.nome ?? '—'}</td>
-                      <td className="px-4 py-2">{item.nome_curto ?? '—'}</td>
-                      <td className="px-4 py-2">{({ 'enf': 'Enfermeira', 'tec': 'Técnica' } as Record<string, string>)[item.categoria]}</td>
-                      <td className="px-4 py-2">{({ 'manha': 'Manhã', 'tarde': 'Tarde', 'noite': 'Noite', 'ambos': 'Ambos' } as Record<string, string>)[item.turno_base]}</td>
-                      <td className="px-4 py-2">{item.fixo_sitio ?? '—'}</td>
-                      <td className="px-4 py-2">{item.isento_acoes ? 'Sim' : 'Não'}</td>
-                      <td className="px-4 py-2">{item.custo_extra ?? '—'}</td>
-                      <td className="px-4 py-2">{item.ativo ? 'Sim' : 'Não'}</td>
-                      <td className="px-4 py-2">{item.ordem ?? '—'}</td>
-                      {canEdit && (
-                        <td className="px-4 py-2 text-right flex justify-end gap-2">
-                          <button aria-label="Editar" onClick={() => handleEdit(item)} className="text-blue-600"><Edit2 className="w-4 h-4" /></button>
-                          <button aria-label="Excluir" onClick={() => handleDelete(item.id)} className="text-red-600"><Trash2 className="w-4 h-4" /></button>
-                        </td>
-                      )}
-                    </>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
+  return <>
+    <DataTable queryKey={['equipe', unidadeId]} enabled={!unidadeCarregando}
+      fetchPage={f => listarPagina('equipe', unidadeId, {...f, ordem: 'ordem'})}
+      titulo="Gerenciar Equipe" getRowId={(r: any) => r.id} podeEditar={canEdit}
+      onEdit={r => r ? handleEdit(r) : handleAdd()} columns={[{ key: 'nome', header: 'Nome', searchable: true, render: (item: any) => <>{item.nome ?? '—'}</> },{ key: 'nome_curto', header: 'Nome curto', searchable: true, render: (item: any) => <>{item.nome_curto ?? '—'}</> },{ key: 'categoria', header: 'Categoria', searchable: false, render: (item: any) => <>{({ 'enf': 'Enfermeira', 'tec': 'Técnica' } as Record<string, string>)[item.categoria]}</> },{ key: 'turno_base', header: 'Turno base', searchable: false, render: (item: any) => <>{({ 'manha': 'Manhã', 'tarde': 'Tarde', 'noite': 'Noite', 'ambos': 'Ambos' } as Record<string, string>)[item.turno_base]}</> },{ key: 'fixo_sitio', header: 'Sítio fixo', searchable: false, render: (item: any) => <>{item.fixo_sitio ?? '—'}</> },{ key: 'isento_acoes', header: 'Isento de Ações', searchable: false, render: (item: any) => <>{item.isento_acoes ? 'Sim' : 'Não'}</> },{ key: 'custo_extra', header: 'Custo extra', searchable: false, render: (item: any) => <>{item.custo_extra ?? '—'}</> },{ key: 'ativo', header: 'Ativo', searchable: false, render: (item: any) => <>{item.ativo ? 'Sim' : 'Não'}</> },{ key: 'ordem', header: 'Ordem', searchable: false, render: (item: any) => <>{item.ordem ?? '—'}</> }]} />
+    {editingId && canEdit && <TableModal key={unidadeId} titulo={editingId === 'new' ? 'Novo registro' : 'Editar registro'} fechar={handleCancel}>
+      {erro && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">{erro}</p>}
+      <div className="grid gap-3">{renderEditCells()}</div>
+    </TableModal>}
+  </>;
 };

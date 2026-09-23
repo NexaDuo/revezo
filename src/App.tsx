@@ -1,5 +1,7 @@
+import { DataTable } from './components/DataTable';
+import { listarPagina, paginarMemoria } from './lib/paginacao';
 import React, { useState } from 'react';
-import { Link, Routes, Route } from 'react-router-dom';
+import { Link, Routes, Route, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { useWorkContext } from './context/WorkContext';
 import { RoleBadge } from './components/auth/RoleBadge';
@@ -47,13 +49,19 @@ export const App: React.FC = () => {
   const [violacoes, setViolacoes] = useState<Violacao[]>([]);
   const [score, setScore] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [schedules, setSchedules] = useState<any[]>([]);
+  const navigate = useNavigate();
+  const semanaAbrir = React.useRef<any>(null);
   const [avisos, setAvisos] = useState<string[]>([]);
 
   React.useEffect(() => {
     setEscala(null); setCurrentConfig(null); setViolacoes([]); setScore(null);
     setEquipeOverride(null); setDispOverride(null); setDiasOverride(null); setAvisos([]);
     setIsExcelModalOpen(false); setIsGenerating(false);
+    const salva = semanaAbrir.current;
+    if (salva?.data_inicio === semanaInicio) {
+      setEscala(salva.grade); setViolacoes(salva.violacoes ?? []); setScore(salva.score);
+      setDiasOverride(salva.dias); semanaAbrir.current = null;
+    }
   }, [unidadeId, semanaInicio]);
 
   const handleUpdateEscala = (novaEscala: Escala) => {
@@ -65,12 +73,6 @@ export const App: React.FC = () => {
       setScore(novoScore);
     }
   };
-
-  React.useEffect(() => {
-    if (tela === 'historico' && !unidadeCarregando) {
-      loadSchedules(unidadeId).then(setSchedules).catch(console.error);
-    }
-  }, [tela, unidadeId, unidadeCarregando]);
 
   const contextoAtual = React.useRef('');
   contextoAtual.current = `${unidadeId}:${semanaInicio}`;
@@ -302,25 +304,17 @@ export const App: React.FC = () => {
               <p className="text-xs text-slate-500">
                 Semanas persistidas na nuvem via Supabase. A escala anterior alimenta a regra sexta-para-segunda automaticamente.
               </p>
-              {schedules.length === 0 ? (
-                <div className="p-6 text-center text-xs text-slate-400 border border-slate-100 rounded-xl">
-                  Nenhuma outra semana arquivada ainda.
-                </div>
-              ) : (
-                <ul className="space-y-3">
-                  {schedules.map((sched, index) => (
-                    <li key={sched.id || index} className="p-4 border border-slate-200 rounded-xl flex justify-between items-center bg-slate-50">
-                      <div>
-                        <h3 className="font-semibold text-sm text-slate-800">{sched.titulo}</h3>
-                        <p className="text-xs text-slate-500">Início: {sched.data_inicio} | Fim: {sched.data_fim}</p>
-                      </div>
-                      <div className="text-xs text-slate-400">
-                        Criado em {new Date(sched.created_at).toLocaleDateString()}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <DataTable<any> titulo="Histórico" queryKey={['escalas_semanais', unidadeId]} enabled={!unidadeCarregando}
+                fetchPage={async f => isSupabaseConfigured ? listarPagina('escalas_semanais', unidadeId, {...f, ordem:'data_inicio', crescente:false}) : paginarMemoria(await loadSchedules(unidadeId), f)}
+                getRowId={s => s.id} columns={[{key:'titulo',header:'Título',searchable:true},{key:'data_inicio',header:'Início'},{key:'data_fim',header:'Fim'}]}
+                onRowClick={s => {
+                  semanaAbrir.current = s;
+                  if (s.data_inicio === semanaInicio) {
+                    setEscala(s.grade); setViolacoes(s.violacoes ?? []); setScore(s.score); setDiasOverride(s.dias); setCurrentConfig(null); semanaAbrir.current = null;
+                  }
+                  const unidade = unidadesDisponiveis.find(u => u.id === unidadeId);
+                  if (unidade) navigate(`/${unidade.slug}/${s.data_inicio}`);
+                }} />
             </div>
           } />
           </>;
