@@ -7,6 +7,8 @@ const ROTAS = ['/regras', '/equipe', '/sitios', '/disponibilidade', '/historico'
 
 test('navigation links work', async ({ page }) => {
   await page.goto('/');
+  // A raiz redireciona para o contexto padrão; clicar antes disso perde a navegação.
+  await expect(page).toHaveURL(/\/\d{4}-\d{2}-\d{2}$/);
 
   await page.getByRole('link', { name: 'Regras & Conferência' }).click();
   await expect(page).toHaveURL(/\/regras$/);

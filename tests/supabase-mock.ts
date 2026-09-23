@@ -17,7 +17,7 @@ export const FAKE_UNIT_ID = '22222222-2222-4222-8222-222222222222';
  *  `authenticated`, então sem isto elas sempre voltam vazias). */
 export async function autenticarComoCoordenador(
   page: Page,
-  opts: { profileDelayMs?: number; regrasConfig?: unknown[] } = {}
+  opts: { profileDelayMs?: number; regrasConfig?: unknown[]; role?: 'admin' | 'coordenador' | 'visualizador' } = {}
 ) {
   const envTxt = fs.readFileSync(path.resolve(__dirname, '..', '.env'), 'utf8');
   const supabaseUrl = envTxt.match(/VITE_SUPABASE_URL=(.+)/)?.[1]?.trim();
@@ -56,7 +56,7 @@ export async function autenticarComoCoordenador(
     if (opts.profileDelayMs) await new Promise(r => setTimeout(r, opts.profileDelayMs));
     const profile = {
       id: FAKE_USER_ID, unidade_id: FAKE_UNIT_ID, email: fakeUser.email,
-      nome: 'Teste E2E', avatar_url: null, role: 'coordenador', ativo: true,
+      nome: 'Teste E2E', avatar_url: null, role: opts.role ?? 'coordenador', ativo: true,
       created_at: fakeUser.created_at, updated_at: fakeUser.created_at,
     };
     await route.fulfill({ json: new URL(route.request().url()).searchParams.has('id') ? profile : [profile] });
@@ -70,7 +70,7 @@ export async function autenticarComoCoordenador(
     route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify([{ id: FAKE_UNIT_ID, nome: 'Unidade Teste', slug: 'hospital-teste' }]),
+      body: JSON.stringify([{ id: FAKE_UNIT_ID, nome: 'Unidade Teste', slug: 'hospital-teste', publica: false }]),
     })
   );
   await page.route('**/auth/v1/user*', route =>
@@ -96,4 +96,8 @@ export async function visitanteSemDados(page: Page) {
   await page.route('**/rest/v1/unidades*', route => route.fulfill({ json: [
     { id: FAKE_UNIT_ID, nome: 'Hospital Demonstração', slug: 'demonstracao', publica: true },
   ] }));
+}
+
+export async function autenticarComoAdmin(page: Page) {
+  await autenticarComoCoordenador(page, { role: 'admin' });
 }
