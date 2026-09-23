@@ -4,6 +4,7 @@ import {
   ColocacaoFixa, ColocacaoFixaNaoAcoes, Categoria, Turno,
 } from './solver/types';
 import { defaultConfig, REGRAS_DEFAULT } from './solver/defaultConfig';
+import { indexarRotulos, listarOrfas } from './referenciasSitio';
 
 /** O que foi carregado do banco e o que o produto não sabe. */
 export interface ConfigCarregada {
@@ -14,7 +15,7 @@ export interface ConfigCarregada {
 }
 
 type LinhaSitio = {
-  ordem: number; nome: string; nome_tarde: string | null;
+  id: string; ordem: number; nome: string; nome_tarde: string | null;
   categoria_permitida: 'enf' | 'tec' | 'ambos';
   opcional: boolean; prioridade_dupla: number | null;
 };
@@ -108,14 +109,27 @@ export async function carregarConfigUnidade(
       };
     }
 
-    const equipe: Pessoa[] = eq.data.map((p: any) => ({
-      n: p.nome_curto,
-      c: p.categoria as Categoria,
-      t: p.turno_base as Turno,
-      fixo: p.fixo_sitio || undefined,
-      isentoAcoes: p.isento_acoes || undefined,
-      custoExtra: Number(p.custo_extra) || undefined,
-    }));
+    // Regras e pessoas apontam para o sítio por id (FK); o solver trabalha por
+    // nome. Resolver aqui para o nome ATUAL, no rótulo do turno — renomear um
+    // sítio não deixa nada órfão. Um id que não resolve (sítio fora do que foi
+    // lido) é avisado na tela, nunca descartado em silêncio.
+    const rotulo = indexarRotulos(st.data as LinhaSitio[]);
+
+    const postosOrfaos: string[] = [];
+    const equipe: Pessoa[] = eq.data.map((p: any) => {
+      const fixo = p.fixo_sitio_id ? rotulo(p.fixo_sitio_id, 'manha') : null;
+      if (p.fixo_sitio_id && !fixo) postosOrfaos.push(p.nome_curto);
+      return {
+        n: p.nome_curto,
+        c: p.categoria as Categoria,
+        t: p.turno_base as Turno,
+        fixo: fixo || undefined,
+        isentoAcoes: p.isento_acoes || undefined,
+        custoExtra: Number(p.custo_extra) || undefined,
+      };
+    });
+    if (postosOrfaos.length)
+      avisos.push(`Posto fixo aponta para sítio que não foi encontrado nesta unidade: ${postosOrfaos.join(', ')} — escalada(s) como se não tivessem posto fixo. Confira o sítio fixo em Equipe.`);
 
     const { manha, tarde, prioridadeDupla } = montarSitios(st.data as LinhaSitio[]);
 
@@ -127,17 +141,31 @@ export async function carregarConfigUnidade(
 
     const sitiosTec = (st.data as LinhaSitio[])
       .filter(l => l.categoria_permitida === 'tec')
-      .map(l => l.nome);
+      .flatMap(l => l.nome_tarde ? [l.nome, l.nome_tarde] : [l.nome]);
 
-    const proibicoes: Proibicao[] = (pr.data || []).map((x: any) => ({
-      pessoa: x.pessoa_curto, sitio: x.sitio_nome,
-    }));
+    // Proibição vale para o sítio inteiro: entra com os dois rótulos (manhã e
+    // tarde), senão um sítio com `nome_tarde` escaparia à tarde.
+    const proibicoesOrfas: string[] = [];
+    const proibicoes: Proibicao[] = (pr.data || []).flatMap((x: any) => {
+      const manhaN = rotulo(x.sitio_id, 'manha'), tardeN = rotulo(x.sitio_id, 'tarde');
+      if (!manhaN || !tardeN) { proibicoesOrfas.push(String(x.sitio_id)); return []; }
+      return [...new Set([manhaN, tardeN])].map(sitio => ({ pessoa: x.pessoa_curto, sitio }));
+    });
+    if (proibicoesOrfas.length)
+      avisos.push(`Proibições apontam para sítio que não foi encontrado nesta unidade: ${listarOrfas(proibicoesOrfas)} — foram ignoradas. Confira o sítio em Regras.`);
 
     const duplasProibidas: DuplaProibida[] = (dp.data || []).map((x: any) => [x.pessoa_a, x.pessoa_b]);
 
+    const fixasOrfas: string[] = [];
     const fixas: ColocacaoFixa[] = (cf.data || [])
       .filter((x: any) => x.tipo === 'fixa_sitio')
-      .map((x: any) => ({ p: x.pessoa_curto, d: x.dia, t: x.turno, s: x.sitio_nome }));
+      .flatMap((x: any) => {
+        const s = rotulo(x.sitio_id, x.turno);
+        if (!s) { fixasOrfas.push(String(x.sitio_id)); return []; }
+        return [{ p: x.pessoa_curto, d: x.dia, t: x.turno, s }];
+      });
+    if (fixasOrfas.length)
+      avisos.push(`Colocações fixas apontam para sítio que não foi encontrado nesta unidade: ${listarOrfas(fixasOrfas)} — foram ignoradas. Confira o sítio em Regras.`);
 
     const fixasNaoAcoes: ColocacaoFixaNaoAcoes[] = (cf.data || [])
       .filter((x: any) => x.tipo === 'fora_do')

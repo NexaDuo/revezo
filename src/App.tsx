@@ -35,6 +35,7 @@ import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
 import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade, carregarEscala } from './lib/db';
 import { semanaAnterior, sextaDaEscala } from './lib/sextaAnterior';
 import { carregarConfigUnidade } from './lib/loadConfig';
+import { sitiosForaDaUnidade } from './lib/referenciasSitio';
 
 export const App: React.FC = () => {
   const { user, profile, role, error: authError, signOut, isSupabaseConfigured } = useAuth();
@@ -83,8 +84,7 @@ export const App: React.FC = () => {
   };
 
   const contextoAtual = React.useRef('');
-  contextoAtual.current = `${unidadeId}:${semanaInicio}`;
-  const handleGerarGrade = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[]) => {
+  contextoAtual.current = `${unidadeId}:${semanaInicio}`;  const handleGerarGrade = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[]) => {
     if (!unidadeId) {
       // Sem unidade resolvida não há o que gerar — e não existe unidade
       // "padrão" segura para inventar aqui (WorkContext já mostra o erro).
@@ -165,6 +165,9 @@ export const App: React.FC = () => {
           if (sexta) {
             sextaAnterior = sexta;
             msgs.push(`Regra "sexta ≠ segunda" usando a escala salva da semana de ${anterior}.`);
+            const fora = sitiosForaDaUnidade(salva?.grade, base.config.sitios);
+            if (fora.length)
+              msgs.push(`A escala salva da semana de ${anterior} usa sítio que não existe mais nesta unidade (renomeado ou apagado): ${fora.map(s => `"${s}"`).join(', ')} — a regra "sexta ≠ segunda" não foi aplicada nele.`);
           } else {
             msgs.push(
               salva

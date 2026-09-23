@@ -52,10 +52,17 @@ export function cabeNoSitio(config: Config, pessoaMap: Record<string, Pessoa>, n
   return s.quem === "ambos" || s.quem === c;
 }
 
+/** Quem está na célula. Nunca lança: uma referência a sítio que não existe na
+ *  grade (sítio renomeado ou apagado, grade salva antiga) é célula vazia. Quem
+ *  carrega os dados é que avisa na tela que a referência ficou órfã. */
+export function celula(escala: Escala, turno: "manha" | "tarde", sitio: string, d: number): string[] {
+  return escala[turno]?.[sitio]?.[d] || [];
+}
+
 export function ondeEsteve(escala: Escala, config: Config, n: string, d: number, turno: "manha" | "tarde"): string[] {
   const out: string[] = [];
   for (const s of config.sitios[turno]) {
-    if ((escala[turno][s.n][d] || []).includes(n)) out.push(s.n);
+    if (celula(escala, turno, s.n, d).includes(n)) out.push(s.n);
   }
   return out;
 }
