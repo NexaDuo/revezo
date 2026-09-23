@@ -9,6 +9,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // reusa esta constante para resolver `unidadeId` sem chamada de rede.
 export const DEMO_UNIDADE_ID = 'demo-unidade-1';
 
+// Marca a saída pelo botão "Sair", que já recarrega por conta própria; o
+// listener de auth só recarrega nas saídas que vêm de fora desta aba.
+let saindoPeloBotao = false;
+
 // Perfil de demonstração quando o Supabase ainda não foi configurado
 const DEMO_PROFILE: UserProfile = {
   id: 'demo-user-1',
@@ -108,6 +112,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Troca de usuário (login, logout, outra conta no mesmo computador do
       // hospital) não pode reaproveitar listas em cache do usuário anterior.
       const usuario = session?.user?.id ?? null;
+      // Saída que não veio do nosso "Sair" (outra aba, refresh token recusado):
+      // recarrega para o Clarity abrir sessão nova, como no signOut. Só se esta
+      // aba tinha usuário (identificado no Clarity); a página recarregada começa
+      // sem usuário, então não entra em laço.
+      if (_event === 'SIGNED_OUT' && usuarioAtual && !saindoPeloBotao) {
+        window.location.assign(import.meta.env.BASE_URL);
+        return;
+      }
       if (usuarioAtual !== undefined && usuario !== usuarioAtual) queryClient.clear();
       usuarioAtual = usuario;
       const timer = setTimeout(() => { timers.delete(timer); if (!disposed) void applySession(session); }, 0);
@@ -152,8 +164,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // Detecta a URL atual (funciona local e no GitHub Pages)
-      const redirectUrl = window.location.origin + window.location.pathname;
+      // Sempre a raiz do app (local e GitHub Pages /revezo/), que é o que está na
+      // allow-list do Supabase. Não volta para a tela funda de onde saiu: o
+      // WorkContext leva à unidade padrão do perfil.
+      const redirectUrl = window.location.origin + import.meta.env.BASE_URL;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -175,7 +189,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     try {
       if (isSupabaseConfigured) {
-        await supabase.auth.signOut();
+        saindoPeloBotao = true;
+        const { error: global } = await supabase.auth.signOut();
+        // Rede fora ou 5xx: a sessão no servidor fica, mas este computador
+        // precisa sair de qualquer jeito (computador compartilhado).
+        if (global) {
+          const { error: local } = await supabase.auth.signOut({ scope: 'local' });
+          if (local) {
+            saindoPeloBotao = false;
+            setError(`Não foi possível sair: ${local.message}. Feche o navegador para encerrar a sessão.`);
+            return;
+          }
+        }
       }
       setUser(null);
       setProfile(null);

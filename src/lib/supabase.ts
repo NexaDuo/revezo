@@ -19,7 +19,8 @@ export const supabase = isSupabaseConfigured
         detectSessionInUrl: true,
         // PKCE: a volta do Google traz só um `?code=` de uso único (trocado e
         // removido da URL pelo supabase-js), em vez de `#access_token=...`
-        // que o Clarity poderia gravar junto com a URL da página.
+        // que o Clarity poderia gravar junto com a URL da página. O `?code=`
+        // não é segredo: sem o verifier guardado neste navegador, não vale nada.
         flowType: 'pkce',
       },
     })

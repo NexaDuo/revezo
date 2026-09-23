@@ -61,6 +61,42 @@ test('logout recarrega a página: a sessão seguinte do Clarity não herda o uui
   expect((await chamadas()).filter(c => c[0] === 'identify')).toEqual([]);
 });
 
+const temSessao = (page: Page) => page.evaluate(() => Object.keys(localStorage).some(k => /^sb-.*-auth-token$/.test(k)));
+
+test('logout com erro 500 no servidor ainda sai neste computador e recarrega', async ({ page }) => {
+  test.skip(!HAS_ENV, 'Logout só existe com Supabase configurado.');
+  const chamadas = await gravarClarity(page);
+  await autenticarComoCoordenador(page, { sessao: 'umaVez' });
+  await page.route('**/auth/v1/logout*', route => route.fulfill({ status: 500, json: { message: 'falha' } }));
+  await page.goto('/hospital-teste/2026-08-03');
+  await expect.poll(async () => (await chamadas()).filter(c => c[0] === 'identify').length).toBe(1);
+  const recarga = page.waitForEvent('load');
+  await page.getByRole('button', { name: 'Sair' }).click();
+  await recarga;
+  await expect(page.getByRole('button', { name: /^Entrar/ }).first()).toBeVisible();
+  expect(await temSessao(page), 'sessão não pode ser restaurada depois do logout').toBe(false);
+  expect((await chamadas()).filter(c => c[0] === 'identify')).toEqual([]);
+});
+
+test('saída em outra aba recarrega esta aba, que não volta identificada', async ({ context, page }) => {
+  test.skip(!HAS_ENV, 'Logout só existe com Supabase configurado.');
+  const chamadas = await gravarClarity(page);
+  await autenticarComoCoordenador(page, { sessao: 'umaVez' });
+  await page.goto('/hospital-teste/2026-08-03');
+  await expect.poll(async () => (await chamadas()).filter(c => c[0] === 'identify').length).toBe(1);
+  const outra = await context.newPage();
+  await outra.route('https://www.clarity.ms/**', route => route.abort());
+  await autenticarComoCoordenador(outra, { sessao: 'umaVez' });
+  await outra.goto('/hospital-teste/2026-08-03');
+  const recarga = page.waitForEvent('load');
+  await outra.getByRole('button', { name: 'Sair' }).click();
+  await recarga;
+  await expect(page.getByRole('button', { name: /^Entrar/ }).first()).toBeVisible();
+  await page.waitForTimeout(500);
+  expect((await chamadas()).filter(c => c[0] === 'identify')).toEqual([]);
+  expect(await temSessao(page)).toBe(false);
+});
+
 test('trocar de unidade só atualiza a tag, sem reidentificar; inativo não aparece como coordenador', async ({ page }) => {
   test.skip(!HAS_ENV, 'Troca de hospital precisa de admin simulado (Supabase configurado).');
   const chamadas = await gravarClarity(page);
@@ -101,12 +137,14 @@ test('login Google usa PKCE: sem token na URL, sessão vem da troca do ?code=', 
     grant = new URL(route.request().url()).searchParams.get('grant_type');
     return route.fallback();
   });
-  await page.goto('/');
+  // Começa numa tela funda: o redirect tem que voltar à raiz do app (allow-list).
+  await page.goto('/hospital-teste/2026-08-03/regras');
   await page.getByRole('button', { name: /^Entrar/ }).first().click();
   await page.getByRole('button', { name: 'Continuar com o Google' }).click();
   await expect.poll(async () => (await chamadas()).filter(c => c[0] === 'identify').map(c => c[1])).toEqual([FAKE_USER_ID]);
   expect(autorizacao?.searchParams.get('code_challenge'), 'authorize precisa levar o desafio PKCE').toBeTruthy();
   expect(grant).toBe('pkce');
+  expect(new URL(autorizacao!.searchParams.get('redirect_to')!).pathname, 'redirectTo fixo na raiz do app').toBe('/');
   await expect(page).not.toHaveURL(/code=|access_token/);
 });
 
