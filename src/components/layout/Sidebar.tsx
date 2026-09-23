@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Calendar, CheckCircle, Users, MapPin, CalendarCheck, Layers,
@@ -54,6 +54,24 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
   );
 };
 
+const MQ_DESKTOP = '(min-width: 768px)'; // breakpoint `md` do Tailwind
+
+/** true em telas md+, onde a sidebar fica em fluxo. matchMedia pode faltar
+ *  (ambiente sem DOM completo): assume desktop, que é o layout sem drawer. */
+function useDesktop(): boolean {
+  const [desktop, setDesktop] = useState(() => {
+    try { return window.matchMedia(MQ_DESKTOP).matches; } catch { return true; }
+  });
+  useEffect(() => {
+    let mq: MediaQueryList;
+    try { mq = window.matchMedia(MQ_DESKTOP); } catch { return; }
+    const onChange = () => setDesktop(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return desktop;
+}
+
 function useSidebarState() {
   const ctx = useContext(SidebarContext);
   if (!ctx) throw new Error('useSidebarState deve ser usado dentro de um SidebarProvider');
@@ -87,8 +105,15 @@ const ROTAS = [
 ] as const;
 
 export const Sidebar: React.FC = () => {
-  const { collapsed, toggleCollapsed, mobileOpen, setMobileOpen } = useSidebarState();
+  const { collapsed: colapsadoSalvo, toggleCollapsed, mobileOpen, setMobileOpen } = useSidebarState();
   const location = useLocation();
+  const desktop = useDesktop();
+  const asideRef = useRef<HTMLElement>(null);
+
+  // Recolher é coisa de desktop: no celular o drawer sempre abre com rótulos,
+  // senão quem recolheu no computador fica sem como expandir no telefone.
+  const collapsed = desktop && colapsadoSalvo;
+  const drawerFechado = !desktop && !mobileOpen;
 
   // Esc fecha o drawer off-canvas — só faz sentido enquanto ele está aberto.
   useEffect(() => {
@@ -100,6 +125,16 @@ export const Sidebar: React.FC = () => {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [mobileOpen, setMobileOpen]);
 
+  // Drawer fechado fica fora da ordem de tab e da árvore de acessibilidade
+  // (só o transform o tirava da tela, não do teclado). Ao abrir, o foco entra
+  // no primeiro link.
+  useEffect(() => {
+    const el = asideRef.current;
+    if (!el) return;
+    el.inert = drawerFechado;
+    if (!desktop && mobileOpen) el.querySelector<HTMLElement>('a')?.focus();
+  }, [drawerFechado, desktop, mobileOpen]);
+
   // Trocar de rota no modo off-canvas fecha o drawer — senão ele fica aberto
   // por cima da tela seguinte.
   useEffect(() => {
@@ -107,26 +142,27 @@ export const Sidebar: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
-  const largura = collapsed ? 'w-16' : 'w-60';
-
   return (
     <>
-      {/* Overlay do modo off-canvas (< md) */}
+      {/* Overlay do modo off-canvas (< md). Começa abaixo do header para não
+          cobrir o botão que fecha o menu. */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-slate-900/40 z-40 md:hidden print:hidden"
+          className="fixed inset-x-0 top-16 bottom-0 bg-slate-900/40 z-40 md:hidden print:hidden"
           onClick={() => setMobileOpen(false)}
           aria-hidden="true"
         />
       )}
 
       <aside
+        ref={asideRef}
         className={`
           bg-white border-r border-slate-200 shrink-0 print:hidden
           flex flex-col
-          fixed md:static inset-y-0 left-0 z-50
+          fixed top-16 bottom-0 left-0 z-50
+          md:sticky md:h-[calc(100vh-4rem)]
           transition-all duration-200
-          ${largura}
+          ${collapsed ? 'w-16' : 'w-60'}
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
       >
@@ -147,7 +183,7 @@ export const Sidebar: React.FC = () => {
                   ${collapsed ? 'justify-center' : ''}
                 `}
               >
-                <Icon className={`w-4.5 h-4.5 shrink-0 ${ativo ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <Icon className={`w-[18px] h-[18px] shrink-0 ${ativo ? 'text-emerald-600' : 'text-slate-400'}`} />
                 {!collapsed && <span className="truncate">{label}</span>}
               </Link>
             );

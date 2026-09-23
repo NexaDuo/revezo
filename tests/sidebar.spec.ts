@@ -53,6 +53,26 @@ test.describe('menu off-canvas em viewport pequena', () => {
     await expect(page.getByRole('button', { name: 'Fechar menu' })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: 'Abrir menu' })).toHaveAttribute('aria-expanded', 'false');
+
+    // Reabre e fecha pelo X do header — o drawer não pode cobri-lo.
+    await page.getByRole('button', { name: 'Abrir menu' }).click();
+    await page.getByRole('button', { name: 'Fechar menu' }).click();
+    await expect(page.getByRole('button', { name: 'Abrir menu' })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('drawer fechado fica fora do teclado; aberto recebe o foco', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('aside')).toHaveJSProperty('inert', true);
+
+    await page.getByRole('button', { name: 'Abrir menu' }).click();
+    await expect(page.getByRole('link', { name: 'Grade da Semana' })).toBeFocused();
+  });
+
+  test('menu recolhido no desktop não recolhe o drawer do celular', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('revezo:sidebar-collapsed', '1'));
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Abrir menu' }).click();
+    await expect(page.getByRole('navigation', { name: 'Navegação principal' }).getByText('Disponibilidade')).toBeVisible();
   });
 });
 
