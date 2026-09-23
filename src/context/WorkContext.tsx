@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, DEMO_UNIDADE_ID } from './AuthContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { listarDisponibilidades, loadSchedules, SemanaDisponibilidade } from '../lib/db';
+import { identificarNoClarity, limparClarity } from '../lib/clarity';
 
 export interface UnidadeOption { id: string; nome: string; slug: string; publica?: boolean }
 const UNIDADE_DEMO: UnidadeOption = { id: DEMO_UNIDADE_ID, nome: 'Unidade Demonstração (offline)', slug: 'demonstracao' };
@@ -82,6 +83,18 @@ export const WorkProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ?? (isAdmin ? unidadesDisponiveis[0] : undefined);
   const unidade = antiga ? padrao : unidadesDisponiveis.find(u => u.slug === partes[0]);
   const unidadeConsulta = unidade ?? padrao;
+  // Clarity: só uuid, papel e slug (ver src/lib/clarity.ts). Modo demonstração não identifica.
+  const clarityId = isSupabaseConfigured && user?.id ? (profile?.id ?? user.id) : null;
+  const clarityIdentificado = React.useRef(false);
+  useEffect(() => {
+    if (clarityId) {
+      identificarNoClarity({ usuarioId: clarityId, papel: profile?.role, unidade: unidade?.slug });
+      clarityIdentificado.current = true;
+    } else if (clarityIdentificado.current) {
+      limparClarity();
+      clarityIdentificado.current = false;
+    }
+  }, [clarityId, profile?.role, unidade?.slug]);
   const chaveLista = `${chavePerfil}:${unidadeConsulta?.id ?? ''}:${revisao}`;
   useEffect(() => {
     if (!unidadeConsulta) return;
