@@ -27,7 +27,8 @@ import { SitiosManager } from './components/SitiosManager';
 import { RegrasManager } from './components/RegrasManager';
 import { DisponibilidadeManager } from './components/DisponibilidadeManager';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
-import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade } from './lib/db';
+import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade, carregarEscala } from './lib/db';
+import { semanaAnterior, sextaDaEscala } from './lib/sextaAnterior';
 import { carregarConfigUnidade } from './lib/loadConfig';
 
 export const App: React.FC = () => {
@@ -142,8 +143,32 @@ export const App: React.FC = () => {
         }
       }
 
+      // "Sexta ≠ segunda" só vale com a escala da semana anterior em mãos.
+      // Sem ela a regra não tem estado: avisar, nunca fingir que aplicou.
+      let sextaAnterior = base.config.sextaAnterior;
+      if (base.config.regras.sextaSegunda.on) {
+        const anterior = semanaAnterior(semanaInicio);
+        try {
+          const salva = await carregarEscala(anterior, unidadeId);
+          if (contextoGeracao !== contextoAtual.current) return;
+          const sexta = sextaDaEscala(salva?.grade, salva?.dias);
+          if (sexta) {
+            sextaAnterior = sexta;
+            msgs.push(`Regra "sexta ≠ segunda" usando a escala salva da semana de ${anterior}.`);
+          } else {
+            msgs.push(
+              salva
+                ? `A escala salva da semana de ${anterior} não tem sexta-feira: a regra "sexta ≠ segunda" não foi aplicada.`
+                : `Sem escala salva da semana de ${anterior}: a regra "sexta ≠ segunda" não foi aplicada.`
+            );
+          }
+        } catch (e: any) {
+          msgs.push(`Não consegui ler a escala da semana de ${anterior} (${e?.message || e}): a regra "sexta ≠ segunda" não foi aplicada.`);
+        }
+      }
+
       dias = dias || base.config.dias;
-      const config = { ...base.config, equipe, disp, dias };
+      const config = { ...base.config, equipe, disp, dias, sextaAnterior };
       setAvisos(msgs);
       const result = generateSchedule(config);
       setEscala(result.escala);

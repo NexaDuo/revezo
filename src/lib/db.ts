@@ -83,6 +83,21 @@ export async function loadSchedules(unidadeId: string | null) {
     } catch { throw new Error('Não foi possível ler as escalas do armazenamento local.'); }
   }
 }
+/** A escala salva de uma semana específica, ou `null` se não houver. */
+export async function carregarEscala(dataInicio: string, unidadeId: string | null) {
+  if (!isSupabaseConfigured) {
+    return (await loadSchedules(unidadeId)).find((e: any) => e.data_inicio === dataInicio) ?? null;
+  }
+  const { data, error } = await supabase
+    .from('escalas_semanais')
+    .select('data_inicio, dias, grade')
+    .eq('unidade_id', exigirUnidade(unidadeId))
+    .eq('data_inicio', dataInicio)
+    .maybeSingle();
+  if (error) throw error;
+  return data ?? null;
+}
+
 async function listar(tabela: string, ordem: string, unidadeId: string | null) {
   if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase
