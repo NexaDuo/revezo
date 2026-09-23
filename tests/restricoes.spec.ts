@@ -27,7 +27,7 @@ test('duplas proibidas e colocações fixas são cadastradas pelo modal', async 
   await autenticarComoCoordenador(page);
   await tabela(page, 'equipe', [pessoa('Ana F', 1), pessoa('Bia F', 2)]);
   await tabela(page, 'sitios', [{ id: 's-1', unidade_id: FAKE_UNIT_ID, nome: 'Sala Fictícia', categoria_permitida: 'ambos', ordem: 1 }]);
-  await tabela(page, 'proibicoes', []);
+  const proibicoes = await tabela(page, 'proibicoes', []);
   const duplas = await tabela(page, 'duplas_proibidas', []);
   const fixas = await tabela(page, 'colocacoes_fixas', []);
   await page.goto('/regras');
@@ -57,10 +57,32 @@ test('duplas proibidas e colocações fixas são cadastradas pelo modal', async 
   await modal.getByRole('button', { name: 'Salvar', exact: true }).click();
   await expect(modal).toHaveCount(0);
   expect(fixas).toEqual([{
-    pessoa_curto: 'Bia F', dia: 2, turno: 'manha', tipo: 'fora_do', sitio_nome: '',
+    pessoa_curto: 'Bia F', dia: 2, turno: 'manha', tipo: 'fora_do', sitio_id: null,
     descricao: null, depende_de_plantao: true, unidade_id: FAKE_UNIT_ID,
   }]);
   await expect(secaoFixas.getByRole('cell', { name: 'Fora das Ações' })).toBeVisible();
+
+  // Fica num sítio: o formulário mostra o NOME e grava o ID (FK), para que
+  // renomear o sítio não deixe a colocação órfã.
+  await secaoFixas.getByRole('button', { name: 'Novo', exact: true }).click();
+  modal = page.getByRole('dialog', { name: 'Novo — Colocações fixas' });
+  await modal.getByLabel('Pessoa', { exact: true }).selectOption('Ana F');
+  await modal.getByLabel('Sítio (quando fica num sítio)').selectOption({ label: 'Sala Fictícia' });
+  await modal.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await expect(modal).toHaveCount(0);
+  expect(fixas[1]).toMatchObject({ pessoa_curto: 'Ana F', tipo: 'fixa_sitio', sitio_id: 's-1' });
+  expect(fixas[1]).not.toHaveProperty('sitio_nome');
+  await expect(secaoFixas.getByRole('cell', { name: 'Sala Fictícia' })).toBeVisible();
+
+  const secaoProib = page.locator('section').filter({ has: page.getByRole('heading', { name: /^Proibições por sítio/ }) });
+  await secaoProib.getByRole('button', { name: 'Novo', exact: true }).click();
+  modal = page.getByRole('dialog', { name: 'Novo — Proibições por sítio' });
+  await modal.getByLabel('Pessoa', { exact: true }).selectOption('Bia F');
+  await modal.getByLabel('Sítio', { exact: true }).selectOption({ label: 'Sala Fictícia' });
+  await modal.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await expect(modal).toHaveCount(0);
+  expect(proibicoes).toEqual([{ pessoa_curto: 'Bia F', sitio_id: 's-1', motivo: null, unidade_id: FAKE_UNIT_ID }]);
+  await expect(secaoProib.getByRole('cell', { name: 'Sala Fictícia' })).toBeVisible();
 });
 
 test('sem equipe cadastrada o formulário de restrição avisa na tela', async ({ page }) => {

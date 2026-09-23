@@ -311,7 +311,7 @@ for (const tela of ['equipe', 'sitios'] as const) {
     test.skip(!HAS_ENV, 'Payload REST exige Supabase configurado; demonstração não envia requisições.');
     await autenticarComoCoordenador(page);
     const inicial = tela === 'equipe'
-      ? { nome: 'Pessoa teste', nome_curto: 'PT', categoria: 'tec', turno_base: 'manha', fixo_sitio: null, isento_acoes: false, custo_extra: 0, ativo: true, ordem: 7 }
+      ? { nome: 'Pessoa teste', nome_curto: 'PT', categoria: 'tec', turno_base: 'manha', fixo_sitio_id: null, isento_acoes: false, custo_extra: 0, ativo: true, ordem: 7 }
       : { nome: 'Sítio teste', nome_tarde: null, categoria_permitida: 'ambos', opcional: false, prioridade_dupla: null, ordem: 7 };
     const linhas: Record<string, unknown>[] = [{ ...inicial, id: 'existente', unidade_id: FAKE_UNIT_ID, created_at: '2026-09-01' }];
     const escritas: { metodo: string; dados: Record<string, unknown> }[] = [];
@@ -353,7 +353,8 @@ for (const tela of ['equipe', 'sitios'] as const) {
       await page.getByLabel('Isento de Ações').check();
       await page.getByLabel('Custo extra').fill('1.5');
       await page.getByLabel('Ativo', { exact: true }).uncheck();
-      await page.getByLabel('Sítio fixo').fill('   ');
+      // Posto fixo é um select de sítios (grava o id); "Nenhum" vira NULL.
+      await page.getByLabel('Sítio fixo').selectOption({ label: 'Nenhum' });
     } else {
       await page.getByLabel('Categoria permitida').selectOption('tec');
       await page.getByLabel('Opcional').check();

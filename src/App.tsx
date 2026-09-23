@@ -34,9 +34,10 @@ import { RegrasManager } from './components/RegrasManager';
 import { RestricoesManager } from './components/RestricoesManager';
 import { DisponibilidadeManager } from './components/DisponibilidadeManager';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
-import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade, carregarEscala, carregarEscalaPorId, salvarEscalaNova, atualizarEscala, ativarEscala, ordenarVersoes, EscalaSalva, getEquipes } from './lib/db';
+import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade, carregarEscala, carregarEscalaPorId, salvarEscalaNova, atualizarEscala, ativarEscala, ordenarVersoes, EscalaSalva, getEquipes, getSitios } from './lib/db';
 import { semanaAnterior, sextaDaEscala } from './lib/sextaAnterior';
 import { carregarConfigUnidade, pessoaDaLinha } from './lib/loadConfig';
+import { indexarRotulos, sitiosForaDaUnidade } from './lib/referenciasSitio';
 import { useQuery } from '@tanstack/react-query';
 
 // Referência estável: o importador recalcula quando a equipe muda.
@@ -57,8 +58,8 @@ function somarDias(iso: string, n: number) {
  *  senão o validador não tem o que percorrer. O que sobra são sítios que a
  *  unidade não tem mais (renomeado ou apagado depois da gravação): continuam
  *  na tela, mas quem está neles não é conferido — isso tem que ir para a tela.
- *  TODO: a detecção de órfãos é a mesma de `sitiosForaDaUnidade`
- *  (`src/lib/referenciasSitio.ts`, PR #33); usar o helper quando ele entrar. */
+ *  Aqui órfãos são as linhas não consumidas, inclusive sobras com o mesmo
+ *  canon; o helper da sexta anterior só verifica a existência do sítio. */
 function alinharGradeSalva(salva: Partial<Escala> | null | undefined, config: Config): { grade: Escala; orfaos: string[] } {
   const grade: Escala = { manha: {}, tarde: {} };
   const orfaos = new Set<string>();
@@ -118,9 +119,12 @@ export const App: React.FC = () => {
   const equipeBase = useQuery({
     queryKey: ['equipe', unidadeId, 'importador'],
     enabled: isExcelModalOpen && !!unidadeId,
-    queryFn: async () => isSupabaseConfigured
-      ? (await getEquipes(unidadeId)).filter((r: any) => r.ativo !== false).map(pessoaDaLinha)
-      : (await fetchEquipe(false)).equipe,
+    queryFn: async () => {
+      if (!isSupabaseConfigured) return (await fetchEquipe(false)).equipe;
+      const [equipe, sitios] = await Promise.all([getEquipes(unidadeId), getSitios(unidadeId)]);
+      const rotulo = indexarRotulos(sitios);
+      return equipe.filter((r: any) => r.ativo !== false).map((r: any) => pessoaDaLinha(r, rotulo));
+    },
   });
   // `semanas` vem da mais recente para a mais antiga.
   const semanaVizinha = (passo: -1 | 1) => {
@@ -135,7 +139,7 @@ export const App: React.FC = () => {
    *  sexta da grade ATIVA da semana anterior. Serve para gerar e para conferir
    *  uma grade salva. `config: null` = bloqueado; o motivo está em `avisos`.
    *  Quem chama descarta o resultado se o contexto mudou no meio. */
-  const montarConfig = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[] | null):
+  const montarConfigSemana = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[] | null):
     Promise<{ config: Config | null; avisos: string[] }> => {
     // A configuração (equipe, sítios, regras ligadas/desligadas, proibições,
     // duplas e fixas) vem da unidade em contexto. É isto que faz o painel de
@@ -203,6 +207,9 @@ export const App: React.FC = () => {
         if (sexta) {
           sextaAnterior = sexta;
           msgs.push(`Regra "sexta ≠ segunda" usando a grade ativa da semana de ${anterior}.`);
+          const fora = sitiosForaDaUnidade(salva?.grade, base.config.sitios);
+          if (fora.length)
+            msgs.push(`A grade ativa da semana de ${anterior} usa sítio que não existe mais nesta unidade (renomeado ou apagado): ${fora.map(s => `"${s}"`).join(', ')} — a regra "sexta ≠ segunda" não foi aplicada nele.`);
         } else {
           msgs.push(
             salva
@@ -274,7 +281,7 @@ export const App: React.FC = () => {
       setDiasOverride(salva.dias); setVersao(salva);
 
       let m: { config: Config | null; avisos: string[] };
-      try { m = await montarConfig(undefined, undefined, salva.dias); }
+      try { m = await montarConfigSemana(undefined, undefined, salva.dias); }
       catch (e: any) { m = { config: null, avisos: [`Falha ao montar a configuração da semana: ${e?.message || e}`] }; }
       if (!vivo()) return encerrar();
       if (!m.config) {
@@ -325,7 +332,7 @@ export const App: React.FC = () => {
     const edicao = ++edicaoRef.current;
     setIsGenerating(true);
     try {
-      const { config, avisos: msgs } = await montarConfig(eq, dp, ds);
+      const { config, avisos: msgs } = await montarConfigSemana(eq, dp, ds);
       if (contextoGeracao !== contextoAtual.current || edicao !== edicaoRef.current) return;
       setAvisos(msgs);
       if (!config) return;

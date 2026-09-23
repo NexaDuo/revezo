@@ -1,7 +1,7 @@
 import { Config, Escala, Pessoa } from "./types";
 import { validar } from "./validator";
 import { indexarEquipe, criarEscalaVazia, disponivel, cabeNoSitio, ondeEsteve, estaFora, podeTurno, ehPlantao, canon,
-         ehPostoFixo, sitioProibido, formariaDuplaProibida, pessoas16h } from "./utils";
+         ehPostoFixo, postoFixoNoTurno, sitioProibido, formariaDuplaProibida, pessoas16h, celula } from "./utils";
 
 function jaEstaNoDia(escala: Escala, config: Config, n: string, d: number, turno: "manha" | "tarde"): boolean {
   return ondeEsteve(escala, config, n, d, turno).length > 0;
@@ -17,13 +17,13 @@ function podeColocar(escala: Escala, config: Config, pessoaMap: Record<string, P
 
   if (r.mariaVacina.on && sitioProibido(config, n, sitio)) return false;
 
-  if (r.diasSeguidos.on && !ehPostoFixo(pessoaMap, n, sitio)
-      && d > 0 && (escala[turno][sitio][d - 1] || []).includes(n)) return false;
+  if (r.diasSeguidos.on && !ehPostoFixo(pessoaMap, n, sitio, turno)
+      && d > 0 && celula(escala, turno, sitio, d - 1).includes(n)) return false;
 
   if (r.sextaSegunda.on && d === 0
       && (config.sextaAnterior[turno]?.[sitio] || []).includes(n)) return false;
 
-  const cel = escala[turno][sitio][d] || [];
+  const cel = celula(escala, turno, sitio, d);
   if (r.duplaProibida.on && formariaDuplaProibida(config, cel, n)) return false;
 
   if (r.plantaoMesmo.on && ehPlantao(config.disp, n, d) && turno === "tarde"
@@ -66,7 +66,9 @@ function construir(config: Config): Escala {
   for (const p of config.equipe) {
     if (!p.fixo) continue;
     for (const t of ["manha", "tarde"] as ("manha" | "tarde")[]) {
-      const sitio = config.sitios[t].find(x => canon(x.n) === canon(p.fixo!));
+      // rótulo do posto NESTE turno: o sítio pode ter outro nome à tarde
+      const rotulo = postoFixoNoTurno(p, t)!;
+      const sitio = config.sitios[t].find(x => canon(x.n) === canon(rotulo));
       if (!sitio || !esc[t][sitio.n]) continue;
       for (let d = 0; d < config.dias.length; d++) {
         // posto fixo não isenta turno-base: quem só trabalha de manhã não

@@ -1,10 +1,11 @@
 import { DataTable, TableModal } from './DataTable';
 import { listarPagina, proximaOrdem } from '../lib/paginacao';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { useState } from 'react';
 import { useWorkContext } from '../context/WorkContext';
-import { addEquipe, updateEquipe, deleteEquipe } from '../lib/db';
+import { addEquipe, updateEquipe, deleteEquipe, getSitios } from '../lib/db';
 import { mensagemErroGravacao } from '../lib/errosGravacao';
+import { nomeDoSitio } from '../lib/referenciasSitio';
 
 export const EquipeManager: React.FC = () => { const { unidadeId } = useWorkContext(); return <EquipeContent key={unidadeId} />; };
 const EquipeContent: React.FC = () => {
@@ -16,13 +17,18 @@ const EquipeContent: React.FC = () => {
   const [editForm, setEditForm] = useState<any>({});
   const [original, setOriginal] = useState('{}');
 
+  // Posto fixo grava o ID do sítio (FK) e mostra o nome atual: renomear o
+  // sítio não deixa a pessoa apontando para um nome que não existe mais.
+  const sitios = useQuery({ queryKey: ['sitios', unidadeId, 'opcoes'], queryFn: () => getSitios(unidadeId), enabled: !unidadeCarregando && !!unidadeId });
+  const nomeSitio = (id: string | null) => nomeDoSitio(sitios, id);
+
   const fetchData = () => client.invalidateQueries({ queryKey: ['equipe', unidadeId] });
   const handleAdd = async () => {
     setErro(null);
     let ordem = 1;
     try { ordem = await proximaOrdem('equipe', unidadeId); }
     catch (e: any) { setErro(mensagemErroGravacao(e)); }
-    const newItem = { nome: '', nome_curto: '', categoria: 'tec', turno_base: 'manha', fixo_sitio: '', isento_acoes: false, custo_extra: 0, ativo: true, ordem };
+    const newItem = { nome: '', nome_curto: '', categoria: 'tec', turno_base: 'manha', fixo_sitio_id: '', isento_acoes: false, custo_extra: 0, ativo: true, ordem };
     setEditForm(newItem);
     setOriginal(JSON.stringify(newItem));
     setEditingId('new');
@@ -64,7 +70,7 @@ const EquipeContent: React.FC = () => {
       nome_curto: editForm.nome_curto.trim(),
       categoria: editForm.categoria,
       turno_base: editForm.turno_base,
-      fixo_sitio: editForm.fixo_sitio?.trim() || null,
+      fixo_sitio_id: editForm.fixo_sitio_id || null,
       isento_acoes: editForm.isento_acoes,
       custo_extra: Number(editForm.custo_extra),
       ativo: editForm.ativo,
@@ -104,7 +110,11 @@ const EquipeContent: React.FC = () => {
       <label>Nome curto<input aria-label="Nome curto" type="text" value={editForm.nome_curto ?? ''} onChange={e => setEditForm({...editForm, nome_curto: e.target.value})} /></label>
       <label>Categoria<select aria-label="Categoria" value={editForm.categoria} onChange={e => setEditForm({...editForm, categoria: e.target.value})}><option value="enf">Enfermeira</option><option value="tec">Técnica</option></select></label>
       <label>Turno base<select aria-label="Turno base" value={editForm.turno_base} onChange={e => setEditForm({...editForm, turno_base: e.target.value})}><option value="manha">Manhã</option><option value="tarde">Tarde</option><option value="noite">Noite</option><option value="ambos">Ambos</option></select></label>
-      <label>Sítio fixo<input aria-label="Sítio fixo" type="text" value={editForm.fixo_sitio ?? ''} onChange={e => setEditForm({...editForm, fixo_sitio: e.target.value})} /></label>
+      <label>Sítio fixo<select aria-label="Sítio fixo" value={editForm.fixo_sitio_id ?? ''} onChange={e => setEditForm({...editForm, fixo_sitio_id: e.target.value})}>
+        <option value="">Nenhum</option>
+        {(sitios.data ?? []).map((s: any) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+      </select></label>
+      {sitios.isError && <p role="alert" className="text-sm text-red-900">Não foi possível carregar os sítios desta unidade para escolher o posto fixo.</p>}
       <label>Isento de Ações<input aria-label="Isento de Ações" type="checkbox" checked={!!editForm.isento_acoes} onChange={e => setEditForm({...editForm, isento_acoes: e.target.checked})} /></label>
       <label>Custo extra<input aria-label="Custo extra" type="number" step="any" value={editForm.custo_extra ?? ''} onChange={e => setEditForm({...editForm, custo_extra: e.target.value})} /></label>
       <label>Ativo<input aria-label="Ativo" type="checkbox" checked={!!editForm.ativo} onChange={e => setEditForm({...editForm, ativo: e.target.checked})} /></label>
@@ -121,7 +131,7 @@ const EquipeContent: React.FC = () => {
     <DataTable queryKey={['equipe', unidadeId]} enabled={!unidadeCarregando}
       fetchPage={f => listarPagina('equipe', unidadeId, {...f, ordem: 'ordem'})}
       titulo="Equipe" getRowId={(r: any) => r.id} podeEditar={canEdit}
-      onEdit={r => r ? handleEdit(r) : handleAdd()} columns={[{ key: 'nome', header: 'Nome', searchable: true, render: (item: any) => <>{item.nome ?? '—'}</> },{ key: 'nome_curto', header: 'Nome curto', searchable: true, render: (item: any) => <>{item.nome_curto ?? '—'}</> },{ key: 'categoria', header: 'Categoria', searchable: false, render: (item: any) => <>{({ 'enf': 'Enfermeira', 'tec': 'Técnica' } as Record<string, string>)[item.categoria]}</> },{ key: 'turno_base', header: 'Turno base', searchable: false, render: (item: any) => <>{({ 'manha': 'Manhã', 'tarde': 'Tarde', 'noite': 'Noite', 'ambos': 'Ambos' } as Record<string, string>)[item.turno_base]}</> },{ key: 'fixo_sitio', header: 'Sítio fixo', searchable: false, render: (item: any) => <>{item.fixo_sitio ?? '—'}</> },{ key: 'isento_acoes', header: 'Isento de Ações', searchable: false, render: (item: any) => <>{item.isento_acoes ? 'Sim' : 'Não'}</> },{ key: 'custo_extra', header: 'Custo extra', searchable: false, render: (item: any) => <>{item.custo_extra ?? '—'}</> },{ key: 'ativo', header: 'Ativo', searchable: false, render: (item: any) => <>{item.ativo ? 'Sim' : 'Não'}</> },{ key: 'ordem', header: 'Ordem', searchable: false, render: (item: any) => <>{item.ordem ?? '—'}</> }]} />
+      onEdit={r => r ? handleEdit(r) : handleAdd()} columns={[{ key: 'nome', header: 'Nome', searchable: true, render: (item: any) => <>{item.nome ?? '—'}</> },{ key: 'nome_curto', header: 'Nome curto', searchable: true, render: (item: any) => <>{item.nome_curto ?? '—'}</> },{ key: 'categoria', header: 'Categoria', searchable: false, render: (item: any) => <>{({ 'enf': 'Enfermeira', 'tec': 'Técnica' } as Record<string, string>)[item.categoria]}</> },{ key: 'turno_base', header: 'Turno base', searchable: false, render: (item: any) => <>{({ 'manha': 'Manhã', 'tarde': 'Tarde', 'noite': 'Noite', 'ambos': 'Ambos' } as Record<string, string>)[item.turno_base]}</> },{ key: 'fixo_sitio_id', header: 'Sítio fixo', searchable: false, render: (item: any) => <>{nomeSitio(item.fixo_sitio_id)}</> },{ key: 'isento_acoes', header: 'Isento de Ações', searchable: false, render: (item: any) => <>{item.isento_acoes ? 'Sim' : 'Não'}</> },{ key: 'custo_extra', header: 'Custo extra', searchable: false, render: (item: any) => <>{item.custo_extra ?? '—'}</> },{ key: 'ativo', header: 'Ativo', searchable: false, render: (item: any) => <>{item.ativo ? 'Sim' : 'Não'}</> },{ key: 'ordem', header: 'Ordem', searchable: false, render: (item: any) => <>{item.ordem ?? '—'}</> }]} />
     {editingId && canEdit && <TableModal key={unidadeId} titulo={editingId === 'new' ? 'Novo registro' : 'Editar registro'} fechar={handleCancel} sujo={JSON.stringify(editForm) !== original}>
       {erro && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">{erro}</p>}
       <div className="grid gap-3">{renderEditCells()}</div>
