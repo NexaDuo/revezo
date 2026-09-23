@@ -4,7 +4,7 @@ import { useAuth } from './context/AuthContext';
 import { useWorkContext } from './context/WorkContext';
 import { RoleBadge } from './components/auth/RoleBadge';
 import { LoginModal } from './components/auth/LoginModal';
-import { UserManagementModal } from './components/admin/UserManagementModal';
+import { ConfiguracoesModal } from './components/settings/ConfiguracoesModal';
 import { SidebarProvider, Sidebar, MobileMenuButton } from './components/layout/Sidebar';
 import {
   Calendar,
@@ -13,7 +13,7 @@ import {
   Sparkles,
   LogIn,
   LogOut,
-  Shield,
+  Settings,
   Database,
   Info,
 } from 'lucide-react';
@@ -31,10 +31,10 @@ import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade } from '.
 import { carregarConfigUnidade } from './lib/loadConfig';
 
 export const App: React.FC = () => {
-  const { user, profile, role, isCoordenador, error: authError, signOut, isSupabaseConfigured } = useAuth();
+  const { user, profile, role, error: authError, signOut, isSupabaseConfigured } = useAuth();
   const { podeGravar, visitante, unidadeId, semanaInicio, erro: erroUnidade, isLoading: unidadeCarregando, contextoInvalido, caminhoPadrao, tela, semanas, disponibilidades, unidadesDisponiveis, podeEscolherUnidade, setUnidadeId, setSemanaInicio, revalidarSemanas } = useWorkContext();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
+  const [isConfiguracoesOpen, setIsConfiguracoesOpen] = useState(false);
 
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [equipeOverride, setEquipeOverride] = useState<Pessoa[] | null>(null);
@@ -345,16 +345,15 @@ export const App: React.FC = () => {
           <div className="ml-auto flex items-center gap-2">
             {user ? (
               <div className="flex items-center gap-3">
-                {/* Botão de Administração (apenas para admin) */}
-                {isCoordenador && (
+                {/* Configurações do usuário logado */}
                   <button
-                    onClick={() => setIsUserManagementOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors"
+                    aria-label="Configurações"
+                    onClick={() => setIsConfiguracoesOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors"
                   >
-                    <Shield className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Gestão de Usuários</span>
+                    <Settings className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Configurações</span>
                   </button>
-                )}
 
                 {/* Perfil & Papel */}
                 <div className="flex items-center gap-2.5 pl-2 sm:border-l sm:border-slate-200">
@@ -450,9 +449,9 @@ export const App: React.FC = () => {
         onClose={() => setIsLoginModalOpen(false)}
       />
 
-      <UserManagementModal
-        isOpen={isUserManagementOpen}
-        onClose={() => setIsUserManagementOpen(false)}
+      <ConfiguracoesModal
+        isOpen={isConfiguracoesOpen}
+        onClose={() => setIsConfiguracoesOpen(false)}
       />
 
       <ExcelImportModal

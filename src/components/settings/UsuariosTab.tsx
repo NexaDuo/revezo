@@ -1,17 +1,12 @@
-import { ConvitesManager } from './ConvitesManager';
+import { ConvitesManager } from '../admin/ConvitesManager';
 import React, { useEffect, useState } from 'react';
 import { useAuth, DEMO_UNIDADE_ID } from '../../context/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { UserProfile, UserRole } from '../../types/auth';
 import { RoleBadge } from '../auth/RoleBadge';
-import { X, ShieldCheck, UserCog, CheckCircle2, XCircle, Search } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, XCircle, Search } from 'lucide-react';
 
-interface UserManagementModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen, onClose }) => {
+export const UsuariosTab: React.FC = () => {
   const { profile, isAdmin, isCoordenador, updateUserRole, toggleUserActive } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [erro, setErro] = useState<string | null>(null);
@@ -78,12 +73,12 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
   };
 
   useEffect(() => {
-    if (isOpen && isCoordenador) {
+    if (isCoordenador) {
       loadUsers();
     }
-  }, [isOpen, profile?.id, profile?.unidade_id, isCoordenador]);
+  }, [profile?.id, profile?.unidade_id, isCoordenador]);
 
-  if (!isOpen || !isCoordenador) return null;
+  if (!isCoordenador) return null;
 
   const filteredUsers = users.filter(u =>
     (u.nome?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
@@ -91,28 +86,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="p-6 pb-4 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-md shadow-purple-200">
-              <UserCog className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Gestão de Acessos & Papéis</h2>
-              <p className="text-xs text-slate-500">Defina quem coordena as escalas e quem administra a unidade</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="overflow-y-auto">
+    <div>
         <ConvitesManager />
         {erro && <p role="alert">{erro}</p>}
         {/* Search bar */}
@@ -204,21 +178,10 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ isOpen
           )}
         </div>
 
-        </div>
-        {/* Footer */}
-        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          <div className="flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4 text-purple-600" />
-            <span>Apenas administradores podem promover ou revogar coordenadores.</span>
-          </div>
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg text-slate-700 font-medium transition-colors"
-          >
-            Fechar
-          </button>
-        </div>
-      </div>
+        <p className="p-4 text-xs text-slate-500 flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4" />
+          Apenas administradores podem promover ou revogar coordenadores.
+        </p>
     </div>
   );
 };

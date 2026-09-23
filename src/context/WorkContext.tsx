@@ -39,6 +39,7 @@ export interface WorkContextType {
   semanas: string[];
   disponibilidades: SemanaDisponibilidade[];
   revalidarSemanas: () => void;
+  recarregarUnidades: () => void;
 }
 const WorkContext = createContext<WorkContextType | undefined>(undefined);
 
@@ -47,6 +48,8 @@ export const WorkProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const location = useLocation();
   const navigate = useNavigate();
   const [unidades, setUnidades] = useState<{ chave: string; lista: UnidadeOption[]; erro: string | null }>();
+  const [revisaoUnidades, setRevisaoUnidades] = useState(0);
+  const recarregarUnidades = React.useCallback(() => setRevisaoUnidades(r => r + 1), []);
   const [revisao, setRevisao] = useState(0);
   const [lista, setLista] = useState<{ chave: string; disponibilidades: SemanaDisponibilidade[]; escalas: string[]; erro: string | null }>();
   // A identidade do perfil invalida consultas antigas, sem resetar a URL em refresh de token.
@@ -68,7 +71,7 @@ export const WorkProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!cancelado) setUnidades({ chave: chavePerfil, lista, erro });
     })();
     return () => { cancelado = true; };
-  }, [authLoading, chavePerfil]);
+  }, [authLoading, chavePerfil, revisaoUnidades]);
   const unidadesDisponiveis = unidades?.chave === chavePerfil ? unidades.lista : [];
   const partes = location.pathname.replace(/^\/+|\/+$/g, '').split('/');
   const antiga = partes.length === 1 && TELAS.includes(partes[0]);
@@ -121,7 +124,7 @@ export const WorkProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSemanaInicio: iso => { if (unidade) navigate(caminho(unidade.slug, iso, tela)); },
     isLoading, erro, contextoInvalido, caminhoPadrao, caminhoTela, tela,
     semanas: [...new Set([atual, ...(semanaValida(semanaInicio) ? [semanaInicio] : []), ...(dados?.disponibilidades.map(s => s.data_inicio) ?? []), ...(dados?.escalas ?? [])])].filter(semanaValida).sort().reverse(),
-    disponibilidades: dados?.disponibilidades ?? SEM_DISPONIBILIDADES, revalidarSemanas,
+    disponibilidades: dados?.disponibilidades ?? SEM_DISPONIBILIDADES, revalidarSemanas, recarregarUnidades,
   }}>{children}</WorkContext.Provider>;
 };
 export const useWorkContext = () => {

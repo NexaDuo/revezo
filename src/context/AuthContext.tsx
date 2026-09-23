@@ -55,6 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshProfile = async () => {
     if (!user) return;
     const userProfile = await fetchProfile(user.id);
+    if (!userProfile) throw new Error("Não foi possível atualizar seu perfil. Reabra as configurações para tentar novamente.");
     if (userProfile) {
       setProfile(userProfile);
       setRole(userProfile.role);

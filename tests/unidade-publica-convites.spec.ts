@@ -81,7 +81,8 @@ test('coordenador cria convite normalizado e login aceita convite uma vez', asyn
     } else await route.fulfill({ json: payload && !revogado ? [{ ...payload, id: 'convite-1', aceito_em: null }] : [] });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Gestão de Usuários' }).click();
+  await page.getByRole('button', { name: 'Configurações', exact: true }).click();
+  await page.getByRole('tab', { name: 'Usuários', exact: true }).click();
   const papel = page.getByLabel('Papel do convite');
   await expect(papel.locator('option[value="admin"]')).toHaveCount(0);
   await expect(page.getByLabel('Unidade do convite')).toHaveCount(0);
