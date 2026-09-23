@@ -433,7 +433,7 @@ export const App: React.FC = () => {
       <Sidebar />
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 min-w-0 max-w-7xl w-full px-4 sm:px-6 lg:px-10 py-6 space-y-6">
+      <main className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-6 space-y-6">
         {contextoInvalido ? <p role="alert">Corrija o contexto da URL para continuar.</p> : <>
         {!unidadeCarregando && !erroUnidade && unidadeId && !disponibilidades.some(s => s.data_inicio === semanaInicio) && tela !== 'disponibilidade' && (
           <p role="status" data-print-hide className="rounded-md border-l-4 border-marca bg-white px-3 py-2 text-sm text-slate-800 print:hidden">Nenhuma disponibilidade salva para a semana de {semanaInicio}. Importe a planilha ou confira a Disponibilidade.</p>

@@ -45,9 +45,9 @@ function ModalAberto({ onClose }: { onClose: () => void }) {
         <button aria-label="Fechar" onClick={onClose} className="rounded-md p-1 text-slate-500 hover:bg-slate-100"><X className="w-5 h-5" /></button>
       </div>
       {fora.bloqueado && <p role="status" className="mx-6 mb-3 rounded-md border-l-4 border-marca bg-white px-3 py-2 text-sm text-slate-800">{AVISO_NAO_SALVO}</p>}
-      <div role="tablist" aria-label="Configurações" className="flex gap-1 overflow-x-auto border-b border-slate-200 px-4">
+      <div role="tablist" aria-label="Configurações" className="flex shrink-0 gap-1 overflow-x-auto overflow-y-hidden border-b border-slate-200 px-4 [scrollbar-width:none]">
         {abas.map((a, i) => <button key={a.id} id={'tab-' + a.id} role="tab" aria-selected={ativa === a.id} aria-controls={'painel-' + a.id} tabIndex={ativa === a.id ? 0 : -1}
-          className={'-mb-px whitespace-nowrap border-b-2 px-3 py-2.5 text-sm ' + (ativa === a.id ? 'border-caneta-600 font-bold text-slate-900' : 'border-transparent font-medium text-slate-600 hover:text-slate-900')}
+          className={'whitespace-nowrap border-b-2 px-3 py-2.5 text-sm ' + (ativa === a.id ? 'border-caneta-600 font-bold text-slate-900' : 'border-transparent font-medium text-slate-600 hover:text-slate-900')}
           onClick={() => setAba(a.id)} onKeyDown={e => {
             const index = e.key === 'ArrowRight' ? (i + 1) % abas.length : e.key === 'ArrowLeft' ? (i + abas.length - 1) % abas.length : e.key === 'Home' ? 0 : e.key === 'End' ? abas.length - 1 : -1;
             if (index >= 0) { e.preventDefault(); setAba(abas[index].id); document.getElementById('tab-' + abas[index].id)?.focus(); }

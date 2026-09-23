@@ -78,6 +78,8 @@ interface Props<T> {
   titulo: string;
   /** Uma frase sob o título: o que esta lista controla. */
   descricao?: React.ReactNode;
+  /** Filtros extras, na linha da busca (à esquerda dela). */
+  filtros?: React.ReactNode;
   enabled?: boolean;
   podeEditar?: boolean | ((r: T) => boolean);
   podeCriar?: boolean;
@@ -95,7 +97,7 @@ export function DataTable<T>(props: Props<T>) {
 }
 
 function TableContent<T>({
-  queryKey, fetchPage, columns, getRowId, titulo, descricao, enabled = true,
+  queryKey, fetchPage, columns, getRowId, titulo, descricao, filtros, enabled = true,
   podeEditar = false, podeCriar = true, onEdit, onRowClick, renderForm,
 }: Props<T>) {
   const [pagina, setPagina] = useState(1);
@@ -127,8 +129,9 @@ function TableContent<T>({
           </h2>
           {descricao && <p className="max-w-prose text-sm text-slate-600">{descricao}</p>}
         </div>
-        {(buscaPesquisavel || (podeEditar && podeCriar)) && (
-          <div className="flex w-full items-center gap-2 sm:w-auto">
+        {(filtros || buscaPesquisavel || (podeEditar && podeCriar)) && (
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+            {filtros}
             {buscaPesquisavel && (
               <div className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
