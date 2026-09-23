@@ -4,11 +4,11 @@ Registro de decisão do projeto. Serve para **não refazer caminho já testado**
 Contexto técnico e regras de negócio: `CLAUDE.md`.
 
 > **NOTA DE ESCOPO (22/09/2026):** o produto deixou de ser single-tenant. O objetivo
-> agora é gerar escalas para hospitais, com o caso Michele como primeiro cliente.
+> agora é gerar escalas para hospitais, com o caso-origem como primeiro cliente.
 > As lições de engenharia abaixo seguem válidas; onde o texto disser "não generalizar",
 > leia como o que era verdade antes do pivô. A autoridade é o `AGENTS.md` na raiz.
 
-Escopo original: single-tenant, caso Michele. O "produto" aqui significa *isso virar rotina
+Escopo original: single-tenant, caso-origem. O "produto" aqui significa *isso virar rotina
 semanal dela, sem a gente no meio* — não virar SaaS multi-unidade.
 
 Última atualização: setembro/2026.
@@ -17,7 +17,7 @@ semanal dela, sem a gente no meio* — não virar SaaS multi-unidade.
 
 ## 1. Por que isso é um produto e não um script
 
-O que a Michele faz toda semana é um problema de **satisfação de restrições com
+O que a coordenadora faz toda semana é um problema de **satisfação de restrições com
 revisão humana obrigatória**. Duas consequências que mudam tudo:
 
 1. **A resposta certa não é única.** Existem dezenas de escalas válidas. O valor não
@@ -36,7 +36,7 @@ Por isso o formato final não é "gerador", é **editor com gerador dentro**.
 ### Tese 1 — GPT/Gem customizado: "o modelo faz tudo"
 
 **Pacote:** `gem/` (instruções autossuficientes + conhecimento de regras + exemplo de layout).
-Escolhido porque Gems são **gratuitas** com conta Google — a Michele usa a conta dela,
+Escolhido porque Gems são **gratuitas** com conta Google — a coordenadora usa a conta dela,
 sem plano pago, e o compartilhamento funciona como Google Drive (link).
 
 **Fluxo:** ela anexa a mensal + a escala das enfermeiras no chat, pede "gere a escala da
@@ -64,7 +64,7 @@ anexados no gerador, render em modo Google Doc para exportar .docx.
   bater com `debug/disponibilidade_agosto.json` e não batia de forma confiável.
 - **Sandbox fechado.** `parse_mensal.py` não roda dentro do Opal (sem pdfplumber). A
   saída foi criar o `05_MODO_PARSER_LOCAL.md`: rodar o parser na máquina e **colar o
-  JSON** no Opal. Funciona, mas a Michele passa a ter dois passos manuais por semana.
+  JSON** no Opal. Funciona, mas a coordenadora passa a ter dois passos manuais por semana.
 - **Sem nó de HTTP genérico.** Não dá para hospedar o parser como API e chamar do Opal —
   o Opal não expõe esse recurso ao usuário. Beco sem saída.
 
@@ -102,7 +102,7 @@ LLM fora do caminho crítico.
 | Ler disponibilidade | importador .xlsx nativo (ou `parse_mensal.py`) | não |
 | Distribuir nos sítios | solver determinístico em JS | não viola regra rígida |
 | Conferir | validador, roda a cada alteração | aponta o que quebrou |
-| Ajustar | a Michele, arrastando | **é o ponto** |
+| Ajustar | a coordenadora, arrastando | **é o ponto** |
 | Gerar o Word | gerador OOXML embutido | layout fixo |
 
 **Resultado medido:** semana real 03–07/08 fecha com **0 violações rígidas e 1 alerta**,
@@ -130,21 +130,21 @@ leu a planilha/PDF "por visão", errou coluna. Parser por coordenadas/XML: acert
 - **A regra "sexta ≠ segunda" exige estado.** Precisa da escala da semana *anterior* como
   entrada. Isso obriga o produto a ter histórico — no app, salvar o .json de cada semana.
   Regra aparentemente inócua que muda a arquitetura.
-- **Posto fixo precisa de isenção explícita.** Leticia no Ensino todos os dias viola
+- **Posto fixo precisa de isenção explícita.** Livia no Ensino todos os dias viola
   "não repetir sítio em dias seguidos". Sem isenção, o solver nunca fechava.
 - **Algumas restrições só fecham por coincidência.** As colocações fixas fora de Ações
-  (Paula terça manhã, Dani J quinta manhã) só funcionam porque caem no dia de plantão
+  (Pâmela terça manhã, Bia J quinta manhã) só funcionam porque caem no dia de plantão
   dessas pessoas. Se o plantão mudar de dia, a regra quebra — e ninguém vai entender por quê.
 - **Ligar/desligar regra é ferramenta de descoberta, não configuração.** O painel de
   Regras existe para responder "essa regra é inegociável mesmo?". Desliga uma, vê se a
   escala melhora, pergunta pra ela. Foi assim que várias "regras rígidas" viraram alertas.
-- **Regra escrita ≠ regra real.** O documento de orientações da Michele tinha ambiguidade
+- **Regra escrita ≠ regra real.** O documento de orientações da coordenadora tinha ambiguidade
   ("segundas quartas / terceiras terças" — nunca confirmado) e omissões. A escala pronta
   dela é uma fonte melhor que o documento de regras.
 
 - **A escala pronta dela é mais informativa que o documento de regras.** O modelo de
   referência (20–24/jul) mostrou que a célula não é uma lista de nomes: é texto com
-  horário, motivo e atividade (`Dani P 10h`, `Allan VD com Renata`, `Curso Manejo: Paula P`),
+  horário, motivo e atividade (`Bia P 10h`, `Artur VD com Rosa`, `Curso Manejo: Pâmela P`),
   às vezes com 4 pessoas, às vezes vazia. Nenhuma linha do documento de orientações dizia
   isso. Lição: **derivar o modelo de dados da saída real, não da especificação escrita.**
 
@@ -200,7 +200,7 @@ raciocínio dela, não caixa-preta.
 
 ### Fase 1 — fechar o laço com a realidade (agora)
 
-Rodar **uma semana real com a Michele**, lado a lado com a escala que ela faria à mão.
+Rodar **uma semana real com a coordenadora**, lado a lado com a escala que ela faria à mão.
 Duas perguntas, e só elas:
 
 1. Quais diferenças são **erro do solver**?
@@ -214,11 +214,11 @@ no `CLAUDE.md`.
 1. **Importar a escala das enfermeiras** (salas por dia/turno). É o que falta de verdade:
    hoje o solver decide as salas, mas essa decisão já existe em outro documento. Enquanto
    isso não entra, a escala das enfermeiras sai errada e ela corrige à mão toda semana.
-2. **Observação dentro da célula** ("P 10h", "VD com Renata"). Hoje só nome; o rodapé
+2. **Observação dentro da célula** ("P 10h", "VD com Rosa"). Hoje só nome; o rodapé
    cobre parcialmente.
 3. **Colocações fixas fora do código**, em aba de configuração.
 4. **Ajuste fino do layout do .docx** contra o modelo impresso (larguras).
-5. **Regras faltantes:** Maria/conselho (precisa de contexto de mês), prioridade de dupla
+5. **Regras faltantes:** Marta/conselho (precisa de contexto de mês), prioridade de dupla
    de técnicos, ordem de substituição automática por ATM/curso/folga.
 
 ### Fase 3 — rotina sem a gente

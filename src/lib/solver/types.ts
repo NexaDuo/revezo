@@ -14,6 +14,9 @@ export interface Pessoa {
   /** Penalidade somada ao custo do solver: quanto maior, menos a pessoa é escolhida
    *  para preencher sítio comum. Serve para quem só entra como reforço. */
   custoExtra?: number;
+  /** Nome como aparece na planilha de disponibilidade (coluna `nome` da Equipe).
+   *  O importador usa para achar o nome curto — o apelido é dado, não código. */
+  completo?: string;
 }
 
 export interface Sitio {
