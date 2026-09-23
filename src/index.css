@@ -43,7 +43,8 @@
     display: none !important;
   }
 
-  /* o conteúdo ocupa a folha inteira */
+  /* o conteúdo ocupa a folha inteira — sem a sidebar (fixed em telas
+     pequenas, em fluxo em md+) sobrando espaço reservado à esquerda */
   main {
     max-width: none !important;
     width: 100% !important;
