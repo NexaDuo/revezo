@@ -73,7 +73,7 @@ test.describe('WorkContext — semana e unidade dirigem o que a tela carrega', (
     });
 
     await page.goto('/regras');
-    await expect(page.getByRole('heading', { name: 'Gerenciador de Regras' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Regras/ })).toBeVisible();
 
     // Ainda dentro da janela de 1.5s (perfil não respondeu): tem que aparecer
     // um indicador de carregamento, nunca o erro de unidade ausente — a
@@ -104,7 +104,7 @@ test.describe('WorkContext — semana e unidade dirigem o que a tela carrega', (
     });
 
     await page.goto('/regras');
-    await expect(page.getByRole('heading', { name: 'Gerenciador de Regras' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Regras/ })).toBeVisible();
 
     // 'disponibilidade' cobre o estado LIGADO, 'turnoBase' o DESLIGADO — as
     // duas posições do polegar (translate-x-5 e translate-x-0), sem precisar
@@ -154,7 +154,7 @@ test.describe('Contexto na URL', () => {
 
   test('deep link, reload e sidebar preservam contexto', async ({ page }) => {
     await page.goto(`/${slug}/2026-08-03/regras`);
-    await expect(page.getByRole('heading', { name: 'Gerenciador de Regras' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Regras/ })).toBeVisible();
     await page.reload();
     await expect(page.getByLabel('Semana', { exact: true })).toHaveValue('2026-08-03');
     await expect(page.getByRole('link', { name: 'Regras & Conferência' })).toHaveAttribute('aria-current', 'page');
@@ -169,7 +169,7 @@ test.describe('Contexto na URL', () => {
       await expect(page.getByRole('alert')).toContainText('Corrija o contexto');
       await expect(page.getByText(/Hospital inexistente|Semana inválida/)).toBeVisible();
       await page.getByRole('link', { name: 'Ir para contexto válido' }).click();
-      await expect(page.getByRole('heading', { name: 'Gerenciador de Regras' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: /^Regras/ })).toBeVisible();
     });
   }
 
@@ -297,7 +297,10 @@ test.describe('Grade — ações e conferência locais', () => {
         expect(caixa!.width).toBeGreaterThanOrEqual(principal!.width - 2);
       }
       expect(principal!.x).toBe(0);
-      const cssPagina = await page.evaluate(() => [...document.styleSheets].flatMap(s => [...s.cssRules]).find(r => r instanceof CSSPageRule)?.cssText);
+      // Folhas de outra origem (a fonte do Google Fonts) não expõem cssRules.
+      const cssPagina = await page.evaluate(() => [...document.styleSheets]
+        .flatMap(s => { try { return [...s.cssRules]; } catch { return []; } })
+        .find(r => r instanceof CSSPageRule)?.cssText);
       expect(cssPagina?.toLowerCase()).toContain('a4 landscape');
       expect(cssPagina).toContain('8mm');
     });

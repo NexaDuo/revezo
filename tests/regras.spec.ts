@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => { await visitanteSemDados(page); });
 test('regras page loads and displays header', async ({ page }) => {
   await page.goto('/regras');
 
-  await expect(page.getByRole('heading', { name: 'Gerenciador de Regras' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Regras/ })).toBeVisible();
 
   // A tabela padrão mostra "Carregando..." e depois a própria tabela — vazia
   // ou não, "Nenhum registro encontrado." fica dentro dela. O que não pode é

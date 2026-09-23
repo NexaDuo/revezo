@@ -107,7 +107,7 @@ export const DisponibilidadeManager: React.FC = () => {
   }, [rascunho]);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+    <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-slate-900">Disponibilidade da semana</h2>
@@ -124,7 +124,7 @@ export const DisponibilidadeManager: React.FC = () => {
               aria-label="Semana da disponibilidade"
               value={sel}
               onChange={e => setSel(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              className="px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-caneta-500 focus:outline-none"
             >
               {!semanas.some(s => s.data_inicio === sel) && <option value={sel}>{fmt(sel)}</option>}
               {semanas.map(s => (
@@ -138,9 +138,9 @@ export const DisponibilidadeManager: React.FC = () => {
       </div>
 
       {msg && (
-        <div className={`rounded-xl border px-3 py-2 text-xs ${
+        <div className={`rounded-md border px-3 py-2 text-xs ${
           msg.tipo === 'ok'
-            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+            ? 'border-caneta-200 bg-caneta-50 text-caneta-800'
             : msg.tipo === 'aviso'
             ? 'border-amber-200 bg-amber-50 text-amber-800'
             : 'border-red-200 bg-red-50 text-red-800'
@@ -152,7 +152,7 @@ export const DisponibilidadeManager: React.FC = () => {
       {unidadeCarregando ? (
         <div className="text-center py-8 text-slate-500 text-sm">Carregando...</div>
       ) : !atual ? (
-        <div className="p-8 text-center border border-dashed border-slate-300 rounded-xl space-y-2">
+        <div className="p-8 text-center border border-dashed border-slate-300 rounded-md space-y-2">
           <p className="text-sm font-semibold text-slate-800">Nenhuma semana importada ainda</p>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
             Use <strong>Importar Planilha (.xlsx)</strong> na barra de ações da Grade da Semana. A semana escolhida
@@ -162,7 +162,7 @@ export const DisponibilidadeManager: React.FC = () => {
       ) : (
         <>
           {atual.origem?.arquivo && (
-            <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <div className="flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
               <Info className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
               <p className="text-xs text-slate-600">
                 Importado de <strong>{atual.origem.arquivo}</strong>
@@ -174,7 +174,7 @@ export const DisponibilidadeManager: React.FC = () => {
           )}
 
           {desconhecidos.length > 0 && (
-            <div className="rounded-xl border border-fuchsia-200 bg-fuchsia-50 px-3 py-2 text-xs text-fuchsia-900">
+            <div className="rounded-md border border-fuchsia-200 bg-fuchsia-50 px-3 py-2 text-xs text-fuchsia-900">
               Códigos que o motor não conhece, mantidos como vieram da planilha:{' '}
               <strong>{desconhecidos.join(', ')}</strong>. O solver trata tudo que não é
               OK/P como ausência — confira se é isso mesmo.
@@ -242,11 +242,11 @@ export const DisponibilidadeManager: React.FC = () => {
                   onChange={e => setNovaPessoa(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && adicionarPessoa()}
                   placeholder="Nome curto (ex.: Dani P)"
-                  className="px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-caneta-500 focus:outline-none"
                 />
                 <button
                   onClick={adicionarPessoa}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl border border-slate-300"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-md border border-slate-300"
                 >
                   <Plus className="w-3.5 h-3.5" /> Adicionar
                 </button>
@@ -255,14 +255,14 @@ export const DisponibilidadeManager: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={excluir}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold rounded-xl border border-red-200"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold rounded-md border border-red-200"
                 >
                   <Trash2 className="w-3.5 h-3.5" /> Excluir semana
                 </button>
                 <button
                   onClick={salvar}
                   disabled={salvando || !alterado}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-sm disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-caneta-600 hover:bg-caneta-700 text-white text-xs font-semibold rounded-md disabled:opacity-50"
                 >
                   <Save className="w-3.5 h-3.5" />
                   {salvando ? 'Salvando...' : alterado ? 'Salvar alterações' : 'Sem alterações'}

@@ -13,9 +13,9 @@ export const DEMO_UNIDADE_ID = 'demo-unidade-1';
 const DEMO_PROFILE: UserProfile = {
   id: 'demo-user-1',
   unidade_id: DEMO_UNIDADE_ID,
-  email: 'michele.ferreira@saude.gov.br',
-  nome: 'Michele Ferreira',
-  avatar_url: 'https://images.unsplash.com/photo-1594824813571-638f02614d3f?w=150&auto=format&fit=crop&q=80',
+  email: 'coordenacao@exemplo.invalid',
+  nome: 'Coordenação Demonstração',
+  avatar_url: null,
   role: 'coordenador',
   ativo: true,
   created_at: new Date().toISOString(),
@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!isSupabaseConfigured) {
       // Modo Mock/Demo para desenvolvimento inicial sem travar a tela
-      setUser({ id: 'demo-user-1', email: 'michele.ferreira@saude.gov.br' });
+      setUser({ id: 'demo-user-1', email: 'coordenacao@exemplo.invalid' });
       setProfile(DEMO_PROFILE);
       setRole(DEMO_PROFILE.role);
       setIsLoading(false);

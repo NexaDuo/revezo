@@ -23,7 +23,7 @@ test('paginação, busca, modal e cache durante a navegação', async ({ page })
   await page.getByRole('button',{name:'Próxima página'}).click();
   await expect(page.getByText('Mostrando 11 a 12 de 12')).toBeVisible();
   await page.getByRole('button',{name:'Página anterior'}).click();
-  await page.getByRole('textbox',{name:'Buscar Gerenciar Equipe'}).fill('12');
+  await page.getByRole('textbox',{name:'Buscar Equipe'}).fill('12');
   await expect(page.getByText('Mostrando 1 a 1 de 1')).toBeVisible();
   await page.getByRole('button',{name:'Editar',exact:true}).click();
   const modal=page.getByRole('dialog',{name:'Editar registro',exact:true});
@@ -31,7 +31,7 @@ test('paginação, busca, modal e cache durante a navegação', async ({ page })
   await modal.getByRole('button',{name:'Salvar',exact:true}).click();
   await expect(modal).toHaveCount(0);
   await expect(page.getByRole('cell',{name:'Pessoa Fictícia 12 Editada',exact:true})).toBeVisible();
-  await page.getByRole('textbox',{name:'Buscar Gerenciar Equipe'}).fill('');
+  await page.getByRole('textbox',{name:'Buscar Equipe'}).fill('');
   await expect(page.getByText('Mostrando 1 a 10 de 12')).toBeVisible();
   const antes=leituras;
   await page.getByRole('link',{name:'Sítios',exact:true}).click();
@@ -64,7 +64,7 @@ test('demonstração pagina em memória e mantém edição entre telas',async({p
   await expect(page.getByText('Mostrando 1 a 10 de 11')).toBeVisible();
   await page.getByRole('button',{name:'Próxima página'}).click();
   await expect(page.getByText('Mostrando 11 a 11 de 11')).toBeVisible();
-  await page.getByRole('textbox',{name:'Buscar Gerenciar Equipe'}).fill('11');
+  await page.getByRole('textbox',{name:'Buscar Equipe'}).fill('11');
   await expect(page.getByText('Mostrando 1 a 1 de 1')).toBeVisible();
   await page.getByRole('button',{name:'Editar',exact:true}).click();
   await page.getByRole('dialog').getByLabel('Nome',{exact:true}).fill('Fictícia Editada 11');

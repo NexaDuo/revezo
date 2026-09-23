@@ -46,17 +46,17 @@ export function TableModal({ titulo, fechar, children }: { titulo: string; fecha
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
       <div
         ref={ref}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby={id}
-        className="max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl bg-white p-6 shadow-xl focus:outline-none"
+        className="max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-lg bg-white p-6 shadow-xl focus:outline-none"
       >
         <div className="flex items-center justify-between gap-4">
-          <h2 id={id} className="text-lg font-semibold text-slate-900">{titulo}</h2>
+          <h2 id={id} className="text-xl font-extrabold tracking-tight text-slate-900">{titulo}</h2>
           <button aria-label="Fechar" onClick={fechar} className="rounded-lg p-1 text-slate-500 hover:bg-slate-100">
             <X className="h-5 w-5" />
           </button>
@@ -73,6 +73,8 @@ interface Props<T> {
   columns: Column<T>[];
   getRowId: (r: T) => string;
   titulo: string;
+  /** Uma frase sob o título: o que esta lista controla. */
+  descricao?: React.ReactNode;
   enabled?: boolean;
   podeEditar?: boolean | ((r: T) => boolean);
   podeCriar?: boolean;
@@ -90,7 +92,7 @@ export function DataTable<T>(props: Props<T>) {
 }
 
 function TableContent<T>({
-  queryKey, fetchPage, columns, getRowId, titulo, enabled = true,
+  queryKey, fetchPage, columns, getRowId, titulo, descricao, enabled = true,
   podeEditar = false, podeCriar = true, onEdit, onRowClick, renderForm,
 }: Props<T>) {
   const [pagina, setPagina] = useState(1);
@@ -114,74 +116,77 @@ function TableContent<T>({
   const buscaPesquisavel = columns.some(c => c.searchable);
 
   return (
-    <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-slate-900">{titulo} ({total})</h2>
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+        <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">
+          {titulo} <span className="font-medium text-slate-500">({total})</span>
+        </h2>
         {podeEditar && podeCriar && (
           <button
             onClick={() => editar(null)}
-            className="flex items-center gap-2 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-700"
+            className="ml-auto flex items-center gap-2 rounded-md bg-caneta-600 px-3.5 py-2 text-sm font-bold text-white hover:bg-caneta-700"
           >
             <Plus className="h-4 w-4" />
             <span>Novo</span>
           </button>
         )}
+        {descricao && <p className="basis-full max-w-prose text-sm text-slate-600">{descricao}</p>}
       </div>
 
       {buscaPesquisavel && (
         <div className="relative max-w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
           <input
             aria-label={`Buscar ${titulo}`}
-            placeholder="Buscar..."
+            placeholder="Buscar"
             value={busca}
             onChange={e => { setBusca(e.target.value); setPagina(1); }}
-            className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm placeholder:text-slate-500 focus:border-caneta-500 focus:outline-none focus:ring-2 focus:ring-caneta-500"
           />
         </div>
       )}
 
       {query.isError && (
-        <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">
+        <p role="alert" className="rounded-md border-l-4 border-marca-rigida bg-white px-3 py-2 text-sm text-red-900">
           Não foi possível carregar: {query.error.message}{' '}
           <button onClick={() => query.refetch()} className="font-semibold underline">Tentar novamente</button>
         </p>
       )}
 
       {query.isPending ? (
-        <p className="py-6 text-center text-sm text-slate-500">Carregando...</p>
+        <p className="py-6 text-center text-sm text-slate-600">Carregando...</p>
       ) : query.data && (
         <>
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
-            <table className="w-full text-left text-sm text-slate-700">
-              <thead className="border-b border-slate-200 bg-slate-50 text-slate-900">
+          <div className="overflow-x-auto border-y border-slate-300">
+            <table className="w-full text-left text-[15px] text-slate-800">
+              <thead className="border-b border-slate-300 text-sm text-slate-600">
                 <tr>
-                  {columns.map(c => <th key={c.key} className="px-4 py-3 font-semibold">{c.header}</th>)}
-                  {temAcoes && <th className="px-4 py-3 font-semibold"><span className="sr-only">Ações</span></th>}
+                  {columns.map(c => <th key={c.key} className="whitespace-nowrap px-3 py-2.5 font-bold">{c.header}</th>)}
+                  {temAcoes && <th className="px-3 py-2.5"><span className="sr-only">Ações</span></th>}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-200">
                 {query.data.linhas.length ? query.data.linhas.map(r => (
                   <tr
                     key={getRowId(r)}
-                    className={`hover:bg-slate-50 ${permitido(r) || onRowClick ? 'cursor-pointer' : ''}`}
+                    className={`hover:bg-white ${permitido(r) || onRowClick ? 'cursor-pointer' : ''}`}
                     onClick={e => {
                       if ((e.target as HTMLElement).closest('button,input,select,a')) return;
                       if (permitido(r)) editar(r); else onRowClick?.(r);
                     }}
                   >
                     {columns.map(c => (
-                      <td key={c.key} className="px-4 py-3">
+                      <td key={c.key} className="px-3 py-2.5">
                         {c.render ? c.render(r) : String((r as any)[c.key] ?? '—')}
                       </td>
                     ))}
                     {temAcoes && (
-                      <td className="whitespace-nowrap px-4 py-3 text-right">
+                      <td className="whitespace-nowrap px-3 py-2.5 text-right">
                         {permitido(r) && (
                           <button
                             aria-label="Editar"
                             onClick={() => editar(r)}
-                            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-bold text-caneta-700 hover:bg-caneta-50"
                           >
                             <Pencil className="h-3.5 w-3.5" />Editar
                           </button>
@@ -189,7 +194,7 @@ function TableContent<T>({
                         {onRowClick && (
                           <button
                             onClick={() => onRowClick(r)}
-                            className="rounded-lg px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+                            className="rounded-md px-2 py-1 text-sm font-bold text-caneta-700 hover:bg-caneta-50"
                           >
                             Abrir semana
                           </button>
@@ -199,7 +204,7 @@ function TableContent<T>({
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={columns.length + (temAcoes ? 1 : 0)} className="px-4 py-8 text-center text-slate-500">
+                    <td colSpan={columns.length + (temAcoes ? 1 : 0)} className="px-3 py-10 text-center text-slate-600">
                       Nenhum registro encontrado.
                     </td>
                   </tr>
@@ -208,7 +213,7 @@ function TableContent<T>({
             </table>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
             <span>
               Mostrando {total ? (pagina - 1) * TAMANHO_PAGINA + 1 : 0} a {Math.min(pagina * TAMANHO_PAGINA, total)} de {total}
             </span>
@@ -217,7 +222,7 @@ function TableContent<T>({
                 aria-label="Página anterior"
                 disabled={pagina <= 1}
                 onClick={() => setPagina(p => p - 1)}
-                className="rounded p-1 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md p-1 hover:bg-slate-200/60 disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -226,7 +231,7 @@ function TableContent<T>({
                 aria-label="Próxima página"
                 disabled={pagina >= paginas}
                 onClick={() => setPagina(p => p + 1)}
-                className="rounded p-1 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md p-1 hover:bg-slate-200/60 disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>

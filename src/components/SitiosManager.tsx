@@ -107,7 +107,7 @@ const SitiosContent: React.FC = () => {
   return <>
     <DataTable queryKey={['sitios', unidadeId]} enabled={!unidadeCarregando}
       fetchPage={f => listarPagina('sitios', unidadeId, {...f, ordem: 'ordem'})}
-      titulo="Gerenciar Sítios" getRowId={(r: any) => r.id} podeEditar={canEdit}
+      titulo="Sítios" getRowId={(r: any) => r.id} podeEditar={canEdit}
       onEdit={r => r ? handleEdit(r) : handleAdd()} columns={[{ key: 'ordem', header: 'Ordem', searchable: false, render: (item: any) => <>{item.ordem ?? '—'}</> },{ key: 'nome', header: 'Nome', searchable: true, render: (item: any) => <>{item.nome ?? '—'}</> },{ key: 'nome_tarde', header: 'Nome à tarde', searchable: true, render: (item: any) => <>{item.nome_tarde ?? '—'}</> },{ key: 'categoria_permitida', header: 'Categoria permitida', searchable: false, render: (item: any) => <>{({ 'enf': 'Enf', 'tec': 'Téc', 'ambos': 'Ambos' } as Record<string, string>)[item.categoria_permitida]}</> },{ key: 'opcional', header: 'Opcional', searchable: false, render: (item: any) => <>{item.opcional ? 'Sim' : 'Não'}</> },{ key: 'prioridade_dupla', header: 'Prioridade de dupla', searchable: false, render: (item: any) => <>{item.prioridade_dupla ?? '—'}</> }]} />
     {editingId && canEdit && <TableModal key={unidadeId} titulo={editingId === 'new' ? 'Novo registro' : 'Editar registro'} fechar={handleCancel}>
       {erro && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">{erro}</p>}

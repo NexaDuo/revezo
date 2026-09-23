@@ -9,16 +9,18 @@ import { LoginModal } from './components/auth/LoginModal';
 import { ConfiguracoesModal } from './components/settings/ConfiguracoesModal';
 import { SidebarProvider, Sidebar, MobileMenuButton } from './components/layout/Sidebar';
 import {
-  Calendar,
   FileSpreadsheet,
-  Download,
+  Printer,
   Sparkles,
   LogIn,
   LogOut,
   Settings,
-  Database,
   Info,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
 } from 'lucide-react';
+import { formatarSemana } from './lib/datas';
 
 import { fetchEquipe } from './lib/fetchData';
 import { generateSchedule, defaultConfig, Escala, Violacao, validar } from './lib/solver';
@@ -52,6 +54,11 @@ export const App: React.FC = () => {
   const navigate = useNavigate();
   const semanaAbrir = React.useRef<any>(null);
   const [avisos, setAvisos] = useState<string[]>([]);
+  // `semanas` vem da mais recente para a mais antiga.
+  const semanaVizinha = (passo: -1 | 1) => {
+    const i = semanas.indexOf(semanaInicio);
+    return i < 0 ? undefined : semanas[i - passo];
+  };
 
   React.useEffect(() => {
     setEscala(null); setCurrentConfig(null); setViolacoes([]); setScore(null);
@@ -189,107 +196,86 @@ export const App: React.FC = () => {
   const paginas = <>
 
           <Route index element={
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+            <div className="space-y-5">
               {/* Conferência e ações pertencem apenas à grade e não vão para o papel. */}
               <div data-print-hide className="flex flex-wrap items-center justify-between gap-3 print:hidden">
                 <div
                   data-testid="indicador-score"
                   role={violacoes.some(v => v.hard) ? 'alert' : 'status'}
-                  className={`rounded-lg border px-3 py-2 text-xs font-semibold ${score === null
-                    ? 'border-slate-200 bg-slate-50 text-slate-600'
+                  className={`rounded-md border-l-4 px-3 py-2 text-sm font-bold ${score === null
+                    ? 'border-slate-300 bg-white text-slate-600'
                     : violacoes.some(v => v.hard)
-                      ? 'border-red-600 bg-red-100 text-red-900'
-                      : score === 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                        : 'border-amber-300 bg-amber-50 text-amber-900'}`}
+                      ? 'border-marca-rigida bg-red-100 text-red-900'
+                      : score === 0 ? 'border-caneta-600 bg-white text-caneta-800'
+                        : 'border-marca bg-white text-slate-900'}`}
                 >
                   {score === null ? 'Nenhuma grade gerada — conferência pendente.' : (
                     <>{violacoes.filter(v => v.hard).length} rígidas · {violacoes.filter(v => !v.hard).length} alerta{violacoes.filter(v => !v.hard).length !== 1 ? 's' : ''} (Score: {Math.round(score)})</>
                   )}
                 </div>
                 <div role="toolbar" aria-label="Ações da grade" data-print-hide className="flex flex-wrap items-center gap-2 print:hidden">
-                  {/* Ações permitidas para Coordenador ou Admin */}
                   {(podeGravar || visitante) ? (
                     <>
                       {podeGravar && <button
-                        className="flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors border border-slate-300"
+                        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-200/60"
                         onClick={() => setIsExcelModalOpen(true)}
                       >
-                        <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+                        <FileSpreadsheet className="h-4 w-4" />
                         <span>Importar Planilha (.xlsx)</span>
                       </button>}
 
                       <button
-                        onClick={() => handleGerarGrade()}
-                        disabled={isGenerating || unidadeCarregando || !unidadeId}
-                        className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-50"
+                        onClick={() => window.print()}
+                        disabled={!escala}
+                        className="flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:bg-slate-100 disabled:opacity-40"
                       >
-                        <Sparkles className="w-4 h-4 text-emerald-200" />
-                        <span>{isGenerating ? 'Gerando...' : 'Gerar Grade'}</span>
+                        <Printer className="h-4 w-4" />
+                        <span>Imprimir / Salvar PDF</span>
                       </button>
 
                       <button
-                        onClick={() => window.print()}
-                        disabled={!escala}
-                        className="flex items-center gap-2 px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-50"
+                        onClick={() => handleGerarGrade()}
+                        disabled={isGenerating || unidadeCarregando || !unidadeId}
+                        className="flex items-center gap-2 rounded-md bg-caneta-600 px-4 py-2 text-sm font-bold text-white hover:bg-caneta-700 disabled:opacity-50"
                       >
-                        <Download className="w-4 h-4 text-slate-300" />
-                        <span>Imprimir / Salvar PDF</span>
+                        <Sparkles className="h-4 w-4" />
+                        <span>{isGenerating ? 'Gerando...' : 'Gerar Grade'}</span>
                       </button>
                     </>
                   ) : (
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-xs">
-                      <Info className="w-3.5 h-3.5" />
-                      <span>Modo Leitura: Faça login como Coordenador de Escala para editar.</span>
-                    </div>
+                    <p className="flex items-center gap-1.5 text-sm text-slate-600">
+                      <Info className="h-4 w-4" />
+                      Somente leitura: entre como coordenação para editar.
+                    </p>
                   )}
                 </div>
               </div>
 
               {avisos.length > 0 && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 print:hidden">
-                  <p className="text-xs font-bold text-amber-900">Atenção aos dados desta grade</p>
-                  <ul className="mt-1 space-y-0.5">
-                    {avisos.map((a, i) => (
-                      <li key={i} className="text-xs text-amber-800">• {a}</li>
-                    ))}
+                <div className="rounded-md border-l-4 border-marca bg-white px-4 py-3 print:hidden">
+                  <p className="text-sm font-bold text-slate-900">Atenção aos dados desta grade</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-slate-700">
+                    {avisos.map((a, i) => <li key={i}>{a}</li>)}
                   </ul>
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-3 items-center justify-between pb-3 border-b border-slate-100 print:hidden">
-                <h2 className="text-base font-bold text-slate-900 flex flex-wrap items-center gap-2">
-                  <span>Grade Interativa (Manhã & Tarde)</span>
-                  <span className="text-xs font-normal text-slate-500">Arrastar & Soltar ativo</span>
-                </h2>
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="flex items-center gap-1.5 text-slate-600">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                    Regra Rígida (Bloqueia)
-                  </span>
-                  <span className="flex items-center gap-1.5 text-slate-600">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                    Alerta
-                  </span>
-                  <span className="flex items-center gap-1.5 text-slate-600">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                    Conforme
-                  </span>
-                </div>
-              </div>
-
-              {/* Aviso de integração do solver ou Grade renderizada */}
               {!escala ? (
-                <div data-print-hide className="print:hidden p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-3">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center font-bold">
-                    <Calendar className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-900">Nenhuma grade gerada</h3>
-                  <p className="text-xs text-slate-600 max-w-lg mx-auto">
+                <div data-print-hide className="print:hidden rounded-lg border border-dashed border-slate-300 px-6 py-12 text-center">
+                  <p className="text-lg font-bold text-slate-900">Nenhuma grade gerada</p>
+                  <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">
                     Clique em "Gerar Grade" para visualizar a escala gerada pelo solver.
                   </p>
                 </div>
               ) : (
-                <ScheduleGrid escala={escala} violacoes={violacoes} dias={currentConfig?.dias || diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala} />
+                <>
+                  <p data-print-hide className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600 print:hidden">
+                    <span>Arraste um nome para trocar de sítio ou de dia.</span>
+                    <span><span className="marca-rigida px-1 text-slate-900">Regra rígida</span> bloqueia</span>
+                    <span><span className="marca-alerta px-1 text-slate-900">Alerta</span> só avisa</span>
+                  </p>
+                  <ScheduleGrid escala={escala} violacoes={violacoes} dias={currentConfig?.dias || diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala} />
+                </>
               )}
             </div>
           } />
@@ -299,12 +285,8 @@ export const App: React.FC = () => {
           <Route path="sitios" element={<SitiosManager />} />
           <Route path="disponibilidade" element={<DisponibilidadeManager />} />
           <Route path="historico" element={
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <h2 className="text-base font-bold text-slate-900">Histórico de Escalas Salvas</h2>
-              <p className="text-xs text-slate-500">
-                Semanas persistidas na nuvem via Supabase. A escala anterior alimenta a regra sexta-para-segunda automaticamente.
-              </p>
-              <DataTable<any> titulo="Histórico" queryKey={['escalas_semanais', unidadeId]} enabled={!unidadeCarregando}
+            <div>
+              <DataTable<any> titulo="Histórico" descricao={'Semanas salvas desta unidade. A escala da semana anterior é usada na regra "sexta ≠ segunda".'} queryKey={['escalas_semanais', unidadeId]} enabled={!unidadeCarregando}
                 fetchPage={async f => isSupabaseConfigured ? listarPagina('escalas_semanais', unidadeId, {...f, ordem:'data_inicio', crescente:false}) : paginarMemoria(await loadSchedules(unidadeId), f)}
                 getRowId={s => s.id} columns={[{key:'titulo',header:'Título',searchable:true},{key:'data_inicio',header:'Início'},{key:'data_fim',header:'Fim'}]}
                 onRowClick={s => {
@@ -321,125 +303,116 @@ export const App: React.FC = () => {
 
   return (
     <SidebarProvider>
-    <div className="min-h-screen flex flex-col bg-slate-50">
-      {/* Barra superior de navegação */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs print:hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-28 md:h-16 flex flex-wrap md:flex-nowrap items-center gap-3 py-2">
-          {/* Logo & Marca */}
-          <div className="flex items-center gap-3">
+    <div className="min-h-screen flex flex-col">
+      {/* Cabeçalho = título da folha: hospital e semana, como no papel. */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 print:hidden">
+        <div className="px-4 sm:px-6 h-28 md:h-16 flex flex-wrap md:flex-nowrap items-center gap-x-6 gap-y-1 py-2">
+          <div className="flex items-center gap-2 md:w-52 md:shrink-0">
             <MobileMenuButton />
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white font-black text-xl shadow-md shadow-emerald-100">
-              R
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-lg tracking-tight text-slate-900">Revezo</span>
-                <span className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded">
-                  v0.1
-                </span>
-              </div>
-              {visitante ? <p className="text-[9px] sm:text-xs text-slate-600">Visitante — somente leitura</p> : <p className="hidden xl:block text-xs text-slate-400 -mt-0.5">Escala de Sítio de Enfermagem</p>}
-            </div>
+            <span className="text-xl font-extrabold tracking-tight text-caneta-700">Revezo</span>
+            {visitante && <span className="text-xs text-slate-500">Visitante — somente leitura</span>}
           </div>
 
-          <div className="order-last md:order-none w-full md:w-auto min-w-0 flex items-center gap-3 text-xs">
+          <div className="order-last md:order-none w-full md:w-auto min-w-0 flex items-end gap-4">
             <label className="min-w-0 flex-1 md:flex-none">
-              <span className="block text-slate-500">Hospital</span>
+              <span className="sr-only md:not-sr-only block text-xs text-slate-500">Hospital</span>
               {podeEscolherUnidade ? (
-                <select aria-label="Hospital" value={unidadeId ?? ''} onChange={e => setUnidadeId(e.target.value)} className="w-full md:max-w-48 rounded border border-slate-300 p-1">
+                <select aria-label="Hospital" value={unidadeId ?? ''} onChange={e => setUnidadeId(e.target.value)} className="w-full md:max-w-56 truncate border-0 bg-transparent p-0 pr-6 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-caneta-500 rounded-sm">
                   {!unidadeId && <option value="">Selecione</option>}
                   {unidadesDisponiveis.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
                 </select>
-              ) : <span className="block truncate md:max-w-44 font-semibold">{unidadesDisponiveis.find(u => u.id === unidadeId)?.nome ?? (unidadeCarregando ? 'Carregando hospital...' : 'Entre para escolher hospital')}</span>}
+              ) : <span className="block truncate md:max-w-56 text-sm font-bold">{unidadesDisponiveis.find(u => u.id === unidadeId)?.nome ?? (unidadeCarregando ? 'Carregando hospital...' : 'Entre para escolher hospital')}</span>}
             </label>
-            <label className="shrink-0">
-              <span className="block text-slate-500">Semana</span>
-              <select aria-label="Semana" value={semanaInicio} disabled={!unidadeId || contextoInvalido} onChange={e => setSemanaInicio(e.target.value)} className="rounded border border-slate-300 p-1">
-                {semanas.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </label>
+            <div className="shrink-0">
+            <span aria-hidden="true" className="hidden md:block pl-7 text-xs text-slate-500">Semana</span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label="Semana anterior"
+                disabled={!semanaVizinha(-1) || !unidadeId || contextoInvalido}
+                onClick={() => setSemanaInicio(semanaVizinha(-1)!)}
+                className="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <label>
+                <span className="sr-only">Semana</span>
+                <select aria-label="Semana" value={semanaInicio} disabled={!unidadeId || contextoInvalido} onChange={e => setSemanaInicio(e.target.value)} className="border-0 bg-transparent p-0 pr-6 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-caneta-500 rounded-sm">
+                  {semanas.map(s => <option key={s} value={s}>{formatarSemana(s)}</option>)}
+                </select>
+              </label>
+              <button
+                type="button"
+                aria-label="Próxima semana"
+                disabled={!semanaVizinha(1) || !unidadeId || contextoInvalido}
+                onClick={() => setSemanaInicio(semanaVizinha(1)!)}
+                className="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+            </div>
           </div>
 
-          {/* Área de Autenticação & Perfil */}
           <div className="ml-auto flex items-center gap-2">
             {user ? (
-              <div className="flex items-center gap-3">
-                {/* Configurações do usuário logado */}
-                  <button
-                    aria-label="Configurações"
-                    onClick={() => setIsConfiguracoesOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors"
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Configurações</span>
-                  </button>
-
-                {/* Perfil & Papel */}
-                <div className="flex items-center gap-2.5 pl-2 sm:border-l sm:border-slate-200">
+              <>
+                <button
+                  aria-label="Configurações"
+                  onClick={() => setIsConfiguracoesOpen(true)}
+                  className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-bold text-slate-700 hover:bg-slate-100"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span className="hidden sm:inline">Configurações</span>
+                </button>
+                <div className="flex items-center gap-2.5 pl-3 sm:border-l sm:border-slate-200">
                   {profile?.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt={profile.nome || ''}
-                      className="w-8 h-8 rounded-full border border-slate-200 object-cover"
-                    />
+                    <img src={profile.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-xs">
+                    <div aria-hidden="true" className="flex h-8 w-8 items-center justify-center rounded-full bg-caneta-100 text-sm font-bold text-caneta-800">
                       {(profile?.nome || profile?.email || 'U')[0]}
                     </div>
                   )}
-                  <div className="hidden lg:block text-left">
-                    <p className="text-xs font-semibold text-slate-900 leading-tight">
-                      {profile?.nome || profile?.email}
-                    </p>
-                    <div className="mt-0.5">
-                      <RoleBadge role={role} showIcon={true} />
-                    </div>
-                  </div>
-                  <div className="hidden sm:block lg:hidden">
-                    <RoleBadge role={role} showIcon={true} />
+                  <div className="hidden lg:block leading-tight">
+                    <p className="text-sm font-bold text-slate-900">{profile?.nome || profile?.email}</p>
+                    <RoleBadge role={role} />
                   </div>
                 </div>
-
-                {/* Logout */}
-                <button
-                  onClick={() => signOut()}
-                  title="Sair"
-                  className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
+                <button onClick={() => signOut()} title="Sair" aria-label="Sair" className="rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900">
+                  <LogOut className="h-4 w-4" />
                 </button>
-              </div>
+              </>
             ) : (
               <button
                 onClick={() => setIsLoginModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-all"
+                className="flex items-center gap-2 rounded-md bg-caneta-600 px-4 py-2 text-sm font-bold text-white hover:bg-caneta-700"
               >
-                <LogIn className="w-4 h-4" />
+                <LogIn className="h-4 w-4" />
                 <span>Entrar<span className="hidden sm:inline"> com Google</span></span>
               </button>
             )}
           </div>
         </div>
+
       </header>
 
-      {/* Alerta de Status do Supabase */}
-      {!isSupabaseConfigured && (
-        <div className="bg-amber-500 text-white text-xs py-2 px-4 text-center font-medium flex items-center justify-center gap-2 print:hidden">
-          <Database className="w-4 h-4" />
-          <span>
-            <strong>Projeto Supabase criado:</strong> Adicione as credenciais no arquivo <code>.env</code> (VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY) para ativar a sincronização na nuvem e o Google OAuth oficial.
-          </span>
-        </div>
-      )}
-
-      {authError && <p role="alert" data-print-hide className="bg-amber-50 p-3 text-amber-900 print:hidden">{authError}</p>}
-      {visitante && <p data-print-hide className="bg-slate-100 p-3 text-sm print:hidden">Modo visitante: entre para salvar</p>}
-      {/* Alerta de unidade de trabalho não resolvida — WorkContext falhou alto
-          em vez de inventar uma unidade default. */}
-      {erroUnidade && (
-        <div className="bg-red-600 text-white text-xs py-2 px-4 text-center font-medium flex items-center justify-center gap-2 print:hidden">
-          <Database className="w-4 h-4" />
-          <span>{erroUnidade} {visitante && <button className="underline" onClick={() => setIsLoginModalOpen(true)}>Entrar para acessar</button>} <Link className="underline" to={caminhoPadrao}>Ir para contexto válido</Link></span>
+      {/* Uma linha de situação, não faixas coloridas empilhadas. Erro de
+          contexto continua na tela — falhar alto, mas sem gritar. */}
+      {(!isSupabaseConfigured || authError || visitante || erroUnidade) && (
+        <div data-print-hide className="space-y-1 border-b border-slate-200 bg-white/60 px-4 py-2 text-sm sm:px-6 print:hidden">
+          {erroUnidade && (
+            <p className="flex flex-wrap items-center gap-x-3 font-bold text-red-800">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>{erroUnidade}</span>
+              {visitante && <button className="underline" onClick={() => setIsLoginModalOpen(true)}>Entrar para acessar</button>}
+              <Link className="underline" to={caminhoPadrao}>Ir para contexto válido</Link>
+            </p>
+          )}
+          {authError && <p role="alert" className="text-amber-900">{authError}</p>}
+          {visitante && <p className="text-slate-600">Modo visitante: entre para salvar</p>}
+          {!isSupabaseConfigured && (
+            <p className="text-slate-600">Modo demonstração: sem conexão com o banco, nada é salvo.</p>
+          )}
         </div>
       )}
 
@@ -447,10 +420,10 @@ export const App: React.FC = () => {
       <Sidebar />
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="flex-1 min-w-0 max-w-7xl w-full px-4 sm:px-6 lg:px-10 py-6 space-y-6">
         {contextoInvalido ? <p role="alert">Corrija o contexto da URL para continuar.</p> : <>
         {!unidadeCarregando && !erroUnidade && unidadeId && !disponibilidades.some(s => s.data_inicio === semanaInicio) && tela !== 'disponibilidade' && (
-          <p role="status" data-print-hide className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900 print:hidden">Nenhuma disponibilidade salva para a semana de {semanaInicio}. Importe a planilha ou confira a Disponibilidade.</p>
+          <p role="status" data-print-hide className="rounded-md border-l-4 border-marca bg-white px-3 py-2 text-sm text-slate-800 print:hidden">Nenhuma disponibilidade salva para a semana de {semanaInicio}. Importe a planilha ou confira a Disponibilidade.</p>
         )}
         {/* Exibição da Aba Ativa */}
         <Routes>

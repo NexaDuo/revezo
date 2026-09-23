@@ -18,23 +18,20 @@ export function RegrasManager() {
    try { await updateRegra(r.id, { [campo]: !r[campo] }, unidadeId); await invalidar(); }
    catch (e: any) { setErro(mensagemErroGravacao(e)); } finally { setSalvando(null); }
  }
- return <div>
- <p>Desligar uma regra aqui muda a próxima geração da grade. Rígida bloqueia (peso 100); alerta apenas avisa (peso 1).</p>
- {erro && <p role="alert" className="text-red-700">{erro}</p>}
- <DataTable<any> titulo="Gerenciador de Regras" queryKey={['regras_config', unidadeId]} enabled={!isLoading}
+ return <div className="space-y-3">
+ {erro && <p role="alert" className="rounded-md border-l-4 border-marca-rigida bg-white px-3 py-2 text-sm text-red-900">{erro}</p>}
+ <DataTable<any> titulo="Regras" descricao="Desligar uma regra aqui muda a próxima geração da grade. Rígida bloqueia (peso 100); alerta apenas avisa (peso 1)." queryKey={['regras_config', unidadeId]} enabled={!isLoading}
  fetchPage={f => listarPagina('regras_config', unidadeId, {...f, ordem: 'ordem'})} getRowId={r => r.id} podeEditar={canEdit}
  columns={[
- {key:'nome', header:'Regra', searchable:true, render:r => <><strong>{r.nome}</strong><p>{r.descricao}</p><code>{r.chave}</code></>},
+ {key:'nome', header:'Regra', searchable:true, render:r => <><span className="font-bold">{r.nome}</span><span className="block text-xs text-slate-500">{r.chave}</span></>},
  {key:'descricao', header:'Descrição', searchable:true},
  {key:'rigida', header:'Severidade', render:r => (                  <button
                     onClick={() => alternar(r, 'rigida')}
                     disabled={!canEdit || salvando === r.id}
                     title={canEdit ? 'Alternar entre rígida e alerta' : 'Somente leitura'}
                     data-testid={`regra-severidade-${r.chave}`}
-                    className={`inline-flex align-middle items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold border transition-colors disabled:cursor-not-allowed ${
-                      r.rigida
-                        ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
-                        : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                    className={`inline-flex align-middle items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-sm font-bold text-slate-900 hover:underline disabled:cursor-not-allowed disabled:no-underline ${
+                      r.rigida ? 'marca-rigida' : 'marca-alerta'
                     }`}
                   >
                     {r.rigida ? <ShieldCheck className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
@@ -46,7 +43,7 @@ export function RegrasManager() {
                     aria-pressed={r.ativa}
                     data-testid={`regra-toggle-${r.chave}`}
                     className={`relative align-middle w-11 h-6 rounded-full transition-colors disabled:cursor-not-allowed ${
-                      r.ativa ? 'bg-emerald-500' : 'bg-slate-300'
+                      r.ativa ? 'bg-caneta-600' : 'bg-slate-300'
                     }`}
                   >
                     {/* `left-0.5` fixa a posição de repouso dentro da trilha —
