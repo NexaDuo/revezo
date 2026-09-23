@@ -167,3 +167,48 @@ export async function responderPagina(route: Route, dados: any[]) {
     'Access-Control-Expose-Headers': 'Content-Range',
   } : {} });
 }
+
+/** Banco de versões com estado: fotografia via RPC e PATCH, devolvida na leitura. */
+export async function mockarEscalas(page: Page, iniciais: any[] = []) {
+  const linhas: any[] = iniciais.map(l => ({ unidade_id: FAKE_UNIT_ID, ...l }));
+  const patches: { url: string; corpo: any }[] = [];
+  const rpcs: { nome: string; corpo: any }[] = [];
+  let relogio = Date.parse('2026-08-02T12:00:00Z');
+  const agora = () => new Date(relogio += 60_000).toISOString();
+
+  await page.route('**/rest/v1/escalas_semanais*', async (r: Route) => {
+    const url = new URL(r.request().url());
+    const filtros = (['id', 'data_inicio', 'ativa'] as const).map(c => [c, url.searchParams.get(c)?.replace(/^eq\./, '')] as const).filter(([, v]) => v != null);
+    const bate = (l: any) => filtros.every(([c, v]) => String(l[c]) === v);
+    if (r.request().method() === 'PATCH') {
+      const corpo = r.request().postDataJSON();
+      patches.push({ url: r.request().url(), corpo });
+      const alvo = linhas.filter(bate);
+      for (const l of alvo) Object.assign(l, corpo, { updated_at: agora() });
+      return r.fulfill({ json: alvo });
+    }
+    return responderPagina(r, linhas.filter(bate));
+  });
+  await page.route('**/rest/v1/rpc/salvar_escala_nova', async r => {
+    const p = r.request().postDataJSON();
+    rpcs.push({ nome: 'salvar_escala_nova', corpo: p });
+    const t = agora();
+    for (const l of linhas) if (l.data_inicio === p.p_data_inicio && l.ativa) Object.assign(l, { ativa: false, substituida_em: t });
+    const nova = { id: `0b0b0b0b-0000-4000-8000-${String(linhas.length + 1).padStart(12, '0')}`, unidade_id: p.p_unidade_id,
+      titulo: p.p_titulo, data_inicio: p.p_data_inicio, data_fim: p.p_data_fim, dias: p.p_dias, grade: p.p_grade, sitios: p.p_sitios,
+      violacoes: p.p_violacoes, score: p.p_score, status: p.p_status, ativa: true, substituida_em: null, created_at: t, updated_at: t };
+    linhas.push(nova);
+    return r.fulfill({ json: nova });
+  });
+  await page.route('**/rest/v1/rpc/ativar_escala', async r => {
+    const p = r.request().postDataJSON();
+    rpcs.push({ nome: 'ativar_escala', corpo: p });
+    const alvo = linhas.find(l => l.id === p.p_id);
+    if (!alvo) return r.fulfill({ status: 400, json: { message: 'Grade não encontrada ou sem acesso' } });
+    const t = agora();
+    for (const l of linhas) if (l.data_inicio === alvo.data_inicio && l.ativa && l.id !== alvo.id) Object.assign(l, { ativa: false, substituida_em: t });
+    Object.assign(alvo, { ativa: true, substituida_em: null });
+    return r.fulfill({ json: alvo });
+  });
+  return { linhas, patches, rpcs };
+}

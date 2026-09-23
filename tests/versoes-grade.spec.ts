@@ -1,5 +1,5 @@
-import { test, expect, type Page, type Route } from '@playwright/test';
-import { HAS_ENV, FAKE_UNIT_ID, autenticarComoCoordenador, responderPagina } from './supabase-mock';
+import { test, expect, type Page } from '@playwright/test';
+import { HAS_ENV, FAKE_UNIT_ID, autenticarComoCoordenador, responderPagina, mockarEscalas } from './supabase-mock';
 import { defaultConfig, generateSchedule, validar } from '../src/lib/solver';
 import type { Config, Escala } from '../src/lib/solver/types';
 import fs from 'node:fs';
@@ -84,28 +84,41 @@ test.describe('versões da grade — modo demonstração', () => {
       await expect(gerar).toBeEnabled();
     }
     expect(dialogos).toEqual([]);
+    await page.getByRole('button', { name: 'Salvar e Publicar' }).click();
+    await expect(page.getByText('Nova versão salva: agora é a ativa desta semana.', { exact: false })).toBeVisible();
 
-    // Leia só as pessoas da grade exibida, sem os textos de violações.
-    // O helper escolhe outro sítio no mesmo dia, onde a pessoa não está.
-    // Violações de categoria são aceitas pelo editor e marcadas pelo validador.
-    const manha = await page.getByRole('table').first().locator('tbody tr').evaluateAll(linhas =>
-      Object.fromEntries(linhas.map(linha => {
-        const celulas = Array.from(linha.querySelectorAll('td'));
-        return [celulas[0].textContent!.trim(), celulas.slice(1).map(c =>
-          Array.from(c.querySelectorAll('[draggable="true"]'), p => p.textContent!.trim()))];
-      })));
-    const mov = movimentoQueViolaCategoria(configDemo, { manha, tarde: {} });
+    // A confirmação depende da edição, não da solução aleatória do solver.
+    // Reabre uma grade mínima conhecida, evitando arrastar sobre células cuja
+    // altura/conteúdo muda entre reinícios da geração.
+    const grade: Escala = { manha: {}, tarde: {} };
+    for (const t of ['manha', 'tarde'] as const)
+      for (const sitio of configDemo.sitios[t]) grade[t][sitio.n] = DIAS.map(() => []);
+    const tecnico = configDemo.equipe.find(p => p.c === 'tec')!.n;
+    const origemNome = configDemo.sitios.manha.find(s => s.quem === 'tec')!.n;
+    grade.manha[origemNome][0] = [tecnico];
+    const mov = movimentoQueViolaCategoria(configDemo, grade);
+    await page.evaluate(e => localStorage.setItem('demo_escalas', JSON.stringify([e])), {
+      id: '0a0a0a0a-0000-4000-8000-000000000099', titulo: 'edição conhecida',
+      data_inicio: SEMANA, data_fim: '2026-08-07', dias: DIAS, grade,
+      violacoes: [], score: 0, ativa: true, substituida_em: null, created_at: '2026-08-01T10:00:00Z',
+    });
+    await page.reload();
+    await expect(banner).toContainText('Versão ativa');
+    await expect(gerar).toBeEnabled();
     const origem = celula(page, 'manha', mov.de[0], mov.de[1]);
     const destino = celula(page, 'manha', mov.para[0], mov.para[1]);
     await expect(destino.getByText(mov.nome, { exact: true })).toHaveCount(0);
-    // Mire no topo: as mensagens de validação podem deixar a célula alta.
-    await origem.getByText(mov.nome, { exact: true }).dragTo(destino, { targetPosition: { x: 8, y: 8 } });
+    // Eventos HTML5 exercitam a edição sem depender de coordenadas/scroll da tabela.
+    const transferencia = await page.evaluateHandle(() => new DataTransfer());
+    await origem.getByText(mov.nome, { exact: true }).dispatchEvent('dragstart', { dataTransfer: transferencia });
+    await destino.dispatchEvent('drop', { dataTransfer: transferencia });
+    await transferencia.dispose();
     await expect(origem.getByText(mov.nome, { exact: true })).toHaveCount(0);
     await expect(destino.getByText(mov.nome, { exact: true })).toBeVisible();
     await gerar.click();
     expect(dialogos).toEqual(['confirm']);
     await expect(destino.getByText(mov.nome, { exact: true })).toBeVisible();
-    await expect(banner).toContainText('Grade nova, ainda não salva');
+    await expect(banner).toContainText('Alterações não salvas');
   });
 
   test('entrar na semana abre a grade ativa salva e arrastar refaz a conferência', async ({ page }) => {
@@ -131,9 +144,9 @@ test.describe('versões da grade — modo demonstração', () => {
     await expect(page.getByTestId('indicador-score')).toContainText(/Score: \d+/);
     await expect(page.getByText(mov.msg)).toHaveCount(0);
     await expect(page.getByText(
-      `A grade salva usa sítios que não existem mais: ${renomeado} (nome antigo) — as pessoas nessas linhas não são conferidas.`)).toBeVisible();
-    // A linha do nome atual entra vazia, para o validador ter o que percorrer.
-    await expect(celula(page, 'manha', renomeado, 0)).toBeVisible();
+      `A grade salva usa sítios que não existem mais: ${renomeado} (nome antigo) — confira as linhas preservadas antes de salvar.`)).toBeVisible();
+    // Abrir legado preserva as chaves: não acrescenta a linha atual.
+    await expect(celula(page, 'manha', renomeado, 0)).toHaveCount(0);
 
     await arrastar(page, mov.nome, mov.de, mov.para);
     await expect(celula(page, 'manha', mov.para[0], mov.para[1])).toContainText(mov.msg);
@@ -247,7 +260,9 @@ test.describe('versões da grade — modo demonstração', () => {
     await expect(page).toHaveURL(new RegExp(`/${slug}/${SEMANA}$`));
     await expect(page.getByText('Nova versão salva: agora é a ativa desta semana.', { exact: false })).toBeVisible();
     await expect(banner).toContainText('Versão ativa');
-    expect(await escalasDemo(page)).toHaveLength(3);
+    const finais = await escalasDemo(page);
+    expect(finais).toHaveLength(3);
+    expect(finais.every((e: any) => Array.isArray(e.sitios) && e.sitios.length > 0)).toBe(true);
   });
 });
 
@@ -269,59 +284,20 @@ function gradeManual(): Escala {
 }
 
 async function bancoSimulado(page: Page, iniciais: any[] = []) {
-  const linhas: any[] = iniciais.map(l => ({ unidade_id: FAKE_UNIT_ID, ...l }));
-  const patches: { url: string; corpo: any }[] = [];
-  const rpcs: { nome: string; corpo: any }[] = [];
-  let relogio = Date.parse('2026-08-02T12:00:00Z');
-  const agora = () => new Date(relogio += 60_000).toISOString();
-
   await page.route('**/rest/v1/equipe*', r => responderPagina(r, PESSOAS.map(([nome, categoria, turno], i) => ({
     id: `p${i}`, unidade_id: FAKE_UNIT_ID, nome, nome_curto: nome, categoria, turno_base: turno, ordem: i, ativo: true,
   }))));
-  await page.route('**/rest/v1/sitios*', r => responderPagina(r, SITIOS.map(([nome, cat], i) => ({
-    id: `s${i}`, unidade_id: FAKE_UNIT_ID, ordem: i + 1, nome, nome_tarde: null, categoria_permitida: cat, opcional: false, prioridade_dupla: null,
-  }))));
+  const sitios = SITIOS.map(([nome, cat], i) => ({
+    id: `s${i}`, unidade_id: FAKE_UNIT_ID, ordem: i + 1, nome: String(nome), nome_tarde: null as string | null, categoria_permitida: cat, opcional: false, prioridade_dupla: null,
+  }));
+  await page.route('**/rest/v1/sitios*', r => responderPagina(r, sitios));
   const disp = { unidade_id: FAKE_UNIT_ID, data_inicio: SEMANA, data_fim: '2026-08-07', dias: DIAS,
     dados: Object.fromEntries(PESSOAS.map(([n]) => [n, DIAS.map(() => 'OK')])) };
   await page.route('**/rest/v1/disponibilidade_semanal*', r => {
     const di = new URL(r.request().url()).searchParams.get('data_inicio');
     return responderPagina(r, !di || di === `eq.${SEMANA}` ? [disp] : []);
   });
-  await page.route('**/rest/v1/escalas_semanais*', async (r: Route) => {
-    const url = new URL(r.request().url());
-    const filtros = (['id', 'data_inicio', 'ativa'] as const).map(c => [c, url.searchParams.get(c)?.replace(/^eq\./, '')] as const).filter(([, v]) => v != null);
-    const bate = (l: any) => filtros.every(([c, v]) => String(l[c]) === v);
-    if (r.request().method() === 'PATCH') {
-      const corpo = r.request().postDataJSON();
-      patches.push({ url: r.request().url(), corpo });
-      const alvo = linhas.filter(bate);
-      for (const l of alvo) Object.assign(l, corpo, { updated_at: agora() });
-      return r.fulfill({ json: alvo });
-    }
-    return responderPagina(r, linhas.filter(bate));
-  });
-  await page.route('**/rest/v1/rpc/salvar_escala_nova', async r => {
-    const p = r.request().postDataJSON();
-    rpcs.push({ nome: 'salvar_escala_nova', corpo: p });
-    const t = agora();
-    for (const l of linhas) if (l.data_inicio === p.p_data_inicio && l.ativa) Object.assign(l, { ativa: false, substituida_em: t });
-    const nova = { id: `0b0b0b0b-0000-4000-8000-${String(linhas.length + 1).padStart(12, '0')}`, unidade_id: p.p_unidade_id,
-      titulo: p.p_titulo, data_inicio: p.p_data_inicio, data_fim: p.p_data_fim, dias: p.p_dias, grade: p.p_grade,
-      violacoes: p.p_violacoes, score: p.p_score, status: p.p_status, ativa: true, substituida_em: null, created_at: t, updated_at: t };
-    linhas.push(nova);
-    return r.fulfill({ json: nova });
-  });
-  await page.route('**/rest/v1/rpc/ativar_escala', async r => {
-    const p = r.request().postDataJSON();
-    rpcs.push({ nome: 'ativar_escala', corpo: p });
-    const alvo = linhas.find(l => l.id === p.p_id);
-    if (!alvo) return r.fulfill({ status: 400, json: { message: 'Grade não encontrada ou sem acesso' } });
-    const t = agora();
-    for (const l of linhas) if (l.data_inicio === alvo.data_inicio && l.ativa && l.id !== alvo.id) Object.assign(l, { ativa: false, substituida_em: t });
-    Object.assign(alvo, { ativa: true, substituida_em: null });
-    return r.fulfill({ json: alvo });
-  });
-  return { linhas, patches, rpcs };
+  return { ...await mockarEscalas(page, iniciais), sitios };
 }
 
 test.describe('versões da grade — Supabase', () => {
@@ -345,7 +321,7 @@ test.describe('versões da grade — Supabase', () => {
     await expect(banner).toContainText('Versão ativa');
     await expect(banner).toHaveAttribute('data-versao-id', ANTIGA);
     await expect(page.getByText(msg)).toHaveCount(0);
-    await expect(page.getByText('A grade salva usa sítios que não existem mais: Sala Extinta — as pessoas nessas linhas não são conferidas.')).toBeVisible();
+    await expect(page.getByText('A grade salva usa sítios que não existem mais: Sala Extinta — confira as linhas preservadas antes de salvar.')).toBeVisible();
     await arrastar(page, 'Ciro Cometa', ['Cuidados demonstrativos', 0], ['Consulta demonstrativa', 0]);
     await expect(celula(page, 'manha', 'Consulta demonstrativa', 0)).toContainText(msg);
 
@@ -362,6 +338,7 @@ test.describe('versões da grade — Supabase', () => {
     await page.getByRole('button', { name: 'Salvar e Publicar' }).click();
     await expect(page.getByText('Nova versão salva: agora é a ativa desta semana.', { exact: false })).toBeVisible();
     expect(banco.rpcs.map(r => r.nome)).toEqual(['salvar_escala_nova']);
+    expect(banco.rpcs[0].corpo.p_sitios.map((s: any) => s.id)).toEqual(['s0', 's1', 's2']);
     expect(banco.rpcs[0].corpo).toMatchObject({ p_unidade_id: FAKE_UNIT_ID, p_data_inicio: SEMANA, p_data_fim: '2026-08-07' });
     const NOVA = banco.linhas.find(l => l.id !== ANTIGA)!.id;
     await page.goto(`/${slug}/${SEMANA}`);
@@ -397,6 +374,82 @@ test.describe('versões da grade — Supabase', () => {
     await expect(linhas.filter({ hasText: 'antiga' }).getByText('Ativa', { exact: true })).toBeVisible();
     await page.goto(`/${slug}/${SEMANA}`);
     await expect(banner).toHaveAttribute('data-versao-id', ANTIGA);
+  });
+
+  test('fotografia: histórico mantém nomes e ordem; salvar atualiza por ID sem perder conteúdo', async ({ page }) => {
+    const id = '0a0a0a0a-0000-4000-8000-0000000000cc';
+    const banco = await bancoSimulado(page, [{
+      id, titulo: 'fotografia', data_inicio: SEMANA, data_fim: '2026-08-07', dias: DIAS,
+      grade: gradeManual(), sitios: null, violacoes: [], score: 0, ativa: true,
+      substituida_em: null, created_at: '2026-08-01T10:00:00Z',
+    }]);
+    await page.goto(`/${slug}/${SEMANA}`);
+    await page.getByRole('button', { name: 'Salvar nesta versão' }).click();
+    await expect.poll(() => banco.patches.length).toBe(1);
+    expect(banco.linhas[0].sitios.map((s: any) => s.id)).toEqual(['s0', 's1', 's2']);
+    const conteudo = structuredClone(banco.linhas[0].grade);
+    // Simula também a ordem de chaves não confiável do JSONB.
+    banco.linhas[0].grade.manha = Object.fromEntries(Object.entries(conteudo.manha).reverse());
+    banco.sitios[0].nome = 'Consulta atual';
+    banco.sitios[0].nome_tarde = 'Consulta vespertina atual';
+    banco.sitios[0].ordem = 9;
+    banco.sitios[0].categoria_permitida = 'tec';
+    banco.sitios.push({ ...banco.sitios[1], id: 's3', nome: 'Sala nova', ordem: 8 });
+    await page.goto(`/${slug}/${SEMANA}/historico`);
+    await page.getByRole('button', { name: 'Abrir versão' }).click();
+    await expect(page.getByRole('button', { name: 'Salvar nesta versão' })).toBeEnabled();
+    await expect(celula(page, 'manha', 'Consulta demonstrativa', 0)).toContainText('Aurora Estelar');
+    await expect(celula(page, 'tarde', 'Consulta demonstrativa', 0)).toContainText('Lira Boreal');
+    await expect(celula(page, 'manha', 'Consulta atual', 0)).toHaveCount(0);
+    await expect(celula(page, 'manha', 'Consulta demonstrativa', 0)).not.toContainText('este sítio é de técnicos');
+    await expect(celula(page, 'manha', 'Sala nova', 0)).toHaveCount(0);
+    await expect(page.getByRole('table').first().locator('tbody tr').first()).toContainText('Consulta demonstrativa');
+    await page.getByRole('button', { name: 'Salvar nesta versão' }).click();
+    await expect(celula(page, 'manha', 'Consulta atual', 0)).toContainText('Aurora Estelar');
+    await expect(celula(page, 'manha', 'Consulta atual', 0)).toContainText('este sítio é de técnicos');
+    await expect(celula(page, 'tarde', 'Consulta vespertina atual', 0)).toContainText('Lira Boreal');
+    await expect(celula(page, 'manha', 'Consulta demonstrativa', 0)).toHaveCount(0);
+    await expect(celula(page, 'manha', 'Sala nova', 0).locator('[draggable]')).toHaveCount(0);
+    expect(banco.linhas[0].grade.manha['Consulta atual']).toEqual(conteudo.manha['Consulta demonstrativa']);
+    expect(banco.linhas[0].grade.tarde['Consulta vespertina atual']).toEqual(conteudo.tarde['Consulta demonstrativa']);
+    expect(banco.linhas[0].sitios.map((s: any) => s.id)).toEqual(['s1', 's2', 's3', 's0']);
+  });
+
+  test('sítio excluído continua na fotografia, na grade e no aviso após salvar e reabrir', async ({ page }) => {
+    const id = '0a0a0a0a-0000-4000-8000-0000000000dd';
+    const banco = await bancoSimulado(page, [{
+      id, titulo: 'exclusão', data_inicio: SEMANA, data_fim: '2026-08-07', dias: DIAS,
+      grade: gradeManual(), violacoes: [], score: 0, ativa: true,
+      substituida_em: null, created_at: '2026-08-01T10:00:00Z',
+    }]);
+    banco.linhas[0].sitios = structuredClone(banco.sitios);
+    banco.sitios.splice(0, 1);
+    await page.goto(`/${slug}/${SEMANA}/historico`);
+    await page.getByRole('button', { name: 'Abrir versão' }).click();
+    const aviso = page.getByText('A grade salva usa sítios que não existem mais:', { exact: false });
+    await expect(aviso).toContainText('Consulta demonstrativa');
+    await expect(celula(page, 'manha', 'Consulta demonstrativa', 0)).toContainText('Aurora Estelar');
+    await page.getByRole('button', { name: 'Salvar nesta versão' }).click();
+    await expect.poll(() => banco.patches.length).toBe(1);
+    expect(banco.linhas[0].sitios.find((s: any) => s.id === 's0')).toMatchObject({ removido: true, nome: 'Consulta demonstrativa' });
+    await page.reload();
+    await expect(aviso).toContainText('Consulta demonstrativa');
+    await expect(celula(page, 'manha', 'Consulta demonstrativa', 0)).toContainText('Aurora Estelar');
+  });
+
+  test('legado sem fotografia abre exatamente as chaves salvas', async ({ page }) => {
+    const grade = { manha: { 'Nome de antes': [['Aurora Estelar'], [], [], [], []] }, tarde: {} };
+    await bancoSimulado(page, [{
+      id: '0a0a0a0a-0000-4000-8000-0000000000ee', titulo: 'legado',
+      data_inicio: SEMANA, data_fim: '2026-08-07', dias: DIAS, grade, sitios: null,
+      violacoes: [], score: 0, ativa: true, substituida_em: null, created_at: '2026-08-01T10:00:00Z',
+    }]);
+    await page.goto(`/${slug}/${SEMANA}`);
+    await expect(page.getByRole('button', { name: 'Salvar nesta versão' })).toBeEnabled();
+    await expect(page.getByRole('table').first().locator('tbody tr')).toHaveCount(1);
+    await expect(celula(page, 'manha', 'Nome de antes', 0)).toContainText('Aurora Estelar');
+    await expect(celula(page, 'manha', 'Consulta demonstrativa', 0)).toHaveCount(0);
+    await expect(page.getByText('A grade salva usa sítios que não existem mais:', { exact: false })).toContainText('Nome de antes');
   });
 
   test('grade salva carregando trava Gerar/arrastar; a geração seguinte fica e salva como versão nova', async ({ page }) => {

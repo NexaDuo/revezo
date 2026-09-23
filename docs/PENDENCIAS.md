@@ -19,9 +19,12 @@ registro do que falta. Item feito sai daqui no mesmo PR que o resolve.
   ter apelidos no código; para a planilha do caso-origem voltar a achar os nomes
   curtos, a coluna Nome da Equipe precisa ter o nome como está na planilha.
 
-- **Grade salva ainda guarda sítio por nome.** O JSON de `escalas_semanais.grade`
-  é indexado pelo nome do sítio; renomear um sítio deixa as versões antigas
-  apontando para o nome velho (a migração de sítio por id não cobre a grade).
+- **Grades legadas sem fotografia de sítios.** A coluna `escalas_semanais.sitios`
+  preserva ID, nomes, ordem e categorias; abrir não atualiza a grade, salvar
+  reconcilia por ID. Nas grades antigas (`sitios = NULL`), só é possível inferir
+  IDs por nome exato/canônico: rename anterior à fotografia é ambíguo e fica
+  preservado como linha órfã, com aviso. Resolver essa identidade exige revisão
+  humana; nomes reutilizados por IDs diferentes bloqueiam o salvamento.
 
 - **Disponibilidade semanal ainda referencia pessoa por nome.** O JSON de
   `disponibilidade_semanal.dados` vem da planilha; renomear o nome curto exige
@@ -50,3 +53,8 @@ registro do que falta. Item feito sai daqui no mesmo PR que o resolve.
 ## Qualidade (@rev, baixa)
 - Teste para `localStorage` lançando exceção (modo demonstração).
 - Teste de impressão em largura de celular.
+
+- **Suíte Playwright com `.env` em paralelo é instável.** Com vários workers,
+  1–3 testes logados diferentes falham por rodada (timeouts de navegação); com
+  `--workers=1` (como no CI) passa inteira. Investigar a contenção do dev
+  server antes de confiar na suíte paralela local.

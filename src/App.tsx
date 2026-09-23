@@ -25,7 +25,7 @@ import { formatarSemana } from './lib/datas';
 import { fetchEquipe } from './lib/fetchData';
 import { generateSchedule, defaultConfig, Escala, Violacao, validar } from './lib/solver';
 import type { Config } from './lib/solver/types';
-import { canon } from './lib/solver/utils';
+import { atualizarFotografia, ordenarGradeFotografada, inferirFotografia, orfaosDaGrade, rotuloSitio, type SitioSnapshot } from './lib/sitiosSnapshot';
 import { ScheduleGrid } from './components/ScheduleGrid';
 import { ExcelImportModal } from './components/ExcelImportModal';
 import { EquipeManager } from './components/EquipeManager';
@@ -36,8 +36,8 @@ import { DisponibilidadeManager } from './components/DisponibilidadeManager';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
 import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade, carregarEscala, carregarEscalaPorId, salvarEscalaNova, atualizarEscala, ativarEscala, ordenarVersoes, EscalaSalva, getEquipes, getSitios } from './lib/db';
 import { semanaAnterior, sextaDaEscala } from './lib/sextaAnterior';
-import { carregarConfigUnidade, pessoaDaLinha } from './lib/loadConfig';
-import { indexarRotulos, sitiosForaDaUnidade } from './lib/referenciasSitio';
+import { avisarOrfaos, carregarConfigUnidade, pessoaDaLinha } from './lib/loadConfig';
+import { indexarRotulos } from './lib/referenciasSitio';
 import { useQuery } from '@tanstack/react-query';
 
 // Referência estável: o importador recalcula quando a equipe muda.
@@ -51,38 +51,6 @@ function somarDias(iso: string, n: number) {
   const d = new Date(`${iso}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
-}
-/** Encaixa a grade salva nos sítios ATUAIS da unidade. A linha de cada sítio
- *  é achada pelo nome exato ou, se não houver, pelo mesmo `canon()` que o
- *  validador usa (e movida para o nome atual); sítio sem linha entra vazio,
- *  senão o validador não tem o que percorrer. O que sobra são sítios que a
- *  unidade não tem mais (renomeado ou apagado depois da gravação): continuam
- *  na tela, mas quem está neles não é conferido — isso tem que ir para a tela.
- *  Aqui órfãos são as linhas não consumidas, inclusive sobras com o mesmo
- *  canon; o helper da sexta anterior só verifica a existência do sítio. */
-function alinharGradeSalva(salva: Partial<Escala> | null | undefined, config: Config): { grade: Escala; orfaos: string[] } {
-  const grade: Escala = { manha: {}, tarde: {} };
-  const orfaos = new Set<string>();
-  for (const turno of ['manha', 'tarde'] as const) {
-    const origem: Record<string, string[][]> = JSON.parse(JSON.stringify(salva?.[turno] || {}));
-    const usadas = new Set<string>();
-    // Reserve todos os nomes exatos antes de tentar equivalências canônicas.
-    const correspondencias = new Map<string, string>();
-    for (const s of config.sitios[turno]) {
-      if (Object.prototype.hasOwnProperty.call(origem, s.n)) {
-        correspondencias.set(s.n, s.n);
-        usadas.add(s.n);
-      }
-    }
-    for (const s of config.sitios[turno]) {
-      const chave = correspondencias.get(s.n)
-        ?? Object.keys(origem).find(k => !usadas.has(k) && canon(k) === canon(s.n));
-      if (chave !== undefined) usadas.add(chave);
-      grade[turno][s.n] = chave !== undefined ? origem[chave] : config.dias.map(() => []);
-    }
-    for (const k of Object.keys(origem)) if (!usadas.has(k)) { grade[turno][k] = origem[k]; orfaos.add(k); }
-  }
-  return { grade, orfaos: [...orfaos] };
 }
 const dataHora = (iso?: string | null) => iso
   ? new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
@@ -99,9 +67,11 @@ export const App: React.FC = () => {
   const [diasOverride, setDiasOverride] = useState<string[] | null>(null);
 
   const [escala, setEscala] = useState<Escala | null>(null);
+  const [fotoGrade, setFotoGrade] = useState<SitioSnapshot[]>([]);
   const [currentConfig, setCurrentConfig] = useState<Config | null>(null);
   const [violacoes, setViolacoes] = useState<Violacao[]>([]);
   const [score, setScore] = useState<number | null>(null);
+  const [salvando, setSalvando] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -139,14 +109,14 @@ export const App: React.FC = () => {
    *  sexta da grade ATIVA da semana anterior. Serve para gerar e para conferir
    *  uma grade salva. `config: null` = bloqueado; o motivo está em `avisos`.
    *  Quem chama descarta o resultado se o contexto mudou no meio. */
-  const montarConfigSemana = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[] | null):
-    Promise<{ config: Config | null; avisos: string[] }> => {
+  const montarConfigSemana = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[] | null, historica?: EscalaSalva, paraSalvar = false):
+    Promise<{ config: Config | null; avisos: string[]; sitios: SitioSnapshot[] }> => {
     // A configuração (equipe, sítios, regras ligadas/desligadas, proibições,
     // duplas e fixas) vem da unidade em contexto. É isto que faz o painel de
     // Regras valer de verdade: desligar uma regra ali muda a geração aqui.
-    const base = await carregarConfigUnidade(isSupabaseConfigured, unidadeId);
+    const base = await carregarConfigUnidade(isSupabaseConfigured, unidadeId, historica, paraSalvar);
     const msgs = [...base.avisos];
-    if (isSupabaseConfigured && !base.doBanco) return { config: null, avisos: msgs };
+    if (isSupabaseConfigured && !base.doBanco) return { config: null, avisos: msgs, sitios: base.sitios };
 
     let equipe = eq || equipeOverride || base.config.equipe;
     let disp = dp || dispOverride;
@@ -160,7 +130,7 @@ export const App: React.FC = () => {
           'Geração bloqueada: esta unidade não tem Equipe cadastrada. Cadastre a equipe da unidade ' +
           '(aba Equipe) antes de gerar a grade.'
         );
-        return { config: null, avisos: msgs };
+        return { config: null, avisos: msgs, sitios: base.sitios };
       }
       const f = await fetchEquipe(isSupabaseConfigured);
       equipe = f.equipe;
@@ -191,7 +161,7 @@ export const App: React.FC = () => {
           `Geração bloqueada: sem disponibilidade confiável para a semana de ${semanaInicio}. ` +
           `Importe a planilha ou preencha a aba Disponibilidade antes de gerar a grade.`
         );
-        return { config: null, avisos: msgs };
+        return { config: null, avisos: msgs, sitios: base.sitios };
       }
     }
 
@@ -209,11 +179,12 @@ export const App: React.FC = () => {
       const anterior = semanaAnterior(semanaInicio);
       try {
         const salva = await carregarEscala(anterior, unidadeId);
-        const sexta = sextaDaEscala(salva?.grade, salva?.dias);
+        const fotoAnterior = salva ? salva.sitios ?? inferirFotografia(salva.grade, base.atuais) : undefined;
+        const sexta = sextaDaEscala(salva?.grade, salva?.dias, fotoAnterior, base.sitios);
         if (sexta) {
           sextaAnterior = sexta;
           msgs.push(`Regra "sexta ≠ segunda" usando a grade ativa da semana de ${anterior}.`);
-          const fora = sitiosForaDaUnidade(salva?.grade, base.config.sitios);
+          const fora = salva && fotoAnterior ? orfaosDaGrade(salva.grade, fotoAnterior, base.sitios) : [];
           if (fora.length)
             msgs.push(`A grade ativa da semana de ${anterior} usa sítio que não existe mais nesta unidade (renomeado ou apagado): ${fora.map(s => `"${s}"`).join(', ')} — a regra "sexta ≠ segunda" não foi aplicada nele.`);
         } else {
@@ -229,7 +200,7 @@ export const App: React.FC = () => {
     }
 
     dias = dias || base.config.dias;
-    return { config: { ...base.config, equipe, disp, dias, sextaAnterior }, avisos: msgs };
+    return { config: { ...base.config, equipe, disp, dias, sextaAnterior }, avisos: msgs, sitios: base.sitios };
   };
 
   // Qualquer geração ou edição manual incrementa isto. A carga da grade salva
@@ -256,7 +227,7 @@ export const App: React.FC = () => {
   // semana, para que arrastar refaça a conferência. Enquanto carrega, gerar,
   // arrastar e salvar ficam travados.
   React.useEffect(() => {
-    setEscala(null); setCurrentConfig(null); setViolacoes([]); setScore(null);
+    setEscala(null); setFotoGrade([]); setCurrentConfig(null); setViolacoes([]); setScore(null);
     setEquipeOverride(null); setDispOverride(null); setDiasOverride(null); setAvisos([]);
     setIsExcelModalOpen(false); setIsGenerating(false);
     setVersao(null); setModificada(false); setEditadaManualmente(false); setErroHistorico(null);
@@ -283,19 +254,20 @@ export const App: React.FC = () => {
       }
       if (!vivo()) return encerrar();
       if (!salva) return encerrar(escalaPedida ? 'A versão pedida na URL não existe nesta unidade e semana.' : null);
-      setEscala(salva.grade); setViolacoes(salva.violacoes ?? []); setScore(salva.score);
+      setEscala(ordenarGradeFotografada(salva.grade, salva.sitios)); setViolacoes(salva.violacoes ?? []); setScore(salva.score);
       setDiasOverride(salva.dias); setVersao(salva);
 
-      let m: { config: Config | null; avisos: string[] };
-      try { m = await montarConfigSemana(undefined, undefined, salva.dias); }
-      catch (e: any) { m = { config: null, avisos: [`Falha ao montar a configuração da semana: ${e?.message || e}`] }; }
+      let m: { config: Config | null; avisos: string[]; sitios: SitioSnapshot[] };
+      try { m = await montarConfigSemana(undefined, undefined, salva.dias, salva); }
+      catch (e: any) { m = { config: null, sitios: [], avisos: [`Falha ao montar a configuração da semana: ${e?.message || e}`] }; }
       if (!vivo()) return encerrar();
       if (!m.config) {
         setAvisos([...m.avisos,
           'A grade salva foi aberta sem a configuração da semana: ela não pôde ser conferida, então arrastar e salvar ficam bloqueados. As marcas mostradas são as da hora em que ela foi salva.']);
         return encerrar();
       }
-      const { grade, orfaos } = alinharGradeSalva(salva.grade, m.config);
+      const grade = ordenarGradeFotografada(salva.grade, salva.sitios);
+      setFotoGrade(m.sitios);
       let vs: Violacao[];
       try { vs = validar(m.config, grade); }
       catch (e: any) {
@@ -305,7 +277,6 @@ export const App: React.FC = () => {
       const agora = pontuar(vs);
       setEscala(grade); setCurrentConfig(m.config); setViolacoes(vs); setScore(agora);
       setAvisos([...m.avisos,
-        ...(orfaos.length ? [`A grade salva usa sítios que não existem mais: ${orfaos.join(', ')} — as pessoas nessas linhas não são conferidas.`] : []),
         ...(agora !== salva.score
         ? [`Conferência refeita com as regras e a disponibilidade de agora: score salvo ${salva.score}, agora ${agora}.`] : [])]);
       encerrar();
@@ -338,7 +309,7 @@ export const App: React.FC = () => {
     const edicao = ++edicaoRef.current;
     setIsGenerating(true);
     try {
-      const { config, avisos: msgs } = await montarConfigSemana(eq, dp, ds);
+      const { config, avisos: msgs, sitios } = await montarConfigSemana(eq, dp, ds);
       if (contextoGeracao !== contextoAtual.current || edicao !== edicaoRef.current) return;
       setAvisos(msgs);
       if (!config) return;
@@ -347,6 +318,7 @@ export const App: React.FC = () => {
       setViolacoes(result.violacoes);
       setScore(result.score);
       setCurrentConfig(config);
+      setFotoGrade(sitios);
       // Grade gerada é sempre versão nova: salvar cria outra linha.
       setVersao(null); setModificada(true); setEditadaManualmente(false); setMensagemSalvar(null); setCargaGrade({ carregando: false, erro: null });
     } catch (e) {
@@ -362,29 +334,39 @@ export const App: React.FC = () => {
    *  própria linha pelo id, sem trocar a ativa. Grade sem conferência não
    *  salva: gravaria violações velhas e um status que ninguém conferiu. */
   const handleSalvar = async () => {
-    if (!escala) return;
+    if (!escala || salvando) return;
     if (!currentConfig) {
       setMensagemSalvar({ erro: true, texto: 'A grade NÃO foi salva: ela não pôde ser conferida com a configuração da semana (veja os avisos acima).' });
       return;
     }
     const contexto = contextoAtual.current;
     const dias = currentConfig.dias;
-    const resultado = { escala, violacoes, score: pontuar(violacoes) };
-    const rigidas = violacoes.filter(v => v.hard).length;
-    const situacao = rigidas ? ` Rascunho: ainda tem ${rigidas} violação(ões) rígida(s).` : ' Marcada como validada.';
+    setSalvando(true);
     setMensagemSalvar(null);
     try {
+      const m = await montarConfigSemana(undefined, undefined, dias, undefined, true);
+      if (!m.config) throw new Error(m.avisos.join(' '));
+      const atualizada = atualizarFotografia(escala, fotoGrade, m.sitios, dias);
+      const vs = validar(m.config, atualizada.grade);
+      const resultado = { escala: atualizada.grade, violacoes: vs, score: pontuar(vs) };
+      const sitios = atualizada.sitios;
+      const rigidas = vs.filter(v => v.hard).length;
+      const situacao = rigidas ? ` Rascunho: ainda tem ${rigidas} violação(ões) rígida(s).` : ' Marcada como validada.';
+      avisarOrfaos(m.avisos, atualizada.grade, sitios, m.sitios);
+      if (contexto !== contextoAtual.current) return;
       let salva: EscalaSalva;
       if (versao) {
-        salva = await atualizarEscala(versao.id, unidadeId, { resultado, dias });
+        salva = await atualizarEscala(versao.id, unidadeId, { resultado, dias, sitios });
       } else {
         const fim = somarDias(semanaInicio, 4);
         salva = await salvarEscalaNova(unidadeId, {
-          titulo: `Escala de ${semanaInicio} a ${fim}`, data_inicio: semanaInicio, data_fim: fim, dias, resultado,
+          titulo: `Escala de ${semanaInicio} a ${fim}`, data_inicio: semanaInicio, data_fim: fim, dias, resultado, sitios,
         });
       }
       revalidarSemanas();
       if (contexto !== contextoAtual.current) return;
+      setEscala(atualizada.grade); setFotoGrade(sitios); setCurrentConfig(m.config);
+      setViolacoes(vs); setScore(resultado.score); setAvisos(m.avisos);
       setVersao(salva); setModificada(false);
       const mensagem = { erro: false, texto: (versao
         ? `Alterações salvas nesta versão${salva.ativa ? ' (a ativa da semana)' : ' — a versão ativa da semana não mudou'}.`
@@ -400,6 +382,8 @@ export const App: React.FC = () => {
       console.error(e);
       if (contexto !== contextoAtual.current) return;
       setMensagemSalvar({ erro: true, texto: `A grade NÃO foi salva: ${e?.message || e}` });
+    } finally {
+      setSalvando(false);
     }
   };
 
@@ -425,7 +409,7 @@ export const App: React.FC = () => {
 
   // Enquanto a grade salva carrega, ou se ela não pôde ser conferida, a grade
   // na tela é só leitura: editar sem conferência seria pintar às cegas.
-  const bloqueioEdicao = cargaGrade.carregando ? 'Carregando a grade salva…'
+  const bloqueioEdicao = salvando ? 'Salvando a grade…' : cargaGrade.carregando ? 'Carregando a grade salva…'
     : escala && !currentConfig ? 'Esta grade não pôde ser conferida com a configuração da semana: arrastar e salvar estão bloqueados.'
     : null;
 
@@ -455,7 +439,7 @@ export const App: React.FC = () => {
                       {podeGravar && <button
                         className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-200/60"
                         onClick={() => { if (podeDescartar(true)) setIsExcelModalOpen(true); }}
-                        disabled={cargaGrade.carregando}
+                        disabled={cargaGrade.carregando || salvando}
                       >
                         <FileSpreadsheet className="h-4 w-4" />
                         <span>Importar Planilha (.xlsx)</span>
@@ -472,7 +456,7 @@ export const App: React.FC = () => {
 
                       <button
                         onClick={() => { if (podeDescartar(true)) handleGerarGrade(); }}
-                        disabled={isGenerating || unidadeCarregando || !unidadeId || cargaGrade.carregando}
+                        disabled={salvando || isGenerating || unidadeCarregando || !unidadeId || cargaGrade.carregando}
                         className="flex items-center gap-2 rounded-md bg-caneta-600 px-4 py-2 text-sm font-bold text-white hover:bg-caneta-700 disabled:opacity-50"
                       >
                         <Sparkles className="h-4 w-4" />
@@ -540,7 +524,7 @@ export const App: React.FC = () => {
                     <span><span className="marca-rigida px-1 text-slate-900">Regra rígida</span> bloqueia</span>
                     <span><span className="marca-alerta px-1 text-slate-900">Alerta</span> só avisa</span>
                   </p>
-                  <ScheduleGrid escala={escala} violacoes={violacoes} dias={currentConfig?.dias || diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala}
+                  <ScheduleGrid sitiosRemovidos={fotoGrade.filter(s => s.removido).flatMap(s => [rotuloSitio(s, 'manha'), rotuloSitio(s, 'tarde')])} escala={escala} violacoes={violacoes} dias={currentConfig?.dias || diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala}
                     onSalvar={handleSalvar} bloqueio={bloqueioEdicao} textoSalvar={versao ? 'Salvar nesta versão' : 'Salvar e Publicar'} />
                 </>
               )}
