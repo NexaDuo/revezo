@@ -25,7 +25,7 @@ import { formatarSemana } from './lib/datas';
 import { fetchEquipe } from './lib/fetchData';
 import { generateSchedule, defaultConfig, Escala, Violacao, validar } from './lib/solver';
 import type { Config } from './lib/solver/types';
-import { atualizarFotografia, ordenarGradeFotografada, inferirFotografia, orfaosDaGrade, rotuloSitio, type SitioSnapshot } from './lib/sitiosSnapshot';
+import { configDaFotografia, atualizarFotografia, ordenarGradeFotografada, inferirFotografia, orfaosDaGrade, rotuloSitio, type SitioSnapshot } from './lib/sitiosSnapshot';
 import { ScheduleGrid } from './components/ScheduleGrid';
 import { ExcelImportModal } from './components/ExcelImportModal';
 import { EquipeManager } from './components/EquipeManager';
@@ -347,7 +347,8 @@ export const App: React.FC = () => {
       const m = await montarConfigSemana(undefined, undefined, dias, undefined, true);
       if (!m.config) throw new Error(m.avisos.join(' '));
       const atualizada = atualizarFotografia(escala, fotoGrade, m.sitios, dias);
-      const vs = validar(m.config, atualizada.grade);
+      const configConferencia = configDaFotografia(m.config, atualizada.grade, atualizada.sitios);
+      const vs = validar(configConferencia, atualizada.grade);
       const resultado = { escala: atualizada.grade, violacoes: vs, score: pontuar(vs) };
       const sitios = atualizada.sitios;
       const rigidas = vs.filter(v => v.hard).length;
@@ -365,7 +366,7 @@ export const App: React.FC = () => {
       }
       revalidarSemanas();
       if (contexto !== contextoAtual.current) return;
-      setEscala(atualizada.grade); setFotoGrade(sitios); setCurrentConfig(m.config);
+      setEscala(atualizada.grade); setFotoGrade(sitios); setCurrentConfig(configConferencia);
       setViolacoes(vs); setScore(resultado.score); setAvisos(m.avisos);
       setVersao(salva); setModificada(false);
       const mensagem = { erro: false, texto: (versao

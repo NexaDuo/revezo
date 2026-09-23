@@ -40,17 +40,19 @@ update public.duplas_proibidas set pessoa_b_id = pg_temp.pessoa_por_nome(unidade
 do $$
 declare pendentes text;
 begin
-  select string_agg(format('%s: pessoa %L (%s linha(s))', tabela, nome, n), E'\n' order by tabela, nome)
+  -- Só tabela e quantidade: o log do CI é público e nome de pessoa é dado
+  -- pessoal. Para ver quais linhas, rode a pré-verificação do cabeçalho.
+  select string_agg(format('%s: %s linha(s)', tabela, n), E'\n' order by tabela)
     into pendentes from (
-      select tabela, nome, count(*) n from (
-        select 'colocacoes_fixas.pessoa_curto' tabela, pessoa_curto nome from public.colocacoes_fixas where pessoa_id is null
+      select tabela, count(*) n from (
+        select 'colocacoes_fixas.pessoa_curto' tabela from public.colocacoes_fixas where pessoa_id is null
         union all
-        select 'proibicoes.pessoa_curto' tabela, pessoa_curto nome from public.proibicoes where pessoa_id is null
+        select 'proibicoes.pessoa_curto' from public.proibicoes where pessoa_id is null
         union all
-        select 'duplas_proibidas.pessoa_a' tabela, pessoa_a nome from public.duplas_proibidas where pessoa_a_id is null
+        select 'duplas_proibidas.pessoa_a' from public.duplas_proibidas where pessoa_a_id is null
         union all
-        select 'duplas_proibidas.pessoa_b' tabela, pessoa_b nome from public.duplas_proibidas where pessoa_b_id is null
-      ) x group by tabela, nome
+        select 'duplas_proibidas.pessoa_b' from public.duplas_proibidas where pessoa_b_id is null
+      ) x group by tabela
     ) y;
   if pendentes is not null then
     raise exception using

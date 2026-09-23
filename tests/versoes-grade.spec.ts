@@ -144,7 +144,7 @@ test.describe('versões da grade — modo demonstração', () => {
     await expect(page.getByTestId('indicador-score')).toContainText(/Score: \d+/);
     await expect(page.getByText(mov.msg)).toHaveCount(0);
     await expect(page.getByText(
-      `A grade salva usa sítios que não existem mais: ${renomeado} (nome antigo) — confira as linhas preservadas antes de salvar.`)).toBeVisible();
+      `A grade salva usa sítios removidos ou sem correspondência inequívoca: ${renomeado} (nome antigo) — confira as linhas preservadas antes de salvar.`)).toBeVisible();
     // Abrir legado preserva as chaves: não acrescenta a linha atual.
     await expect(celula(page, 'manha', renomeado, 0)).toHaveCount(0);
 
@@ -321,7 +321,7 @@ test.describe('versões da grade — Supabase', () => {
     await expect(banner).toContainText('Versão ativa');
     await expect(banner).toHaveAttribute('data-versao-id', ANTIGA);
     await expect(page.getByText(msg)).toHaveCount(0);
-    await expect(page.getByText('A grade salva usa sítios que não existem mais: Sala Extinta — confira as linhas preservadas antes de salvar.')).toBeVisible();
+    await expect(page.getByText('A grade salva usa sítios removidos ou sem correspondência inequívoca: Sala Extinta — confira as linhas preservadas antes de salvar.')).toBeVisible();
     await arrastar(page, 'Ciro Cometa', ['Cuidados demonstrativos', 0], ['Consulta demonstrativa', 0]);
     await expect(celula(page, 'manha', 'Consulta demonstrativa', 0)).toContainText(msg);
 
@@ -426,7 +426,7 @@ test.describe('versões da grade — Supabase', () => {
     banco.sitios.splice(0, 1);
     await page.goto(`/${slug}/${SEMANA}/historico`);
     await page.getByRole('button', { name: 'Abrir versão' }).click();
-    const aviso = page.getByText('A grade salva usa sítios que não existem mais:', { exact: false });
+    const aviso = page.getByText('A grade salva usa sítios removidos ou sem correspondência inequívoca:', { exact: false });
     await expect(aviso).toContainText('Consulta demonstrativa');
     await expect(celula(page, 'manha', 'Consulta demonstrativa', 0)).toContainText('Aurora Estelar');
     await page.getByRole('button', { name: 'Salvar nesta versão' }).click();
@@ -449,7 +449,7 @@ test.describe('versões da grade — Supabase', () => {
     await expect(page.getByRole('table').first().locator('tbody tr')).toHaveCount(1);
     await expect(celula(page, 'manha', 'Nome de antes', 0)).toContainText('Aurora Estelar');
     await expect(celula(page, 'manha', 'Consulta demonstrativa', 0)).toHaveCount(0);
-    await expect(page.getByText('A grade salva usa sítios que não existem mais:', { exact: false })).toContainText('Nome de antes');
+    await expect(page.getByText('A grade salva usa sítios removidos ou sem correspondência inequívoca:', { exact: false })).toContainText('Nome de antes');
   });
 
   test('grade salva carregando trava Gerar/arrastar; a geração seguinte fica e salva como versão nova', async ({ page }) => {

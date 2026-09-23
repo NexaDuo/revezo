@@ -1,4 +1,4 @@
-import { fotografarSitios, inferirFotografia, orfaosDaGrade, sitiosDemo, rotuloSitio, type SitioSnapshot } from './sitiosSnapshot';
+import { configDaFotografia, fotografarSitios, inferirFotografia, orfaosDaGrade, sitiosDemo, rotuloSitio, type SitioSnapshot } from './sitiosSnapshot';
 import { supabase } from './supabase';
 import { Config, Escala } from './solver/types';
 import { defaultConfig } from './solver/defaultConfig';
@@ -111,13 +111,10 @@ export async function carregarConfigUnidade(
 }
 
 function limitarConferencia(config: Config, grade: Escala, sitios: SitioSnapshot[]) {
-  for (const t of ['manha', 'tarde'] as const) {
-    config.sitios[t] = config.sitios[t].filter(s => Object.prototype.hasOwnProperty.call(grade[t], s.n)
-      && !sitios.some(l => l.id.startsWith('legado:') && rotuloSitio(l, t) === s.n));
-  }
+  Object.assign(config, configDaFotografia(config, grade, sitios));
 }
 
 export function avisarOrfaos(avisos: string[], grade: Escala, sitios: SitioSnapshot[], atuais: SitioSnapshot[]) {
   const orfaos = orfaosDaGrade(grade, sitios, atuais);
-  if (orfaos.length) avisos.push(`A grade salva usa sítios que não existem mais: ${orfaos.join(', ')} — confira as linhas preservadas antes de salvar.`);
+  if (orfaos.length) avisos.push(`A grade salva usa sítios removidos ou sem correspondência inequívoca: ${orfaos.join(', ')} — confira as linhas preservadas antes de salvar.`);
 }

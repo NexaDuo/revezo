@@ -2,8 +2,13 @@ import type { LinhaSitio } from './montarConfig';
 import type { Config, Escala } from './solver/types';
 import { canon } from './solver/utils';
 
-export type SitioSnapshot = LinhaSitio & { removido?: boolean };
+export type SitioSnapshot = LinhaSitio & {
+  removido?: boolean;
+  /** Ausente = fotografia antiga; null = não há linha neste turno. */
+  linhas?: Record<'manha' | 'tarde', string | null>;
+};
 export const rotuloSitio = (s: LinhaSitio, t: 'manha' | 'tarde') => t === 'manha' ? s.nome : s.nome_tarde || s.nome;
+export const linhaSitio = (s: SitioSnapshot, t: 'manha' | 'tarde') => s.linhas ? s.linhas[t] : rotuloSitio(s, t);
 const turnos = ['manha', 'tarde'] as const;
 
 /** Seleciona apenas os campos públicos da fotografia, sem metadados da unidade. */
@@ -11,7 +16,7 @@ export function fotografarSitios(linhas: SitioSnapshot[]): SitioSnapshot[] {
   return [...linhas].sort((a, b) => a.ordem - b.ordem).map(s => ({
     id: s.id, ordem: s.ordem, nome: s.nome, nome_tarde: s.nome_tarde,
     categoria_permitida: s.categoria_permitida, opcional: s.opcional,
-    prioridade_dupla: s.prioridade_dupla, ...(s.removido ? { removido: true } : {}),
+    prioridade_dupla: s.prioridade_dupla, ...(s.linhas ? { linhas: { ...s.linhas } } : {}), ...(s.removido ? { removido: true } : {}),
   }));
 }
 
@@ -33,17 +38,28 @@ export function inferirFotografia(grade: Escala, atuais: SitioSnapshot[]): Sitio
     const chaves = Object.keys(grade[t] || {});
     const usados = new Set<string>();
     const pares = new Map<string, SitioSnapshot>();
-    for (const chave of chaves) {
-      const s = atuais.find(s => !usados.has(s.id) && rotuloSitio(s, t) === chave);
-      if (s) { pares.set(chave, s); usados.add(s.id); }
+    // Só uma candidatura inequívoca pode consumir uma linha. Exatos têm
+    // prioridade global sobre canon, independentemente da ordem das chaves.
+    for (const exato of [true, false]) {
+      const candidatos = new Map(chaves.filter(c => !pares.has(c)).map(chave => [chave,
+        atuais.filter(s => !usados.has(s.id) && (exato
+          ? rotuloSitio(s, t) === chave : canon(rotuloSitio(s, t)) === canon(chave))),
+      ]));
+      for (const [chave, lista] of candidatos) {
+        if (lista.length !== 1) continue;
+        const s = lista[0];
+        if ([...candidatos.values()].filter(ls => ls.some(a => a.id === s.id)).length !== 1) continue;
+        pares.set(chave, s); usados.add(s.id);
+      }
     }
     for (const chave of chaves) {
-      const s = pares.get(chave) ?? atuais.find(s => !usados.has(s.id) && canon(rotuloSitio(s, t)) === canon(chave));
-      if (s) usados.add(s.id);
+      const s = pares.get(chave);
       const id = s?.id ?? `legado:${chave}`;
       const linha = linhas.get(id) ?? { ...(s ?? {
-        id, categoria_permitida: 'ambos', opcional: true, prioridade_dupla: null, removido: true,
-      }), ordem: linhas.size, nome: chave, nome_tarde: chave };
+        id, nome: chave, nome_tarde: chave, categoria_permitida: 'ambos',
+        opcional: true, prioridade_dupla: null, removido: true,
+      }), ordem: linhas.size, linhas: { manha: null, tarde: null } };
+      linha.linhas![t] = chave;
       if (t === 'manha') linha.nome = chave;
       else linha.nome_tarde = chave;
       linhas.set(id, linha);
@@ -55,7 +71,7 @@ export function inferirFotografia(grade: Escala, atuais: SitioSnapshot[]): Sitio
 export function orfaosDaGrade(grade: Escala, foto: SitioSnapshot[], atuais: SitioSnapshot[]): string[] {
   const ids = new Set(atuais.map(s => s.id));
   return [...new Set(turnos.flatMap(t => Object.keys(grade[t] || {}).filter(n => {
-    const s = foto.find(s => rotuloSitio(s, t) === n);
+    const s = foto.find(s => linhaSitio(s, t) === n);
     return !s || s.removido || !ids.has(s.id);
   })))];
 }
@@ -65,17 +81,22 @@ export function orfaosDaGrade(grade: Escala, foto: SitioSnapshot[], atuais: Siti
 export function atualizarFotografia(grade: Escala, foto: SitioSnapshot[], atuais: SitioSnapshot[], dias: string[]) {
   const snapshot = fotografarSitios(atuais);
   for (const s of foto) if (!atuais.some(a => a.id === s.id)) snapshot.push({ ...s, ordem: Math.max(-1, ...snapshot.map(l => l.ordem)) + 1, removido: true });
+  for (const s of snapshot) s.linhas = { manha: null, tarde: null };
   const nova: Escala = { manha: {}, tarde: {} };
   for (const t of turnos) {
     const consumidas = new Set<string>();
     for (const s of snapshot) {
       const antes = foto.find(a => a.id === s.id);
-      const origem = antes && rotuloSitio(antes, t);
+      const origem = antes && linhaSitio(antes, t);
       if (s.removido && (!origem || !Object.prototype.hasOwnProperty.call(grade[t], origem))) continue;
       const nome = rotuloSitio(s, t);
       if (Object.prototype.hasOwnProperty.call(nova[t], nome)) throw new Error(`Sítios diferentes usam o nome "${nome}" (${t}). Renomeie o sítio atual antes de salvar; nenhuma linha foi apagada.`);
+      s.linhas![t] = nome;
       nova[t][nome] = origem && Object.prototype.hasOwnProperty.call(grade[t], origem) ? grade[t][origem].map(d => [...d]) : dias.map(() => []);
-      if (origem) consumidas.add(origem);
+      if (origem && Object.prototype.hasOwnProperty.call(grade[t], origem)) {
+        if (consumidas.has(origem)) throw new Error(`A linha "${origem}" (${t}) pertence a mais de um sítio. A grade não foi salva.`);
+        consumidas.add(origem);
+      }
     }
     for (const nome of Object.keys(grade[t])) if (!consumidas.has(nome)) {
       throw new Error(`A linha "${nome}" não consta da fotografia dos sítios. A grade não foi salva.`);
@@ -91,10 +112,29 @@ export function ordenarGradeFotografada(grade: Escala, foto?: SitioSnapshot[] | 
   const ordenada: Escala = { manha: {}, tarde: {} };
   for (const t of turnos) {
     for (const s of [...foto].sort((a, b) => a.ordem - b.ordem)) {
-      const n = rotuloSitio(s, t);
-      if (Object.prototype.hasOwnProperty.call(grade[t], n)) ordenada[t][n] = grade[t][n];
+      const n = linhaSitio(s, t);
+      if (n !== null && Object.prototype.hasOwnProperty.call(grade[t], n)) ordenada[t][n] = grade[t][n];
     }
     for (const n of Object.keys(grade[t])) ordenada[t][n] = grade[t][n];
   }
   return ordenada;
+}
+
+/** A mesma cobertura na abertura e após salvar, inclusive sítios removidos.
+ * Uma linha sem fotografia impede anunciar uma conferência completa. */
+export function configDaFotografia(config: Config, grade: Escala, foto: SitioSnapshot[]): Config {
+  const sitios: Config['sitios'] = { manha: [], tarde: [] };
+  for (const t of turnos) {
+    for (const s of [...foto].sort((a, b) => a.ordem - b.ordem)) {
+      const n = linhaSitio(s, t);
+      if (n === null || !Object.prototype.hasOwnProperty.call(grade[t], n)) continue;
+      if (sitios[t].some(l => l.n === n)) throw new Error(`Conferência incompleta: linha "${n}" (${t}) associada a mais de um sítio.`);
+      sitios[t].push({ n, quem: s.categoria_permitida, opcional: s.opcional });
+    }
+    for (const n of Object.keys(grade[t])) {
+      if (!sitios[t].some(s => s.n === n)) throw new Error(`Conferência incompleta: linha "${n}" (${t}) sem fotografia.`);
+    }
+  }
+  return { ...config, sitios, sitiosTec: [...new Set(foto.filter(s => s.categoria_permitida === 'tec')
+    .flatMap(s => turnos.flatMap(t => linhaSitio(s, t) ?? [])))] };
 }

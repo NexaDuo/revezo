@@ -1,4 +1,4 @@
-import { rotuloSitio, type SitioSnapshot } from './sitiosSnapshot';
+import { linhaSitio, rotuloSitio, type SitioSnapshot } from './sitiosSnapshot';
 import { Escala, SextaAnterior } from './solver/types';
 
 /** Segunda-feira anterior a `semanaInicio` (YYYY-MM-DD), no mesmo formato.
@@ -24,7 +24,7 @@ export function sextaDaEscala(grade: Escala | null | undefined, dias: string[] |
   for (const turno of ['manha', 'tarde'] as const) {
     for (const [sitio, porDia] of Object.entries(grade[turno] || {})) {
       const quem = porDia?.[idx] || [];
-      const antigo = fotografia?.find(s => rotuloSitio(s, turno) === sitio);
+      const antigo = fotografia?.find(s => linhaSitio(s, turno) === sitio);
       const atual = atuais?.find(s => s.id === antigo?.id && !s.removido);
       // Com fotografia, só o ID determina a continuidade, inclusive após rename.
       // Quem chama avisa sobre IDs excluídos/linhas sem correspondência.
