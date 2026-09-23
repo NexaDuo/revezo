@@ -17,7 +17,12 @@ export const FAKE_UNIT_ID = '22222222-2222-4222-8222-222222222222';
  *  `authenticated`, então sem isto elas sempre voltam vazias). */
 export async function autenticarComoCoordenador(
   page: Page,
-  opts: { profileDelayMs?: number; regrasConfig?: unknown[]; role?: 'admin' | 'coordenador' | 'visualizador' } = {}
+  opts: {
+    profileDelayMs?: number; regrasConfig?: unknown[]; role?: 'admin' | 'coordenador' | 'visualizador';
+    /** 'sempre' (padrão) reinjeta a sessão a cada carga; 'umaVez' só na primeira
+     *  (para testar logout, que recarrega a página); 'nenhuma' só mocka as rotas. */
+    sessao?: 'sempre' | 'umaVez' | 'nenhuma';
+  } = {}
 ) {
   const envTxt = fs.readFileSync(path.resolve(__dirname, '..', '.env'), 'utf8');
   const supabaseUrl = envTxt.match(/VITE_SUPABASE_URL=(.+)/)?.[1]?.trim();
@@ -45,10 +50,17 @@ export async function autenticarComoCoordenador(
 
   // Sessão já "logada" antes de qualquer script da página rodar — é o que faz
   // o AuthContext achar que há um usuário e disparar a busca do perfil.
-  await page.addInitScript(
-    ({ key, session }) => window.localStorage.setItem(key, JSON.stringify(session)),
-    { key: storageKey, session: fakeSession }
+  const sessao = opts.sessao ?? 'sempre';
+  if (sessao !== 'nenhuma') await page.addInitScript(
+    ({ key, session, umaVez }) => {
+      if (umaVez && window.sessionStorage.getItem('__sessao_injetada')) return;
+      window.sessionStorage.setItem('__sessao_injetada', '1');
+      window.localStorage.setItem(key, JSON.stringify(session));
+    },
+    { key: storageKey, session: fakeSession, umaVez: sessao === 'umaVez' }
   );
+  await page.route('**/auth/v1/token*', route => route.fulfill({ json: fakeSession }));
+  await page.route('**/auth/v1/logout*', route => route.fulfill({ status: 204 }));
 
   await page.route('**/rest/v1/**', route => responderPagina(route, []));
   await page.route('**/rest/v1/rpc/aceitar_convite', route => route.fulfill({ status: 204 }));

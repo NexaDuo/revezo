@@ -17,7 +17,10 @@
       })(window, document, "clarity", "script", "ylzk7a1qen");
     </script>
   </head>
-  <body class="min-h-screen">
+  <!-- LGPD: o Clarity grava a tela; mascarar tudo por padrão (nomes de profissionais
+       na grade, Equipe, Disponibilidade, cabeçalho). Não usar data-clarity-unmask
+       em nada que possa mostrar nome de pessoa. -->
+  <body class="min-h-screen" data-clarity-mask="true">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
