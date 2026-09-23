@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLocation, Routes, Route } from 'react-router-dom';
+import { Link, Routes, Route } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { useWorkContext } from './context/WorkContext';
 import { RoleBadge } from './components/auth/RoleBadge';
@@ -32,10 +32,10 @@ import { carregarConfigUnidade } from './lib/loadConfig';
 
 export const App: React.FC = () => {
   const { user, profile, role, isAdmin, isCoordenador, signOut, isSupabaseConfigured } = useAuth();
-  const { unidadeId, semanaInicio, erro: erroUnidade, isLoading: unidadeCarregando } = useWorkContext();
+  const { unidadeId, semanaInicio, erro: erroUnidade, isLoading: unidadeCarregando, contextoInvalido, caminhoPadrao, tela, semanas, disponibilidades, unidadesDisponiveis, podeEscolherUnidade, setUnidadeId, setSemanaInicio, revalidarSemanas } = useWorkContext();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
-  const location = useLocation();
+
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [equipeOverride, setEquipeOverride] = useState<Pessoa[] | null>(null);
   const [dispOverride, setDispOverride] = useState<Record<string, StatusDisponibilidade[]> | null>(null);
@@ -65,6 +65,12 @@ export const App: React.FC = () => {
   }, [semanaInicio]);
 
 
+  React.useEffect(() => {
+    setEscala(null); setCurrentConfig(null); setViolacoes([]); setScore(null);
+    setEquipeOverride(null); setDispOverride(null); setDiasOverride(null); setAvisos([]);
+    setIsExcelModalOpen(false); setIsGenerating(false);
+  }, [unidadeId, semanaInicio]);
+
   const handleUpdateEscala = (novaEscala: Escala) => {
     setEscala(novaEscala);
     if (currentConfig) {
@@ -76,11 +82,13 @@ export const App: React.FC = () => {
   };
 
   React.useEffect(() => {
-    if (location.pathname === '/historico' && !unidadeCarregando) {
+    if (tela === 'historico' && !unidadeCarregando) {
       loadSchedules(unidadeId).then(setSchedules).catch(console.error);
     }
-  }, [location.pathname, unidadeId, unidadeCarregando]);
+  }, [tela, unidadeId, unidadeCarregando]);
 
+  const contextoAtual = React.useRef('');
+  contextoAtual.current = `${unidadeId}:${semanaInicio}`;
   const handleGerarGrade = async (eq?: Pessoa[], dp?: Record<string, StatusDisponibilidade[]>, ds?: string[]) => {
     if (!unidadeId) {
       // Sem unidade resolvida não há o que gerar — e não existe unidade
@@ -88,12 +96,14 @@ export const App: React.FC = () => {
       setAvisos([erroUnidade || 'Nenhuma unidade selecionada: não é possível gerar a grade.']);
       return;
     }
+    const contextoGeracao = contextoAtual.current;
     setIsGenerating(true);
     try {
       // A configuração (equipe, sítios, regras ligadas/desligadas, proibições,
       // duplas e fixas) vem da unidade em contexto. É isto que faz o painel de
       // Regras valer de verdade: desligar uma regra ali muda a geração aqui.
       const base = await carregarConfigUnidade(isSupabaseConfigured, unidadeId);
+      if (contextoGeracao !== contextoAtual.current) return;
       const msgs = [...base.avisos];
 
       let equipe = eq || equipeOverride || base.config.equipe;
@@ -118,6 +128,7 @@ export const App: React.FC = () => {
           return;
         }
         const f = await fetchEquipe(isSupabaseConfigured);
+        if (contextoGeracao !== contextoAtual.current) return;
         equipe = f.equipe;
         msgs.push('Modo demonstração: a equipe vem do exemplo do caso-origem, não de dados reais.');
       }
@@ -132,6 +143,7 @@ export const App: React.FC = () => {
       if (!disp) {
         try {
           const salva = await carregarDisponibilidade(semanaInicio, unidadeId);
+          if (contextoGeracao !== contextoAtual.current) return;
           if (salva) {
             disp = salva.dados as Record<string, StatusDisponibilidade[]>;
             dias = dias || salva.dias;
@@ -161,18 +173,94 @@ export const App: React.FC = () => {
       setCurrentConfig(config);
     } catch (e) {
       console.error(e);
+      if (contextoGeracao !== contextoAtual.current) return;
       setAvisos([`Falha ao gerar a grade: ${(e as any)?.message || e}`]);
     } finally {
-      setIsGenerating(false);
+      if (contextoGeracao === contextoAtual.current) setIsGenerating(false);
     }
   };
+
+  const paginas = <>
+
+          <Route index element={
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+              <div className="flex flex-wrap gap-3 items-center justify-between pb-3 border-b border-slate-100 print:hidden">
+                <h2 className="text-base font-bold text-slate-900 flex flex-wrap items-center gap-2">
+                  <span>Grade Interativa (Manhã & Tarde)</span>
+                  <span className="text-xs font-normal text-slate-500">Arrastar & Soltar ativo</span>
+                </h2>
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="flex items-center gap-1.5 text-slate-600">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                    Regra Rígida (Bloqueia)
+                  </span>
+                  <span className="flex items-center gap-1.5 text-slate-600">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                    Alerta
+                  </span>
+                  <span className="flex items-center gap-1.5 text-slate-600">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    Conforme
+                  </span>
+                </div>
+              </div>
+
+              {/* Aviso de integração do solver ou Grade renderizada */}
+              {!escala ? (
+                <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center font-bold">
+                    <Calendar className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900">Módulo de Grade Semanal Pronto para Port</h3>
+                  <p className="text-xs text-slate-600 max-w-lg mx-auto">
+                    Clique em "Gerar Grade" para visualizar a escala gerada pelo solver.
+                  </p>
+                </div>
+              ) : (
+                <ScheduleGrid escala={escala} violacoes={violacoes} dias={diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala} />
+              )}
+            </div>
+          } />
+
+          <Route path="regras" element={<RegrasManager />} />
+          <Route path="equipe" element={<EquipeManager />} />
+          <Route path="sitios" element={<SitiosManager />} />
+          <Route path="disponibilidade" element={<DisponibilidadeManager />} />
+          <Route path="historico" element={
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+              <h2 className="text-base font-bold text-slate-900">Histórico de Escalas Salvas</h2>
+              <p className="text-xs text-slate-500">
+                Semanas persistidas na nuvem via Supabase. A escala anterior alimenta a regra sexta-para-segunda automaticamente.
+              </p>
+              {schedules.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400 border border-slate-100 rounded-xl">
+                  Nenhuma outra semana arquivada ainda.
+                </div>
+              ) : (
+                <ul className="space-y-3">
+                  {schedules.map((sched, index) => (
+                    <li key={sched.id || index} className="p-4 border border-slate-200 rounded-xl flex justify-between items-center bg-slate-50">
+                      <div>
+                        <h3 className="font-semibold text-sm text-slate-800">{sched.titulo}</h3>
+                        <p className="text-xs text-slate-500">Início: {sched.data_inicio} | Fim: {sched.data_fim}</p>
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        Criado em {new Date(sched.created_at).toLocaleDateString()}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          } />
+          </>;
 
   return (
     <SidebarProvider>
     <div className="min-h-screen flex flex-col bg-slate-50">
       {/* Barra superior de navegação */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs print:hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-28 md:h-16 flex flex-wrap md:flex-nowrap items-center gap-3 py-2">
           {/* Logo & Marca */}
           <div className="flex items-center gap-3">
             <MobileMenuButton />
@@ -186,12 +274,30 @@ export const App: React.FC = () => {
                   v0.1
                 </span>
               </div>
-              <p className="text-xs text-slate-400 -mt-0.5">Escala de Sítio de Enfermagem</p>
+              <p className="hidden xl:block text-xs text-slate-400 -mt-0.5">Escala de Sítio de Enfermagem</p>
             </div>
           </div>
 
+          <div className="order-last md:order-none w-full md:w-auto min-w-0 flex items-center gap-3 text-xs">
+            <label className="min-w-0 flex-1 md:flex-none">
+              <span className="block text-slate-500">Hospital</span>
+              {podeEscolherUnidade ? (
+                <select aria-label="Hospital" value={unidadeId ?? ''} onChange={e => setUnidadeId(e.target.value)} className="w-full md:max-w-48 rounded border border-slate-300 p-1">
+                  {!unidadeId && <option value="">Selecione</option>}
+                  {unidadesDisponiveis.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
+                </select>
+              ) : <span className="block truncate md:max-w-44 font-semibold">{unidadesDisponiveis.find(u => u.id === unidadeId)?.nome ?? (unidadeCarregando ? 'Carregando hospital...' : 'Entre para escolher hospital')}</span>}
+            </label>
+            <label className="shrink-0">
+              <span className="block text-slate-500">Semana</span>
+              <select aria-label="Semana" value={semanaInicio} disabled={!unidadeId || contextoInvalido} onChange={e => setSemanaInicio(e.target.value)} className="rounded border border-slate-300 p-1">
+                {semanas.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </label>
+          </div>
+
           {/* Área de Autenticação & Perfil */}
-          <div className="flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-2">
             {user ? (
               <div className="flex items-center gap-3">
                 {/* Botão de Administração (apenas para admin) */}
@@ -226,7 +332,7 @@ export const App: React.FC = () => {
                       <RoleBadge role={role} showIcon={true} />
                     </div>
                   </div>
-                  <div className="lg:hidden">
+                  <div className="hidden sm:block lg:hidden">
                     <RoleBadge role={role} showIcon={true} />
                   </div>
                 </div>
@@ -246,7 +352,7 @@ export const App: React.FC = () => {
                 className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-all"
               >
                 <LogIn className="w-4 h-4" />
-                <span>Entrar com Google</span>
+                <span>Entrar<span className="hidden sm:inline"> com Google</span></span>
               </button>
             )}
           </div>
@@ -268,7 +374,7 @@ export const App: React.FC = () => {
       {erroUnidade && (
         <div className="bg-red-600 text-white text-xs py-2 px-4 text-center font-medium flex items-center justify-center gap-2 print:hidden">
           <Database className="w-4 h-4" />
-          <span>{erroUnidade}</span>
+          <span>{erroUnidade} <Link className="underline" to={caminhoPadrao}>Ir para contexto válido</Link></span>
         </div>
       )}
 
@@ -277,10 +383,14 @@ export const App: React.FC = () => {
 
       {/* Conteúdo Principal */}
       <main className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {contextoInvalido ? <p role="alert">Corrija o contexto da URL para continuar.</p> : <>
+        {!unidadeCarregando && !erroUnidade && unidadeId && !disponibilidades.some(s => s.data_inicio === semanaInicio) && tela !== 'disponibilidade' && (
+          <p role="status" data-print-hide className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900 print:hidden">Nenhuma disponibilidade salva para a semana de {semanaInicio}. Importe a planilha ou confira a Disponibilidade.</p>
+        )}
         {/* Barra de Ações do Coordenador de Escala */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h1
                 className="text-lg font-bold text-slate-900"
                 data-testid="titulo-semana"
@@ -317,7 +427,7 @@ export const App: React.FC = () => {
 
                 <button 
                   onClick={() => handleGerarGrade()}
-                  disabled={isGenerating}
+                  disabled={isGenerating || unidadeCarregando || !unidadeId}
                   className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-50"
                 >
                   <Sparkles className="w-4 h-4 text-emerald-200" />
@@ -355,78 +465,10 @@ export const App: React.FC = () => {
 
         {/* Exibição da Aba Ativa */}
         <Routes>
-          <Route path="/" element={
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 print:hidden">
-                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <span>Grade Interativa (Manhã & Tarde)</span>
-                  <span className="text-xs font-normal text-slate-500">Arrastar & Soltar ativo</span>
-                </h2>
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="flex items-center gap-1.5 text-slate-600">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                    Regra Rígida (Bloqueia)
-                  </span>
-                  <span className="flex items-center gap-1.5 text-slate-600">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                    Alerta
-                  </span>
-                  <span className="flex items-center gap-1.5 text-slate-600">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                    Conforme
-                  </span>
-                </div>
-              </div>
-
-              {/* Aviso de integração do solver ou Grade renderizada */}
-              {!escala ? (
-                <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-3">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center font-bold">
-                    <Calendar className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-900">Módulo de Grade Semanal Pronto para Port</h3>
-                  <p className="text-xs text-slate-600 max-w-lg mx-auto">
-                    Clique em "Gerar Grade" para visualizar a escala gerada pelo solver.
-                  </p>
-                </div>
-              ) : (
-                <ScheduleGrid escala={escala} violacoes={violacoes} dias={diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala} />
-              )}
-            </div>
-          } />
-
-          <Route path="/regras" element={<RegrasManager />} />
-          <Route path="/equipe" element={<EquipeManager />} />
-          <Route path="/sitios" element={<SitiosManager />} />
-          <Route path="/disponibilidade" element={<DisponibilidadeManager />} />
-          <Route path="/historico" element={
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <h2 className="text-base font-bold text-slate-900">Histórico de Escalas Salvas</h2>
-              <p className="text-xs text-slate-500">
-                Semanas persistidas na nuvem via Supabase. A escala anterior alimenta a regra sexta-para-segunda automaticamente.
-              </p>
-              {schedules.length === 0 ? (
-                <div className="p-6 text-center text-xs text-slate-400 border border-slate-100 rounded-xl">
-                  Nenhuma outra semana arquivada ainda.
-                </div>
-              ) : (
-                <ul className="space-y-3">
-                  {schedules.map((sched, index) => (
-                    <li key={sched.id || index} className="p-4 border border-slate-200 rounded-xl flex justify-between items-center bg-slate-50">
-                      <div>
-                        <h3 className="font-semibold text-sm text-slate-800">{sched.titulo}</h3>
-                        <p className="text-xs text-slate-500">Início: {sched.data_inicio} | Fim: {sched.data_fim}</p>
-                      </div>
-                      <div className="text-xs text-slate-400">
-                        Criado em {new Date(sched.created_at).toLocaleDateString()}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          } />
+          <Route path="/:slug/:semana">{paginas}</Route>
+          {paginas}
         </Routes>
+        </>}
       </main>
       </div>
 
@@ -447,9 +489,7 @@ export const App: React.FC = () => {
         onClose={() => setIsExcelModalOpen(false)}
         baseEquipe={defaultConfig.equipe}
         onApply={async (equipe, disp, dias, semana) => {
-          setEquipeOverride(equipe);
-          setDispOverride(disp);
-          setDiasOverride(dias);
+
 
           // A disponibilidade importada precisa sobreviver ao reload: até aqui
           // ela vivia só no estado do React. Reimportar a mesma semana
@@ -463,12 +503,17 @@ export const App: React.FC = () => {
               dados: disp as Record<string, string[]>,
               origem: semana.origem,
             }, unidadeId);
+            revalidarSemanas();
+            setSemanaInicio(semana.data_inicio);
             extras.push(`Disponibilidade da semana ${semana.origem.semana ?? ''} salva — dá para conferir e corrigir na aba Disponibilidade.`);
           } catch (e: any) {
-            extras.push(`A grade foi gerada, mas a disponibilidade NÃO foi salva: ${e?.message || e}. Ao recarregar, esses dados se perdem.`);
+            extras.push(`A disponibilidade NÃO foi salva: ${e?.message || e}. Ao recarregar, esses dados se perdem.`);
           }
 
-          await handleGerarGrade(equipe, disp, dias);
+          if (semana.data_inicio === semanaInicio) {
+            setEquipeOverride(equipe); setDispOverride(disp); setDiasOverride(dias);
+            await handleGerarGrade(equipe, disp, dias);
+          }
           setAvisos(a => [...a, ...extras]);
         }}
       />

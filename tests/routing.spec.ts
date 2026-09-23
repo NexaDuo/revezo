@@ -18,7 +18,7 @@ test('navigation links work', async ({ page }) => {
   await expect(page).toHaveURL(/\/historico$/);
 
   await page.getByRole('link', { name: 'Grade da Semana' }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/(?:\/|\/\d{4}-\d{2}-\d{2})$/);
 });
 
 // Regressão: os <Link> precisam respeitar o basename. Sem ele, num site

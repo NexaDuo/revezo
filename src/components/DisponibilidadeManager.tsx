@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useWorkContext } from '../context/WorkContext';
 import {
-  listarDisponibilidades, carregarDisponibilidade, salvarDisponibilidade,
+  salvarDisponibilidade,
   excluirDisponibilidade, SemanaDisponibilidade,
 } from '../lib/db';
 import { Save, Trash2, CalendarDays, Info, Plus, X } from 'lucide-react';
@@ -29,64 +29,25 @@ const fmt = (iso: string) => {
 
 export const DisponibilidadeManager: React.FC = () => {
   const { isAdmin, isCoordenador } = useAuth();
-  const { unidadeId, semanaInicio, isLoading: unidadeCarregando } = useWorkContext();
+  const { unidadeId, semanaInicio, isLoading: unidadeCarregando, disponibilidades: semanas, revalidarSemanas: carregarLista, setSemanaInicio: setSel } = useWorkContext();
   const canEdit = isAdmin || isCoordenador;
 
-  const [semanas, setSemanas] = useState<SemanaDisponibilidade[]>([]);
-  // A semana em contexto abre selecionada por padrão — é o que faz esta tela
-  // (e a de "Gerar Grade") mostrarem a mesma semana sem coincidência.
-  const [sel, setSel] = useState<string>(semanaInicio);
+  const sel = semanaInicio;
   const [atual, setAtual] = useState<SemanaDisponibilidade | null>(null);
   const [rascunho, setRascunho] = useState<Record<string, string[]>>({});
-  const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState<{ tipo: 'ok' | 'erro' | 'aviso'; texto: string } | null>(null);
   const [novaPessoa, setNovaPessoa] = useState('');
 
-  const carregarLista = async () => {
-    setLoading(true);
-    try {
-      const lista = await listarDisponibilidades(unidadeId);
-      setSemanas(lista);
-      if (!lista.length) { setAtual(null); setRascunho({}); }
-    } catch (e: any) {
-      setMsg({ tipo: 'erro', texto: e?.message || 'Falha ao listar as semanas.' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    // Mesma regra dos outros managers: esperar o WorkContext resolver a
-    // unidade antes de consultar, senão `unidadeId` nulo (ainda resolvendo)
-    // vira um "nenhuma unidade selecionada" que não é de verdade.
     if (unidadeCarregando) return;
-    carregarLista();
-  }, [unidadeId, unidadeCarregando]);
-
-  // Muda de unidade → a semana selecionada acompanha o contexto, em vez de
-  // continuar apontando para uma data que pode nem existir na unidade nova.
-  useEffect(() => { setSel(semanaInicio); }, [semanaInicio]);
-
-  useEffect(() => {
-    if (!sel || !unidadeId) return;
-    (async () => {
-      try {
-        const s = await carregarDisponibilidade(sel, unidadeId);
-        setAtual(s);
-        setRascunho(s ? JSON.parse(JSON.stringify(s.dados)) : {});
-        setMsg(
-          s
-            ? null
-            // Semana escolhida sem disponibilidade salva: aviso explícito na tela,
-            // nunca um silêncio que sugere que a semana está "vazia porque está tudo OK".
-            : { tipo: 'aviso', texto: `Nenhuma disponibilidade salva para a semana de ${fmt(sel)}.` }
-        );
-      } catch (e: any) {
-        setMsg({ tipo: 'erro', texto: e?.message || 'Falha ao carregar a semana.' });
-      }
-    })();
-  }, [sel, unidadeId]);
+    const s = semanas.find(s => s.data_inicio === sel) ?? null;
+    setAtual(s);
+    setRascunho(s ? structuredClone(s.dados) : {});
+    setMsg(!unidadeId
+      ? { tipo: 'erro', texto: 'Nenhuma unidade selecionada.' }
+      : s ? null : { tipo: 'aviso', texto: `Nenhuma disponibilidade salva para a semana de ${fmt(sel)}.` });
+  }, [sel, unidadeId, unidadeCarregando, semanas]);
 
   const pessoas = useMemo(() => Object.keys(rascunho).sort((a, b) => a.localeCompare(b)), [rascunho]);
   const dias = atual?.dias ?? [];
@@ -162,10 +123,12 @@ export const DisponibilidadeManager: React.FC = () => {
           <div className="flex items-center gap-2">
             <CalendarDays className="w-4 h-4 text-slate-400" />
             <select
+              aria-label="Semana da disponibilidade"
               value={sel}
               onChange={e => setSel(e.target.value)}
               className="px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
             >
+              {!semanas.some(s => s.data_inicio === sel) && <option value={sel}>{fmt(sel)}</option>}
               {semanas.map(s => (
                 <option key={s.data_inicio} value={s.data_inicio}>
                   {fmt(s.data_inicio)} a {fmt(s.data_fim)}
@@ -188,7 +151,7 @@ export const DisponibilidadeManager: React.FC = () => {
         </div>
       )}
 
-      {loading || unidadeCarregando ? (
+      {unidadeCarregando ? (
         <div className="text-center py-8 text-slate-500 text-sm">Carregando...</div>
       ) : !atual ? (
         <div className="p-8 text-center border border-dashed border-slate-300 rounded-xl space-y-2">

@@ -53,12 +53,14 @@ export async function saveSchedule(
       .upsert([payload], { onConflict: 'unidade_id,data_inicio' });
     if (error) throw error;
   } else {
-    const existingStr = localStorage.getItem('demo_escalas');
-    const existing = existingStr ? JSON.parse(existingStr) : [];
-    const i = existing.findIndex((e: any) => e.data_inicio === dataInicio);
-    const entry = { ...payload, id: String(Date.now()), created_at: new Date().toISOString() };
-    if (i >= 0) existing[i] = entry; else existing.push(entry);
-    localStorage.setItem('demo_escalas', JSON.stringify(existing));
+    try {
+      const existingStr = localStorage.getItem('demo_escalas');
+      const existing = existingStr ? JSON.parse(existingStr) : [];
+      const i = existing.findIndex((e: any) => e.data_inicio === dataInicio);
+      const entry = { ...payload, id: String(Date.now()), created_at: new Date().toISOString() };
+      if (i >= 0) existing[i] = entry; else existing.push(entry);
+      localStorage.setItem('demo_escalas', JSON.stringify(existing));
+    } catch { throw new Error('Não foi possível salvar as escalas no armazenamento local.'); }
   }
 }
 
@@ -73,10 +75,12 @@ export async function loadSchedules(unidadeId: string | null) {
     if (error) throw error;
     return data || [];
   } else {
-    const existingStr = localStorage.getItem('demo_escalas');
-    const data = existingStr ? JSON.parse(existingStr) : [];
-    // Ordem decrescente
-    return data.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    try {
+      const existingStr = localStorage.getItem('demo_escalas');
+      const data = existingStr ? JSON.parse(existingStr) : [];
+      // Ordem decrescente
+      return data.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    } catch { throw new Error('Não foi possível ler as escalas do armazenamento local.'); }
   }
 }
 async function listar(tabela: string, ordem: string, unidadeId: string | null) {
@@ -186,7 +190,8 @@ export async function salvarDisponibilidade(s: SemanaDisponibilidade, unidadeId:
   if (!isSupabaseConfigured) {
     const todas = lerDemo().filter(x => x.data_inicio !== s.data_inicio);
     todas.push({ ...s, updated_at: new Date().toISOString() });
-    localStorage.setItem(CHAVE_DEMO, JSON.stringify(todas));
+    try { localStorage.setItem(CHAVE_DEMO, JSON.stringify(todas)); }
+    catch { throw new Error('Não foi possível salvar a disponibilidade no armazenamento local.'); }
     return;
   }
 
@@ -236,10 +241,10 @@ export async function carregarDisponibilidade(dataInicio: string, unidadeId: str
 
 export async function excluirDisponibilidade(dataInicio: string, unidadeId: string | null) {
   if (!isSupabaseConfigured) {
-    localStorage.setItem(
+    try { localStorage.setItem(
       CHAVE_DEMO,
       JSON.stringify(lerDemo().filter(x => x.data_inicio !== dataInicio))
-    );
+    ); } catch { throw new Error('Não foi possível excluir a disponibilidade do armazenamento local.'); }
     return;
   }
   const { data, error } = await supabase
