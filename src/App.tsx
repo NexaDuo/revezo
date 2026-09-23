@@ -659,7 +659,6 @@ export const App: React.FC = () => {
           <div className="flex items-center gap-2 md:w-52 md:shrink-0">
             <MobileMenuButton />
             <span className="text-xl font-extrabold tracking-tight text-caneta-700">Revezo</span>
-            {visitante && <span className="text-xs text-slate-500">Visitante — somente leitura</span>}
           </div>
 
           <div className="order-last md:order-none w-full md:w-auto min-w-0 flex items-end gap-4">
