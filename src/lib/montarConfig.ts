@@ -65,6 +65,22 @@ function montarRegras(linhas: any[], avisos: string[]): Regras {
   return regras;
 }
 
+/** Linha da Equipe → Pessoa, com nome para casar a planilha e posto por ID. */
+export function pessoaDaLinha(p: any, rotulo: ReturnType<typeof indexarRotulos>): Pessoa {
+  const fixo = p.fixo_sitio_id ? rotulo(p.fixo_sitio_id, 'manha') : null;
+  const fixoTarde = p.fixo_sitio_id ? rotulo(p.fixo_sitio_id, 'tarde') : null;
+  return {
+    n: p.nome_curto,
+    c: p.categoria as Categoria,
+    t: p.turno_base as Turno,
+    fixo: fixo || undefined,
+    fixoTarde: fixo && fixoTarde && fixoTarde !== fixo ? fixoTarde : undefined,
+    isentoAcoes: p.isento_acoes || undefined,
+    custoExtra: Number(p.custo_extra) || undefined,
+    completo: p.nome || undefined,
+  };
+}
+
 /**
  * Linhas da unidade -> `Config` do solver. Lógica pura (sem Supabase), para
  * ser testada sem `.env`.
@@ -83,18 +99,9 @@ export function montarConfig(l: LinhasUnidade): { config: Config; avisos: string
   // sítio pode ter outro nome à tarde.
   const postosOrfaos: string[] = [];
   const equipe: Pessoa[] = l.equipe.map((p: any) => {
-    const fixo = p.fixo_sitio_id ? rotulo(p.fixo_sitio_id, 'manha') : null;
-    const fixoTarde = p.fixo_sitio_id ? rotulo(p.fixo_sitio_id, 'tarde') : null;
-    if (p.fixo_sitio_id && !fixo) postosOrfaos.push(p.nome_curto);
-    return {
-      n: p.nome_curto,
-      c: p.categoria as Categoria,
-      t: p.turno_base as Turno,
-      fixo: fixo || undefined,
-      fixoTarde: fixo && fixoTarde && fixoTarde !== fixo ? fixoTarde : undefined,
-      isentoAcoes: p.isento_acoes || undefined,
-      custoExtra: Number(p.custo_extra) || undefined,
-    };
+    const pessoa = pessoaDaLinha(p, rotulo);
+    if (p.fixo_sitio_id && !pessoa.fixo) postosOrfaos.push(p.nome_curto);
+    return pessoa;
   });
   if (postosOrfaos.length)
     avisos.push(`Posto fixo aponta para sítio que não foi encontrado nesta unidade: ${postosOrfaos.join(', ')} — escalada(s) como se não tivessem posto fixo. Confira o sítio fixo em Equipe.`);
