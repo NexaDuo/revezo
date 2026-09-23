@@ -157,7 +157,7 @@ export const DisponibilidadeManager: React.FC = () => {
         <div className="p-8 text-center border border-dashed border-slate-300 rounded-xl space-y-2">
           <p className="text-sm font-semibold text-slate-800">Nenhuma semana importada ainda</p>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
-            Use <strong>Importar Planilha (.xlsx)</strong> na barra de ações. A semana escolhida
+            Use <strong>Importar Planilha (.xlsx)</strong> na barra de ações da Grade da Semana. A semana escolhida
             é gravada aqui e pode ser corrigida à mão. Reimportar a mesma semana sobrescreve.
           </p>
         </div>

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { defaultConfig } from '../src/lib/solver/defaultConfig';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test, expect, type Page } from '@playwright/test';
@@ -85,11 +86,6 @@ async function autenticarComoCoordenador(
   );
 }
 
-/** Extrai o dia (DD) de um ISO `YYYY-MM-DD` sem depender de fuso horário. */
-function diaDe(iso: string): string {
-  return iso.split('-')[2];
-}
-
 // Decidido a partir do ambiente, não da UI: com `.env` presente o `npm run dev`
 // (webServer do playwright.config.ts) sobe com Supabase real e sem sessão
 // logada — não há como autenticar como coordenador neste conjunto de testes.
@@ -101,21 +97,12 @@ function diaDe(iso: string): string {
 const HAS_ENV = fs.existsSync(path.resolve(__dirname, '..', '.env'));
 
 test.describe('WorkContext — semana e unidade dirigem o que a tela carrega', () => {
-  test('o título da semana vem de semanaInicio, não de new Date() solto', async ({ page }) => {
-    await page.goto('/');
-
-    const titulo = page.getByTestId('titulo-semana');
-    await expect(titulo).toBeVisible();
-
-    const semanaInicio = await titulo.getAttribute('data-semana-inicio');
-    expect(semanaInicio, 'App.tsx precisa expor a semana do WorkContext em data-semana-inicio').not.toBeNull();
-    expect(semanaInicio).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-
-    // O texto renderizado ("Semana DD a DD de mês / ano") tem que bater com a
-    // segunda-feira que o contexto guarda — não com uma data calculada de novo
-    // dentro do componente.
-    const texto = await titulo.innerText();
-    expect(texto).toContain(diaDe(semanaInicio!));
+  test('a semana aparece no seletor do header, sem título duplicado', async ({ page }) => {
+    if (HAS_ENV) await autenticarComoCoordenador(page);
+    const slug = HAS_ENV ? 'hospital-teste' : 'demonstracao';
+    await page.goto(`/${slug}/2026-08-03`);
+    await expect(page.getByLabel('Semana', { exact: true })).toHaveValue('2026-08-03');
+    await expect(page.getByTestId('titulo-semana')).toHaveCount(0);
   });
 
   test('semana sem disponibilidade salva mostra o aviso da semana (modo demonstração)', async ({ page }) => {
@@ -343,4 +330,69 @@ test('salvar disponibilidade revalida a fonte de semanas do header e da tela', a
   await page.getByRole('button', { name: 'Salvar alterações' }).click();
   await expect(page.getByLabel('Semana', { exact: true }).locator('option[value="2026-08-10"]')).toHaveCount(1);
   await expect(page.getByLabel('Semana da disponibilidade').locator('option[value="2026-08-10"]')).toHaveCount(1);
+});
+
+
+test.describe('Grade — ações e conferência locais', () => {
+  test.beforeEach(async ({ page }) => {
+    if (HAS_ENV) await autenticarComoCoordenador(page);
+  });
+  const slug = HAS_ENV ? 'hospital-teste' : 'demonstracao';
+  const botoes = ['Importar Planilha (.xlsx)', 'Gerar Grade', 'Imprimir / Salvar PDF'];
+
+  test('ações e estado vazio ficam somente na grade', async ({ page }) => {
+    await page.goto(`/${slug}/2026-08-03`);
+    for (const name of botoes) await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
+    await expect(page.getByTestId('indicador-score')).toHaveText('Nenhuma grade gerada — conferência pendente.');
+    await expect(page.getByTestId('indicador-score')).toBeInViewport();
+    await expect(page.getByRole('button', { name: 'Imprimir / Salvar PDF' })).toBeDisabled();
+
+    for (const rota of ['regras', 'equipe', 'sitios', 'disponibilidade', 'historico']) {
+      await page.goto(`/${slug}/2026-08-03/${rota}`);
+      await expect(page.getByLabel('Semana', { exact: true })).toHaveValue('2026-08-03');
+      for (const name of botoes) await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0);
+      await expect(page.getByTestId('indicador-score')).toHaveCount(0);
+    }
+  });
+
+  for (const ausentes of [false, true]) {
+    test(`geração mostra score e impressão oculta controles (ausentes: ${ausentes})`, async ({ page }) => {
+      // Com Supabase, equipe vazia bloqueia a geração de propósito (App.tsx:
+      // sem roster da unidade não se gera). O fluxo completo roda no modo
+      // demonstração — que é o que o CI executa.
+      test.skip(HAS_ENV, 'Geração ponta a ponta coberta pelo modo demonstração (sem .env).');
+      const dados = ausentes
+        ? Object.fromEntries(defaultConfig.equipe.map(p => [p.n, ['F', 'F', 'F', 'F', 'F']]))
+        : defaultConfig.disp;
+      const semana = { data_inicio: '2026-08-03', data_fim: '2026-08-07', dias: defaultConfig.dias, dados };
+      await page.addInitScript(s => localStorage.setItem('demo_disponibilidade', JSON.stringify([s])), semana);
+      await page.goto(`/${slug}/2026-08-03`);
+      await page.getByRole('button', { name: 'Gerar Grade', exact: true }).click();
+      const indicador = page.getByTestId('indicador-score');
+      await expect(indicador).toContainText(/Score: \d+/);
+      await expect(indicador).toBeInViewport();
+      if (ausentes) {
+        await expect(indicador).toHaveAttribute('role', 'alert');
+        await expect(indicador).toHaveClass(/bg-red-100/);
+        await expect(indicador).toContainText(/[1-9]\d* rígidas/);
+      }
+      await expect(page.getByRole('button', { name: 'Imprimir / Salvar PDF' })).toBeEnabled();
+      await page.emulateMedia({ media: 'print' });
+      await expect(page.getByRole('toolbar', { name: 'Ações da grade', includeHidden: true })).toBeHidden();
+      await expect(indicador).toBeHidden();
+      for (const name of botoes) await expect(page.getByRole('button', { name, exact: true, includeHidden: true })).toBeHidden();
+      const tabelas = page.getByRole('table');
+      await expect(tabelas).toHaveCount(2);
+      const principal = await page.locator('main').boundingBox();
+      for (const tabela of await tabelas.all()) {
+        await expect(tabela).toBeVisible();
+        const caixa = await tabela.boundingBox();
+        expect(caixa!.width).toBeGreaterThanOrEqual(principal!.width - 2);
+      }
+      expect(principal!.x).toBe(0);
+      const cssPagina = await page.evaluate(() => [...document.styleSheets].flatMap(s => [...s.cssRules]).find(r => r instanceof CSSPageRule)?.cssText);
+      expect(cssPagina?.toLowerCase()).toContain('a4 landscape');
+      expect(cssPagina).toContain('8mm');
+    });
+  }
 });
