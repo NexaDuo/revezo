@@ -97,6 +97,47 @@ test.describe('versões da grade — modo demonstração', () => {
     await arrastar(page, mov.nome, mov.de, mov.para);
     await expect(celula(page, 'manha', mov.para[0], mov.para[1])).toContainText(mov.msg);
     await expect(banner).toContainText('Alterações não salvas');
+
+    // Trocar de semana com edição pendente pergunta; recusar fica onde está.
+    page.once('dialog', d => d.dismiss());
+    await page.getByRole('button', { name: 'Próxima semana' }).click();
+    await expect(page).toHaveURL(new RegExp(`/${slug}/${SEMANA}$`));
+    await expect(celula(page, 'manha', mov.para[0], mov.para[1])).toContainText(mov.msg);
+    page.once('dialog', d => d.accept());
+    await page.getByRole('button', { name: 'Próxima semana' }).click();
+    await expect(page).not.toHaveURL(new RegExp(`/${slug}/${SEMANA}$`));
+  });
+
+  test('grade salva sem configuração da semana não deixa arrastar nem salvar', async ({ page }) => {
+    // Sem disponibilidade salva a Config não fecha: a grade abre só para leitura.
+    const grade = generateSchedule(configDemo).escala;
+    await page.addInitScript(e => localStorage.setItem('demo_escalas', JSON.stringify([e])), {
+      id: '0a0a0a0a-0000-4000-8000-000000000002', titulo: 'sem config', data_inicio: SEMANA, data_fim: '2026-08-07',
+      dias: DIAS, grade, violacoes: [], score: 0, ativa: true, substituida_em: null,
+      created_at: '2026-08-01T10:00:00.000Z', updated_at: '2026-08-01T10:00:00.000Z',
+    });
+    await page.goto(`/${slug}/${SEMANA}`);
+    await expect(page.getByTestId('versao-grade')).toContainText('Versão ativa');
+    await expect(page.getByText('arrastar e salvar estão bloqueados', { exact: false }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Salvar nesta versão' })).toBeDisabled();
+    await expect(page.locator('[draggable="true"]')).toHaveCount(0);
+  });
+
+  test('escala antiga do modo demonstração (id numérico) ganha uuid estável e abre pelo Histórico', async ({ page }) => {
+    await semeiaDisp(page);
+    const grade = generateSchedule(configDemo).escala;
+    await page.addInitScript(e => { if (!localStorage.getItem('demo_escalas')) localStorage.setItem('demo_escalas', JSON.stringify([e])); }, {
+      id: '1690000000000', titulo: 'legada', data_inicio: SEMANA, data_fim: '2026-08-07', dias: DIAS, grade,
+      rodape: [], violacoes: [], score: 0, status: 'validada', created_at: '2026-08-01T10:00:00.000Z',
+    });
+    await page.goto(`/${slug}/${SEMANA}/historico`);
+    await page.getByRole('button', { name: 'Abrir versão' }).click();
+    const banner = page.getByTestId('versao-grade');
+    await expect(banner).toContainText('Versão ativa');
+    const id = await banner.getAttribute('data-versao-id');
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+    await page.reload();
+    await expect(banner).toHaveAttribute('data-versao-id', id!);
   });
 
   test('gerar e salvar duas vezes cria duas versões; editar a antiga não troca a ativa; "Tornar ativa" troca', async ({ page }) => {
@@ -155,6 +196,17 @@ test.describe('versões da grade — modo demonstração', () => {
     expect(salvas.find((e: any) => e.id === nova.id).ativa).toBe(false);
     await page.goto(`/${slug}/${SEMANA}`);
     await expect(banner).toHaveAttribute('data-versao-id', antiga.id);
+
+    // Gerar a partir de uma URL de versão e salvar: a URL volta para a semana
+    // (que abre a ativa, a nova) e a confirmação continua na tela.
+    await page.goto(`/${slug}/${SEMANA}?escala=${nova.id}`);
+    await expect(banner).toContainText('Versão substituída em');
+    await page.getByRole('button', { name: 'Gerar Grade', exact: true }).click();
+    await page.getByRole('button', { name: 'Salvar e Publicar' }).click();
+    await expect(page).toHaveURL(new RegExp(`/${slug}/${SEMANA}$`));
+    await expect(page.getByText('Nova versão salva: agora é a ativa desta semana.', { exact: false })).toBeVisible();
+    await expect(banner).toContainText('Versão ativa');
+    expect(await escalasDemo(page)).toHaveLength(3);
   });
 });
 
@@ -225,7 +277,7 @@ async function bancoSimulado(page: Page, iniciais: any[] = []) {
     if (!alvo) return r.fulfill({ status: 400, json: { message: 'Grade não encontrada ou sem acesso' } });
     const t = agora();
     for (const l of linhas) if (l.data_inicio === alvo.data_inicio && l.ativa && l.id !== alvo.id) Object.assign(l, { ativa: false, substituida_em: t });
-    Object.assign(alvo, { ativa: true, substituida_em: null, updated_at: t });
+    Object.assign(alvo, { ativa: true, substituida_em: null });
     return r.fulfill({ json: alvo });
   });
   return { linhas, patches, rpcs };
@@ -256,7 +308,14 @@ test.describe('versões da grade — Supabase', () => {
     await arrastar(page, 'Ciro Cometa', ['Cuidados demonstrativos', 0], ['Consulta demonstrativa', 0]);
     await expect(celula(page, 'manha', 'Consulta demonstrativa', 0)).toContainText(msg);
 
+    // Com edição pendente, Gerar pergunta antes: recusar mantém a grade editada.
+    page.once('dialog', d => d.dismiss());
+    await page.getByRole('button', { name: 'Gerar Grade', exact: true }).click();
+    await expect(celula(page, 'manha', 'Consulta demonstrativa', 0)).toContainText(msg);
+    await expect(banner).toContainText('Alterações não salvas');
+
     // Gerar + salvar: RPC de versão nova; a antiga vira substituída.
+    page.once('dialog', d => d.accept());
     await page.getByRole('button', { name: 'Gerar Grade', exact: true }).click();
     await expect(banner).toContainText('Grade nova, ainda não salva');
     await page.getByRole('button', { name: 'Salvar e Publicar' }).click();
@@ -297,6 +356,34 @@ test.describe('versões da grade — Supabase', () => {
     await expect(linhas.filter({ hasText: 'antiga' }).getByText('Ativa', { exact: true })).toBeVisible();
     await page.goto(`/${slug}/${SEMANA}`);
     await expect(banner).toHaveAttribute('data-versao-id', ANTIGA);
+  });
+
+  test('grade salva carregando trava Gerar/arrastar; a geração seguinte fica e salva como versão nova', async ({ page }) => {
+    const ANTIGA = '0a0a0a0a-0000-4000-8000-0000000000bb';
+    const banco = await bancoSimulado(page, [{
+      id: ANTIGA, titulo: 'antiga', data_inicio: SEMANA, data_fim: '2026-08-07', dias: DIAS, grade: gradeManual(),
+      violacoes: [], score: 0, status: 'validada', ativa: true, substituida_em: null,
+      created_at: '2026-08-01T10:00:00.000Z', updated_at: '2026-08-01T10:00:00.000Z',
+    }]);
+    // A Config da semana demora: a grade salva aparece antes da conferência.
+    await page.route('**/rest/v1/regras_config*', async r => { await new Promise(res => setTimeout(res, 1500)); await responderPagina(r, []); });
+    await page.goto(`/${slug}/${SEMANA}`);
+    const banner = page.getByTestId('versao-grade');
+    await expect(banner).toHaveAttribute('data-versao-id', ANTIGA);
+    const gerar = page.getByRole('button', { name: 'Carregando…' });
+    await expect(gerar).toBeDisabled();
+    await expect(page.locator('[draggable="true"]')).toHaveCount(0);
+    await expect(page.getByText('Carregando a grade salva…')).toBeVisible();
+
+    await page.getByRole('button', { name: /Gerar Grade|Carregando…/ }).click();
+    await expect(banner).toContainText('Grade nova, ainda não salva');
+    // Nenhuma etapa atrasada da carga pode trazer a grade salva de volta.
+    await page.waitForTimeout(2000);
+    await expect(banner).toContainText('Grade nova, ainda não salva');
+    await page.getByRole('button', { name: 'Salvar e Publicar' }).click();
+    await expect(page.getByText('Nova versão salva', { exact: false })).toBeVisible();
+    expect(banco.rpcs.map(r => r.nome)).toEqual(['salvar_escala_nova']);
+    expect(banco.patches).toHaveLength(0);
   });
 
   test('falha ao carregar a grade salva aparece na tela', async ({ page }) => {

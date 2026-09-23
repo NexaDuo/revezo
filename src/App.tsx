@@ -47,18 +47,29 @@ function somarDias(iso: string, n: number) {
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
-/** Sítios que a grade salva tem e a unidade não tem mais (renomeado ou
- *  apagado depois da gravação). O validador só percorre os sítios da unidade,
- *  então quem está nessas linhas não é conferido — isso tem que ir para a tela.
- *  TODO: trocar por `sitiosForaDaUnidade` de `src/lib/referenciasSitio.ts`
- *  quando o PR #33 (fix/renomear-sitio) entrar; a semântica é a mesma. */
-function sitiosForaDaUnidade(grade: Partial<Escala> | null | undefined, sitios: Config['sitios']): string[] {
-  const fora = new Set<string>();
+/** Encaixa a grade salva nos sítios ATUAIS da unidade. A linha de cada sítio
+ *  é achada pelo nome exato ou, se não houver, pelo mesmo `canon()` que o
+ *  validador usa (e movida para o nome atual); sítio sem linha entra vazio,
+ *  senão o validador não tem o que percorrer. O que sobra são sítios que a
+ *  unidade não tem mais (renomeado ou apagado depois da gravação): continuam
+ *  na tela, mas quem está neles não é conferido — isso tem que ir para a tela.
+ *  TODO: a detecção de órfãos é a mesma de `sitiosForaDaUnidade`
+ *  (`src/lib/referenciasSitio.ts`, PR #33); usar o helper quando ele entrar. */
+function alinharGradeSalva(salva: Partial<Escala> | null | undefined, config: Config): { grade: Escala; orfaos: string[] } {
+  const grade: Escala = { manha: {}, tarde: {} };
+  const orfaos = new Set<string>();
   for (const turno of ['manha', 'tarde'] as const) {
-    const existentes = new Set(sitios[turno].map(s => canon(s.n)));
-    for (const s of Object.keys(grade?.[turno] || {})) if (!existentes.has(canon(s))) fora.add(s);
+    const origem: Record<string, string[][]> = JSON.parse(JSON.stringify(salva?.[turno] || {}));
+    const usadas = new Set<string>();
+    for (const s of config.sitios[turno]) {
+      const chave = s.n in origem && !usadas.has(s.n) ? s.n
+        : Object.keys(origem).find(k => !usadas.has(k) && canon(k) === canon(s.n));
+      if (chave !== undefined) usadas.add(chave);
+      grade[turno][s.n] = chave !== undefined ? origem[chave] : config.dias.map(() => []);
+    }
+    for (const k of Object.keys(origem)) if (!usadas.has(k)) { grade[turno][k] = origem[k]; orfaos.add(k); }
   }
-  return [...fora];
+  return { grade, orfaos: [...orfaos] };
 }
 const dataHora = (iso?: string | null) => iso
   ? new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
@@ -187,19 +198,44 @@ export const App: React.FC = () => {
     return { config: { ...base.config, equipe, disp, dias, sextaAnterior }, avisos: msgs };
   };
 
+  // Qualquer geração ou edição manual incrementa isto. A carga da grade salva
+  // (duas etapas assíncronas) confere antes de aplicar cada etapa e desiste
+  // se a grade na tela já é outra — senão ela sobrescreveria em silêncio.
+  const edicaoRef = React.useRef(0);
+  // Mensagem de salvamento que precisa sobreviver à recarga da própria semana
+  // (ao salvar versão nova a partir de `?escala=`, a URL volta para a ativa).
+  const mensagemAposRecarga = React.useRef<{ erro: boolean; texto: string } | null>(null);
+
+  /** Descartar edição não salva sempre pergunta antes. */
+  const podeDescartar = () =>
+    !modificada || window.confirm('A grade tem alterações que não foram salvas. Descartar as alterações?');
+
+  React.useEffect(() => {
+    if (!modificada) return;
+    const aviso = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', aviso);
+    return () => window.removeEventListener('beforeunload', aviso);
+  }, [modificada]);
+
   // Entrar numa semana (seletor, setas, URL ou Histórico) abre a grade salva:
   // a versão pedida em `?escala=` ou, sem ela, a ativa. Junto vem a Config da
-  // semana, para que arrastar refaça a conferência.
+  // semana, para que arrastar refaça a conferência. Enquanto carrega, gerar,
+  // arrastar e salvar ficam travados.
   React.useEffect(() => {
     setEscala(null); setCurrentConfig(null); setViolacoes([]); setScore(null);
     setEquipeOverride(null); setDispOverride(null); setDiasOverride(null); setAvisos([]);
     setIsExcelModalOpen(false); setIsGenerating(false);
-    setVersao(null); setModificada(false); setMensagemSalvar(null); setErroHistorico(null);
+    setVersao(null); setModificada(false); setErroHistorico(null);
+    setMensagemSalvar(mensagemAposRecarga.current); mensagemAposRecarga.current = null;
     setCargaGrade({ carregando: false, erro: null });
     if (!unidadeId || !semanaInicio) return;
     const contexto = contextoAtual.current;
+    const edicao = edicaoRef.current;
     let cancelado = false;
-    const vivo = () => !cancelado && contexto === contextoAtual.current;
+    const vivo = () => !cancelado && contexto === contextoAtual.current && edicao === edicaoRef.current;
+    const encerrar = (erro: string | null = null) => {
+      if (!cancelado && contexto === contextoAtual.current) setCargaGrade({ carregando: false, erro });
+    };
     (async () => {
       setCargaGrade({ carregando: true, erro: null });
       let salva: EscalaSalva | null;
@@ -209,53 +245,43 @@ export const App: React.FC = () => {
           ? await carregarEscalaPorId(escalaPedida, semanaInicio, unidadeId)
           : await carregarEscala(semanaInicio, unidadeId);
       } catch (e: any) {
-        if (vivo()) setCargaGrade({ carregando: false, erro: `Não consegui carregar a grade salva desta semana (${e?.message || e}).` });
-        return;
+        return encerrar(`Não consegui carregar a grade salva desta semana (${e?.message || e}).`);
       }
-      if (!vivo()) return;
-      if (!salva) {
-        setCargaGrade({ carregando: false, erro: escalaPedida ? 'A versão pedida na URL não existe nesta unidade e semana.' : null });
-        return;
-      }
+      if (!vivo()) return encerrar();
+      if (!salva) return encerrar(escalaPedida ? 'A versão pedida na URL não existe nesta unidade e semana.' : null);
       setEscala(salva.grade); setViolacoes(salva.violacoes ?? []); setScore(salva.score);
       setDiasOverride(salva.dias); setVersao(salva);
-      setCargaGrade({ carregando: false, erro: null });
 
       let m: { config: Config | null; avisos: string[] };
       try { m = await montarConfig(undefined, undefined, salva.dias); }
       catch (e: any) { m = { config: null, avisos: [`Falha ao montar a configuração da semana: ${e?.message || e}`] }; }
-      if (!vivo()) return;
+      if (!vivo()) return encerrar();
       if (!m.config) {
         setAvisos([...m.avisos,
-          'A grade salva foi aberta sem a configuração da semana: arrastar NÃO refaz a conferência, e as marcas mostradas são as da hora em que ela foi salva.']);
-        return;
+          'A grade salva foi aberta sem a configuração da semana: ela não pôde ser conferida, então arrastar e salvar ficam bloqueados. As marcas mostradas são as da hora em que ela foi salva.']);
+        return encerrar();
       }
-      // Sítio criado (ou renomeado) depois da gravação não tem linha na grade
-      // salva: entra vazio, senão o validador não tem o que percorrer.
-      const grade: Escala = JSON.parse(JSON.stringify(salva.grade ?? {}));
-      for (const turno of ['manha', 'tarde'] as const) {
-        grade[turno] = grade[turno] || {};
-        for (const s of m.config.sitios[turno]) grade[turno][s.n] = grade[turno][s.n] || m.config.dias.map(() => []);
-      }
+      const { grade, orfaos } = alinharGradeSalva(salva.grade, m.config);
       let vs: Violacao[];
       try { vs = validar(m.config, grade); }
       catch (e: any) {
-        setAvisos([...m.avisos, `Não consegui conferir a grade salva (${e?.message || e}): arrastar NÃO refaz a conferência.`]);
-        return;
+        setAvisos([...m.avisos, `Não consegui conferir a grade salva (${e?.message || e}): arrastar e salvar ficam bloqueados.`]);
+        return encerrar();
       }
       const agora = pontuar(vs);
-      const orfaos = sitiosForaDaUnidade(salva.grade, m.config.sitios);
       setEscala(grade); setCurrentConfig(m.config); setViolacoes(vs); setScore(agora);
       setAvisos([...m.avisos,
         ...(orfaos.length ? [`A grade salva usa sítios que não existem mais: ${orfaos.join(', ')} — as pessoas nessas linhas não são conferidas.`] : []),
         ...(agora !== salva.score
         ? [`Conferência refeita com as regras e a disponibilidade de agora: score salvo ${salva.score}, agora ${agora}.`] : [])]);
+      encerrar();
     })();
     return () => { cancelado = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unidadeId, semanaInicio, escalaPedida]);
 
   const handleUpdateEscala = (novaEscala: Escala) => {
+    edicaoRef.current++;
     setEscala(novaEscala);
     setModificada(true);
     setMensagemSalvar(null);
@@ -274,10 +300,11 @@ export const App: React.FC = () => {
       return;
     }
     const contextoGeracao = contextoAtual.current;
+    const edicao = ++edicaoRef.current;
     setIsGenerating(true);
     try {
       const { config, avisos: msgs } = await montarConfig(eq, dp, ds);
-      if (contextoGeracao !== contextoAtual.current) return;
+      if (contextoGeracao !== contextoAtual.current || edicao !== edicaoRef.current) return;
       setAvisos(msgs);
       if (!config) return;
       const result = generateSchedule(config);
@@ -297,11 +324,16 @@ export const App: React.FC = () => {
   };
 
   /** Grade nova → versão nova (vira a ativa). Grade aberta → atualiza a
-   *  própria linha pelo id, sem trocar a ativa. */
+   *  própria linha pelo id, sem trocar a ativa. Grade sem conferência não
+   *  salva: gravaria violações velhas e um status que ninguém conferiu. */
   const handleSalvar = async () => {
     if (!escala) return;
+    if (!currentConfig) {
+      setMensagemSalvar({ erro: true, texto: 'A grade NÃO foi salva: ela não pôde ser conferida com a configuração da semana (veja os avisos acima).' });
+      return;
+    }
     const contexto = contextoAtual.current;
-    const dias = currentConfig?.dias || diasOverride || defaultConfig.dias;
+    const dias = currentConfig.dias;
     const resultado = { escala, violacoes, score: pontuar(violacoes) };
     const rigidas = violacoes.filter(v => v.hard).length;
     const situacao = rigidas ? ` Rascunho: ainda tem ${rigidas} violação(ões) rígida(s).` : ' Marcada como validada.';
@@ -319,11 +351,16 @@ export const App: React.FC = () => {
       revalidarSemanas();
       if (contexto !== contextoAtual.current) return;
       setVersao(salva); setModificada(false);
-      setMensagemSalvar({ erro: false, texto: (versao
+      const mensagem = { erro: false, texto: (versao
         ? `Alterações salvas nesta versão${salva.ativa ? ' (a ativa da semana)' : ' — a versão ativa da semana não mudou'}.`
-        : 'Nova versão salva: agora é a ativa desta semana.') + situacao });
-      // A URL apontava para outra versão; a nova é a ativa, que a semana abre sem parâmetro.
-      if (!versao && escalaPedida) setSearchParams({}, { replace: true });
+        : 'Nova versão salva: agora é a ativa desta semana.') + situacao };
+      setMensagemSalvar(mensagem);
+      // A URL apontava para outra versão; a nova é a ativa, que a semana abre
+      // sem parâmetro. A recarga zera a tela, então a confirmação vai junto.
+      if (!versao && escalaPedida) {
+        mensagemAposRecarga.current = mensagem;
+        setSearchParams({}, { replace: true });
+      }
     } catch (e: any) {
       console.error(e);
       if (contexto !== contextoAtual.current) return;
@@ -332,21 +369,30 @@ export const App: React.FC = () => {
   };
 
   const handleAtivar = async (alvo: EscalaSalva) => {
+    const contexto = contextoAtual.current;
     setErroHistorico(null);
     try {
       const ativa = await ativarEscala(alvo.id, unidadeId);
       revalidarSemanas();
+      if (contexto !== contextoAtual.current) return;
       // A versão aberta na grade pode ter acabado de ganhar ou perder o posto.
       setVersao(v => !v || v.data_inicio !== ativa.data_inicio ? v
         : v.id === ativa.id ? { ...v, ativa: true, substituida_em: null }
         : v.ativa ? { ...v, ativa: false, substituida_em: new Date().toISOString() } : v);
       if (versao?.id === ativa.id) setMensagemSalvar({ erro: false, texto: 'Esta versão agora é a ativa da semana.' });
     } catch (e: any) {
+      if (contexto !== contextoAtual.current) return;
       const msg = `Não consegui tornar a versão ativa: ${e?.message || e}`;
       setErroHistorico(msg);
       if (versao?.id === alvo.id) setMensagemSalvar({ erro: true, texto: msg });
     }
   };
+
+  // Enquanto a grade salva carrega, ou se ela não pôde ser conferida, a grade
+  // na tela é só leitura: editar sem conferência seria pintar às cegas.
+  const bloqueioEdicao = cargaGrade.carregando ? 'Carregando a grade salva…'
+    : escala && !currentConfig ? 'Esta grade não pôde ser conferida com a configuração da semana: arrastar e salvar estão bloqueados.'
+    : null;
 
   const paginas = <>
 
@@ -373,7 +419,8 @@ export const App: React.FC = () => {
                     <>
                       {podeGravar && <button
                         className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-200/60"
-                        onClick={() => setIsExcelModalOpen(true)}
+                        onClick={() => { if (podeDescartar()) setIsExcelModalOpen(true); }}
+                        disabled={cargaGrade.carregando}
                       >
                         <FileSpreadsheet className="h-4 w-4" />
                         <span>Importar Planilha (.xlsx)</span>
@@ -389,12 +436,12 @@ export const App: React.FC = () => {
                       </button>
 
                       <button
-                        onClick={() => handleGerarGrade()}
-                        disabled={isGenerating || unidadeCarregando || !unidadeId}
+                        onClick={() => { if (podeDescartar()) handleGerarGrade(); }}
+                        disabled={isGenerating || unidadeCarregando || !unidadeId || cargaGrade.carregando}
                         className="flex items-center gap-2 rounded-md bg-caneta-600 px-4 py-2 text-sm font-bold text-white hover:bg-caneta-700 disabled:opacity-50"
                       >
                         <Sparkles className="h-4 w-4" />
-                        <span>{isGenerating ? 'Gerando...' : 'Gerar Grade'}</span>
+                        <span>{isGenerating ? 'Gerando...' : cargaGrade.carregando ? 'Carregando…' : 'Gerar Grade'}</span>
                       </button>
                     </>
                   ) : (
@@ -431,7 +478,7 @@ export const App: React.FC = () => {
                     <>
                       <span><b>Versão substituída em {dataHora(versao.substituida_em)}</b>: editar e salvar muda só esta versão, não a ativa.</span>
                       {podeGravar && <button type="button" onClick={() => handleAtivar(versao)} className="font-bold text-caneta-700 underline">Tornar ativa</button>}
-                      <button type="button" onClick={() => setSearchParams({})} className="font-bold text-caneta-700 underline">Abrir a versão ativa</button>
+                      <button type="button" onClick={() => { if (podeDescartar()) setSearchParams({}); }} className="font-bold text-caneta-700 underline">Abrir a versão ativa</button>
                     </>
                   )}
                   {modificada && versao && <span className="font-bold text-amber-800">Alterações não salvas.</span>}
@@ -459,7 +506,7 @@ export const App: React.FC = () => {
                     <span><span className="marca-alerta px-1 text-slate-900">Alerta</span> só avisa</span>
                   </p>
                   <ScheduleGrid escala={escala} violacoes={violacoes} dias={currentConfig?.dias || diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala}
-                    onSalvar={handleSalvar} textoSalvar={versao ? 'Salvar nesta versão' : 'Salvar e Publicar'} />
+                    onSalvar={handleSalvar} bloqueio={bloqueioEdicao} textoSalvar={versao ? 'Salvar nesta versão' : 'Salvar e Publicar'} />
                 </>
               )}
             </div>
@@ -491,6 +538,7 @@ export const App: React.FC = () => {
                     : null },
                 ]}
                 onRowClick={s => {
+                  if (!podeDescartar()) return;
                   const unidade = unidadesDisponiveis.find(u => u.id === unidadeId);
                   if (unidade) navigate(`/${unidade.slug}/${s.data_inicio}?escala=${s.id}`);
                 }} />
@@ -514,7 +562,7 @@ export const App: React.FC = () => {
             <label className="min-w-0 flex-1 md:flex-none">
               <span className="sr-only md:not-sr-only block text-xs text-slate-500">Hospital</span>
               {podeEscolherUnidade ? (
-                <select aria-label="Hospital" value={unidadeId ?? ''} onChange={e => setUnidadeId(e.target.value)} className="w-full md:max-w-56 truncate border-0 bg-transparent p-0 pr-6 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-caneta-500 rounded-sm">
+                <select aria-label="Hospital" value={unidadeId ?? ''} onChange={e => { if (podeDescartar()) setUnidadeId(e.target.value); }} className="w-full md:max-w-56 truncate border-0 bg-transparent p-0 pr-6 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-caneta-500 rounded-sm">
                   {!unidadeId && <option value="">Selecione</option>}
                   {unidadesDisponiveis.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
                 </select>
@@ -527,14 +575,14 @@ export const App: React.FC = () => {
                 type="button"
                 aria-label="Semana anterior"
                 disabled={!semanaVizinha(-1) || !unidadeId || contextoInvalido}
-                onClick={() => setSemanaInicio(semanaVizinha(-1)!)}
+                onClick={() => { if (podeDescartar()) setSemanaInicio(semanaVizinha(-1)!); }}
                 className="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <label>
                 <span className="sr-only">Semana</span>
-                <select aria-label="Semana" value={semanaInicio} disabled={!unidadeId || contextoInvalido} onChange={e => setSemanaInicio(e.target.value)} className="border-0 bg-transparent p-0 pr-6 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-caneta-500 rounded-sm">
+                <select aria-label="Semana" value={semanaInicio} disabled={!unidadeId || contextoInvalido} onChange={e => { if (podeDescartar()) setSemanaInicio(e.target.value); }} className="border-0 bg-transparent p-0 pr-6 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-caneta-500 rounded-sm">
                   {semanas.map(s => <option key={s} value={s}>{formatarSemana(s)}</option>)}
                 </select>
               </label>
@@ -542,7 +590,7 @@ export const App: React.FC = () => {
                 type="button"
                 aria-label="Próxima semana"
                 disabled={!semanaVizinha(1) || !unidadeId || contextoInvalido}
-                onClick={() => setSemanaInicio(semanaVizinha(1)!)}
+                onClick={() => { if (podeDescartar()) setSemanaInicio(semanaVizinha(1)!); }}
                 className="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30"
               >
                 <ChevronRight className="h-4 w-4" />

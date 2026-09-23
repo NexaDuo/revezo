@@ -75,18 +75,25 @@ function campos(d: Pick<DadosEscala, 'resultado' | 'dias'>) {
   };
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Leitor tolerante: entradas gravadas antes das versões não têm `ativa` —
- *  eram uma por semana, então valem como ativas. */
+ *  eram uma por semana, então valem como ativas — e tinham id
+ *  `String(Date.now())`, que a URL `?escala=` não aceita. Esses ids viram
+ *  uuid uma vez, gravados de volta para ficarem estáveis entre recargas. */
 function lerDemoEscalas(): EscalaSalva[] {
-  try {
-    const lidas = JSON.parse(localStorage.getItem(CHAVE_DEMO_ESCALAS) || '[]');
-    return lidas.map((e: any) => ({
-      ...e,
-      ativa: e.ativa ?? true,
-      substituida_em: e.substituida_em ?? null,
-      updated_at: e.updated_at ?? e.created_at,
-    }));
-  } catch { throw new Error('Não foi possível ler as escalas do armazenamento local.'); }
+  let lidas: any[];
+  try { lidas = JSON.parse(localStorage.getItem(CHAVE_DEMO_ESCALAS) || '[]'); }
+  catch { throw new Error('Não foi possível ler as escalas do armazenamento local.'); }
+  const todas: EscalaSalva[] = lidas.map((e: any) => ({
+    ...e,
+    id: UUID.test(String(e.id)) ? e.id : crypto.randomUUID(),
+    ativa: e.ativa ?? true,
+    substituida_em: e.substituida_em ?? null,
+    updated_at: e.updated_at ?? e.created_at,
+  }));
+  if (todas.some((e, i) => e.id !== lidas[i].id)) gravarDemoEscalas(todas);
+  return todas;
 }
 function gravarDemoEscalas(todas: EscalaSalva[]) {
   try { localStorage.setItem(CHAVE_DEMO_ESCALAS, JSON.stringify(todas)); }
@@ -201,6 +208,17 @@ export async function loadSchedules(unidadeId: string | null): Promise<EscalaSal
     return (data || []) as EscalaSalva[];
   }
   return lerDemoEscalas().sort(ordenarVersoes);
+}
+
+/** Só as semanas que têm alguma versão salva — sem trazer o JSON das grades. */
+export async function listarSemanasComEscala(unidadeId: string | null): Promise<string[]> {
+  if (!isSupabaseConfigured) return [...new Set(lerDemoEscalas().map(e => e.data_inicio))];
+  const { data, error } = await supabase
+    .from('escalas_semanais')
+    .select('data_inicio')
+    .eq('unidade_id', exigirUnidade(unidadeId));
+  if (error) throw error;
+  return [...new Set((data || []).map((e: any) => e.data_inicio as string))];
 }
 
 /** A grade ATIVA de uma semana, ou `null` se a semana não tem grade salva. */

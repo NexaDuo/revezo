@@ -11,9 +11,11 @@ interface ScheduleGridProps {
   /** Quem decide se é versão nova ou atualização da aberta é o App. */
   onSalvar?: () => Promise<void>;
   textoSalvar?: string;
+  /** Motivo para a grade estar só leitura agora (carregando, sem conferência). */
+  bloqueio?: string | null;
 }
 
-export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, dias, onUpdateEscala, onSalvar, textoSalvar = 'Salvar e Publicar' }) => {
+export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, dias, onUpdateEscala, onSalvar, textoSalvar = 'Salvar e Publicar', bloqueio = null }) => {
   const [soltarEm, setSoltarEm] = useState<string | null>(null);
   const { podeGravar, visitante } = useWorkContext();
   const getViolacoes = (turno: string, sitio: string, d: number) => {
@@ -24,7 +26,7 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
   const renderTurno = (turno: 'manha' | 'tarde', titulo: string) => {
     const sourceData = escala[turno] || {};
     const sitios = Object.keys(sourceData);
-    const canEdit = podeGravar || visitante;
+    const canEdit = (podeGravar || visitante) && !bloqueio;
 
     const handleDragStart = (e: React.DragEvent, nome: string, sourceTurno: string, sourceSitio: string, sourceD: number) => {
       e.dataTransfer.setData('application/json', JSON.stringify({ nome, sourceTurno, sourceSitio, sourceD }));
@@ -143,10 +145,11 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
       {renderTurno('tarde', 'Tarde')}
 
       {podeGravar && onSalvar && (
-        <div className="mt-6 flex justify-end print:hidden">
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-3 print:hidden">
+          {bloqueio && <p role="status" className="text-sm font-bold text-slate-700">{bloqueio}</p>}
           <button
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || !!bloqueio}
             className="flex items-center gap-2 rounded-md bg-caneta-600 px-4 py-2 text-sm font-bold text-white hover:bg-caneta-700 disabled:opacity-50"
           >
             {isSaving ? 'Salvando...' : textoSalvar}

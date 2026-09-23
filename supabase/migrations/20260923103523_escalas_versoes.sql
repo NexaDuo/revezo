@@ -45,6 +45,16 @@ alter table public.escalas_semanais
 create unique index escalas_semanais_uma_ativa
   on public.escalas_semanais (unidade_id, data_inicio) where ativa;
 
+-- `updated_at` mede alteração de CONTEÚDO. Trocar a versão ativa (ativa /
+-- substituida_em) não é edição da grade e não pode aparecer como "Atualizada".
+drop trigger escalas_touch on public.escalas_semanais;
+create trigger escalas_touch before update on public.escalas_semanais
+  for each row
+  when ((old.titulo, old.data_inicio, old.data_fim, old.dias, old.grade, old.rodape, old.violacoes, old.score, old.status)
+        is distinct from
+        (new.titulo, new.data_inicio, new.data_fim, new.dias, new.grade, new.rodape, new.violacoes, new.score, new.status))
+  execute function public.touch_updated_at();
+
 -- 3. Troca da versão ativa, atômica.
 --
 -- SECURITY INVOKER de propósito: as policies `escalas_semanais_write`
