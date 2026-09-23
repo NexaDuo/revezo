@@ -67,6 +67,40 @@ test.describe('versões da grade — modo demonstração', () => {
   }, { data_inicio: SEMANA, data_fim: '2026-08-07', dias: DIAS, dados: configDemo.disp });
   const escalasDemo = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('demo_escalas') || '[]'));
 
+  test('gerar novamente só pede confirmação após edição manual', async ({ page }) => {
+    await semeiaDisp(page);
+    await page.goto(`/${slug}/${SEMANA}`);
+    const banner = page.getByTestId('versao-grade');
+    const gerar = page.getByRole('button', { name: 'Gerar Grade', exact: true });
+    const dialogos: string[] = [];
+    page.on('dialog', async d => {
+      dialogos.push(d.type());
+      await d.dismiss();
+    });
+
+    for (let i = 0; i < 2; i++) {
+      await gerar.click();
+      await expect(banner).toContainText('Grade nova, ainda não salva');
+      await expect(gerar).toBeEnabled();
+    }
+    expect(dialogos).toEqual([]);
+
+    // A geração varia: mova uma pessoa da grade exibida para outro dia.
+    const pessoa = page.getByRole('table').first().locator('[draggable="true"]').first();
+    const origem = pessoa.locator('xpath=ancestor::td');
+    const coluna = await origem.evaluate(td => (td as HTMLTableCellElement).cellIndex);
+    const sitio = (await pessoa.locator('xpath=ancestor::tr').locator('td').first().innerText()).trim();
+    const nome = (await pessoa.innerText()).trim();
+    const destino = celula(page, 'manha', sitio, coluna === 1 ? 1 : 0);
+    await pessoa.dragTo(destino);
+    await expect(celula(page, 'manha', sitio, coluna - 1).getByText(nome, { exact: true })).toHaveCount(0);
+    await expect(destino.getByText(nome, { exact: true })).toBeVisible();
+    await gerar.click();
+    expect(dialogos).toEqual(['confirm']);
+    await expect(destino.getByText(nome, { exact: true })).toBeVisible();
+    await expect(banner).toContainText('Grade nova, ainda não salva');
+  });
+
   test('entrar na semana abre a grade ativa salva e arrastar refaz a conferência', async ({ page }) => {
     const grade = generateSchedule(configDemo).escala;
     const mov = movimentoQueViolaCategoria(configDemo, grade);

@@ -4,6 +4,7 @@ Até a primeira versão oficial o Revezo roda sem issues/board: este arquivo é 
 registro do que falta. Item feito sai daqui no mesmo PR que o resolve.
 
 ## Produto
+- Voltar/avançar do navegador dentro da SPA não protege contra descartar edições não salvas da grade; `beforeunload` cobre apenas recarregar/fechar.
 - **Anonimizar os dados de exemplo** antes de abrir o repositório:
   `docs/referencia/`, `src/lib/solver/defaultConfig.ts` e os mocks com nome de
   pessoa real.

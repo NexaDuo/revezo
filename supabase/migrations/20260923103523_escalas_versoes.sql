@@ -47,13 +47,23 @@ create unique index escalas_semanais_uma_ativa
 
 -- `updated_at` mede alteração de CONTEÚDO. Trocar a versão ativa (ativa /
 -- substituida_em) não é edição da grade e não pode aparecer como "Atualizada".
+create function public.escalas_touch_updated_at() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if (old.titulo, old.data_inicio, old.data_fim, old.dias, old.grade, old.rodape, old.violacoes, old.score, old.status)
+     is distinct from
+     (new.titulo, new.data_inicio, new.data_fim, new.dias, new.grade, new.rodape, new.violacoes, new.score, new.status) then
+    new.updated_at := now();
+  else
+    new.updated_at := old.updated_at;
+  end if;
+  return new;
+end $$;
+revoke execute on function public.escalas_touch_updated_at() from public, anon, authenticated;
+
 drop trigger escalas_touch on public.escalas_semanais;
 create trigger escalas_touch before update on public.escalas_semanais
-  for each row
-  when ((old.titulo, old.data_inicio, old.data_fim, old.dias, old.grade, old.rodape, old.violacoes, old.score, old.status)
-        is distinct from
-        (new.titulo, new.data_inicio, new.data_fim, new.dias, new.grade, new.rodape, new.violacoes, new.score, new.status))
-  execute function public.touch_updated_at();
+  for each row execute function public.escalas_touch_updated_at();
 
 -- 3. Troca da versão ativa, atômica.
 --

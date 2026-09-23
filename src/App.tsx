@@ -61,9 +61,17 @@ function alinharGradeSalva(salva: Partial<Escala> | null | undefined, config: Co
   for (const turno of ['manha', 'tarde'] as const) {
     const origem: Record<string, string[][]> = JSON.parse(JSON.stringify(salva?.[turno] || {}));
     const usadas = new Set<string>();
+    // Reserve todos os nomes exatos antes de tentar equivalências canônicas.
+    const correspondencias = new Map<string, string>();
     for (const s of config.sitios[turno]) {
-      const chave = s.n in origem && !usadas.has(s.n) ? s.n
-        : Object.keys(origem).find(k => !usadas.has(k) && canon(k) === canon(s.n));
+      if (Object.prototype.hasOwnProperty.call(origem, s.n)) {
+        correspondencias.set(s.n, s.n);
+        usadas.add(s.n);
+      }
+    }
+    for (const s of config.sitios[turno]) {
+      const chave = correspondencias.get(s.n)
+        ?? Object.keys(origem).find(k => !usadas.has(k) && canon(k) === canon(s.n));
       if (chave !== undefined) usadas.add(chave);
       grade[turno][s.n] = chave !== undefined ? origem[chave] : config.dias.map(() => []);
     }
@@ -97,6 +105,7 @@ export const App: React.FC = () => {
   // Versão salva aberta na tela. `null` com grade na tela = geração nova, ainda não salva.
   const [versao, setVersao] = useState<EscalaSalva | null>(null);
   const [modificada, setModificada] = useState(false);
+  const [editadaManualmente, setEditadaManualmente] = useState(false);
   const [cargaGrade, setCargaGrade] = useState<{ carregando: boolean; erro: string | null }>({ carregando: false, erro: null });
   const [mensagemSalvar, setMensagemSalvar] = useState<{ erro: boolean; texto: string } | null>(null);
   const [erroHistorico, setErroHistorico] = useState<string | null>(null);
@@ -207,8 +216,8 @@ export const App: React.FC = () => {
   const mensagemAposRecarga = React.useRef<{ erro: boolean; texto: string } | null>(null);
 
   /** Descartar edição não salva sempre pergunta antes. */
-  const podeDescartar = () =>
-    !modificada || window.confirm('A grade tem alterações que não foram salvas. Descartar as alterações?');
+  const podeDescartar = (apenasEdicaoManual = false) =>
+    !(apenasEdicaoManual ? modificada && editadaManualmente : modificada) || window.confirm('A grade tem alterações que não foram salvas. Descartar as alterações?');
 
   React.useEffect(() => {
     if (!modificada) return;
@@ -225,7 +234,7 @@ export const App: React.FC = () => {
     setEscala(null); setCurrentConfig(null); setViolacoes([]); setScore(null);
     setEquipeOverride(null); setDispOverride(null); setDiasOverride(null); setAvisos([]);
     setIsExcelModalOpen(false); setIsGenerating(false);
-    setVersao(null); setModificada(false); setErroHistorico(null);
+    setVersao(null); setModificada(false); setEditadaManualmente(false); setErroHistorico(null);
     setMensagemSalvar(mensagemAposRecarga.current); mensagemAposRecarga.current = null;
     setCargaGrade({ carregando: false, erro: null });
     if (!unidadeId || !semanaInicio) return;
@@ -284,6 +293,7 @@ export const App: React.FC = () => {
     edicaoRef.current++;
     setEscala(novaEscala);
     setModificada(true);
+    setEditadaManualmente(true);
     setMensagemSalvar(null);
     if (currentConfig) {
       const novasViolacoes = validar(currentConfig, novaEscala);
@@ -313,7 +323,7 @@ export const App: React.FC = () => {
       setScore(result.score);
       setCurrentConfig(config);
       // Grade gerada é sempre versão nova: salvar cria outra linha.
-      setVersao(null); setModificada(true); setMensagemSalvar(null); setCargaGrade({ carregando: false, erro: null });
+      setVersao(null); setModificada(true); setEditadaManualmente(false); setMensagemSalvar(null); setCargaGrade({ carregando: false, erro: null });
     } catch (e) {
       console.error(e);
       if (contextoGeracao !== contextoAtual.current) return;
@@ -419,7 +429,7 @@ export const App: React.FC = () => {
                     <>
                       {podeGravar && <button
                         className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-200/60"
-                        onClick={() => { if (podeDescartar()) setIsExcelModalOpen(true); }}
+                        onClick={() => { if (podeDescartar(true)) setIsExcelModalOpen(true); }}
                         disabled={cargaGrade.carregando}
                       >
                         <FileSpreadsheet className="h-4 w-4" />
@@ -436,7 +446,7 @@ export const App: React.FC = () => {
                       </button>
 
                       <button
-                        onClick={() => { if (podeDescartar()) handleGerarGrade(); }}
+                        onClick={() => { if (podeDescartar(true)) handleGerarGrade(); }}
                         disabled={isGenerating || unidadeCarregando || !unidadeId || cargaGrade.carregando}
                         className="flex items-center gap-2 rounded-md bg-caneta-600 px-4 py-2 text-sm font-bold text-white hover:bg-caneta-700 disabled:opacity-50"
                       >
