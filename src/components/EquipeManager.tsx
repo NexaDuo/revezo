@@ -99,7 +99,7 @@ const EquipeContent: React.FC = () => {
         fetchData();
       } catch (error: any) {
         console.error(error);
-        setErro(mensagemErroGravacao(error));
+        setErro(error?.code === '23503' ? 'Pessoa em uso em regras; remova as regras antes de excluir ou desative a pessoa.' : mensagemErroGravacao(error));
       }
     }
   };

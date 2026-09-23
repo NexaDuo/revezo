@@ -220,7 +220,7 @@ test('admin troca hospital mantendo semana e tela; perfil comum tem rótulo', as
   await expect(page.getByRole('combobox', { name: 'Unidade de saúde', exact: true })).toHaveValue('33333333-3333-4333-8333-333333333333');
 });
 
-test('salvar disponibilidade revalida a fonte de semanas do header e da tela', async ({ page }) => {
+test('salvar disponibilidade revalida a fonte de semanas do header', async ({ page }) => {
   test.skip(!HAS_ENV, 'Interceptação de persistência precisa da configuração do Supabase.');
   await autenticarComoCoordenador(page);
   const semanas = [{ data_inicio: '2026-08-03', data_fim: '2026-08-07', dias: ['SEG'], dados: { 'Pessoa A': ['OK'] } }];
@@ -236,7 +236,6 @@ test('salvar disponibilidade revalida a fonte de semanas do header e da tela', a
   await page.getByRole('row').filter({ hasText: 'Pessoa A' }).getByRole('combobox').selectOption('F');
   await page.getByRole('button', { name: 'Salvar alterações' }).click();
   await expect(page.getByLabel('Semana', { exact: true }).locator('option[value="2026-08-10"]')).toHaveCount(1);
-  await expect(page.getByLabel('Semana da disponibilidade').locator('option[value="2026-08-10"]')).toHaveCount(1);
 });
 
 

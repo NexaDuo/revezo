@@ -322,12 +322,12 @@ export const addRegra     = (i: any, unidadeId: string | null) => inserir('regra
 export const updateRegra  = (id: string, i: any, unidadeId: string | null) => atualizar('regras_config', id, i, unidadeId);
 export const deleteRegra  = (id: string, unidadeId: string | null) => remover('regras_config', id, unidadeId);
 
-export const getProibicoes = (unidadeId: string | null) => listar('proibicoes', 'pessoa_curto', unidadeId);
+export const getProibicoes = (unidadeId: string | null) => listar('proibicoes', 'id', unidadeId);
 export const addProibicao  = (i: any, unidadeId: string | null) => inserir('proibicoes', i, unidadeId);
 export const updateProibicao = (id: string, i: any, unidadeId: string | null) => atualizar('proibicoes', id, i, unidadeId);
 export const deleteProibicao = (id: string, unidadeId: string | null) => remover('proibicoes', id, unidadeId);
 
-export const getDuplasProibidas = (unidadeId: string | null) => listar('duplas_proibidas', 'pessoa_a', unidadeId);
+export const getDuplasProibidas = (unidadeId: string | null) => listar('duplas_proibidas', 'id', unidadeId);
 export const addDuplaProibida   = (i: any, unidadeId: string | null) => inserir('duplas_proibidas', i, unidadeId);
 export const updateDuplaProibida = (id: string, i: any, unidadeId: string | null) => atualizar('duplas_proibidas', id, i, unidadeId);
 export const deleteDuplaProibida = (id: string, unidadeId: string | null) => remover('duplas_proibidas', id, unidadeId);

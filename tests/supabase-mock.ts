@@ -96,15 +96,19 @@ export async function visitanteSemDados(page: Page) {
 }
 
 /** Linhas das tabelas que `carregarConfigUnidade` lê, no formato do banco.
+ *  Pessoas são referenciadas por pessoa_id/pessoa_a_id/pessoa_b_id (equipe.id).
  *  Sítio é referenciado por ID: `colocacoes_fixas.sitio_id`,
  *  `proibicoes.sitio_id` e `equipe.fixo_sitio_id` apontam para `sitios.id`. */
 export interface UnidadeMock {
   equipe: Record<string, unknown>[];
   sitios: Record<string, unknown>[];
   colocacoesFixas?: Record<string, unknown>[];
+  duplasProibidas?: Record<string, unknown>[];
   proibicoes?: Record<string, unknown>[];
   /** Semana com todos disponíveis (OK) para estes nomes curtos. */
   disponiveis: { data_inicio: string; dias: string[] };
+  /** Linhas da disponibilidade por nome; sem isto, todos da equipe ficam OK. */
+  dadosDisponibilidade?: Record<string, string[]>;
 }
 
 /** Serve a configuração da unidade (depois de `autenticarComoCoordenador`)
@@ -114,12 +118,14 @@ export async function mockarUnidade(page: Page, u: UnidadeMock) {
   await page.route('**/rest/v1/equipe*', route => responderPagina(route, comUnidade(u.equipe)));
   await page.route('**/rest/v1/sitios*', route => responderPagina(route, comUnidade(u.sitios)));
   await page.route('**/rest/v1/colocacoes_fixas*', route => responderPagina(route, comUnidade(u.colocacoesFixas ?? [])));
+  await page.route('**/rest/v1/duplas_proibidas*', route => responderPagina(route, comUnidade(u.duplasProibidas ?? [])));
   await page.route('**/rest/v1/proibicoes*', route => responderPagina(route, comUnidade(u.proibicoes ?? [])));
   await page.route('**/rest/v1/disponibilidade_semanal*', route => {
     const semana = {
       unidade_id: FAKE_UNIT_ID, data_inicio: u.disponiveis.data_inicio, data_fim: u.disponiveis.data_inicio,
       dias: u.disponiveis.dias,
-      dados: Object.fromEntries(u.equipe.map(p => [p.nome_curto, u.disponiveis.dias.map(() => 'OK')])),
+      dados: u.dadosDisponibilidade
+        ?? Object.fromEntries(u.equipe.map(p => [p.nome_curto, u.disponiveis.dias.map(() => 'OK')])),
     };
     return route.fulfill({ json: new URL(route.request().url()).searchParams.has('data_inicio') ? semana : [semana] });
   });
@@ -138,7 +144,8 @@ export async function responderPagina(route: Route, dados: any[]) {
   const or = url.searchParams.get('or');
   if (or) {
     const termos = [...or.matchAll(/([a-z_]+)\.ilike\.("(?:\\.|[^"\\])*"|[^,()]+)/g)];
-    linhas = linhas.filter(r => termos.some(([, coluna, valor]) => {
+    const inclusoes = [...or.matchAll(/([a-z_]+)\.in\.\(([^)]*)\)/g)];
+    linhas = linhas.filter(r => inclusoes.some(([, coluna, valores]) => valores.split(',').map(v => v.startsWith('"') ? JSON.parse(v) : v).includes(r[coluna])) || termos.some(([, coluna, valor]) => {
       let texto = valor.startsWith('"') ? JSON.parse(valor) : valor;
       texto = texto.slice(1, -1).replace(/\\([%_\\])/g, '$1').toLocaleLowerCase();
       return String(r[coluna] ?? '').toLocaleLowerCase().includes(texto);

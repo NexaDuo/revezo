@@ -45,7 +45,7 @@ export async function carregarConfigUnidade(
 
   try {
     const [eq, st, rg, pr, dp, cf] = await Promise.all([
-      supabase.from('equipe').select('*').eq('unidade_id', unidadeId).eq('ativo', true).order('ordem'),
+      supabase.from('equipe').select('*').eq('unidade_id', unidadeId).order('ordem'),
       supabase.from('sitios').select('*').eq('unidade_id', unidadeId).order('ordem'),
       supabase.from('regras_config').select('*').eq('unidade_id', unidadeId).order('ordem'),
       supabase.from('proibicoes').select('*').eq('unidade_id', unidadeId),
@@ -56,7 +56,7 @@ export async function carregarConfigUnidade(
     const erro = [eq, st, rg, pr, dp, cf].find(r => r.error)?.error;
     if (erro) throw erro;
 
-    if (!eq.data?.length || !st.data?.length) {
+    if (!eq.data?.some(p => p.ativo) || !st.data?.length) {
       return {
         config: defaultConfig,
         doBanco: false,

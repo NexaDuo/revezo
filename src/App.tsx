@@ -195,6 +195,12 @@ export const App: React.FC = () => {
       }
     }
 
+    const nomesEquipe = new Set(equipe.map(p => p.n));
+    const desconhecidos = Object.keys(disp).filter(n => !nomesEquipe.has(n));
+    const semLinha = equipe.filter(p => !Object.prototype.hasOwnProperty.call(disp, p.n)).map(p => p.n);
+    if (desconhecidos.length) msgs.push(`Disponibilidade com nomes fora da equipe ativa: ${desconhecidos.join(', ')}. Confira a semana e os nomes em Equipe.`);
+    if (semLinha.length) msgs.push(`Pessoas da equipe sem linha de disponibilidade: ${semLinha.join(', ')}. Confira a semana antes de usar a grade.`);
+
     // "Sexta ≠ segunda" só vale com a escala da semana anterior em mãos — a
     // versão ATIVA dela. Sem ela a regra não tem estado: avisar, nunca fingir
     // que aplicou.

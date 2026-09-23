@@ -85,19 +85,26 @@ test.describe('versões da grade — modo demonstração', () => {
     }
     expect(dialogos).toEqual([]);
 
-    // A geração varia: mova uma pessoa da grade exibida para outro dia.
-    const pessoa = page.getByRole('table').first().locator('[draggable="true"]').first();
-    const origem = pessoa.locator('xpath=ancestor::td');
-    const coluna = await origem.evaluate(td => (td as HTMLTableCellElement).cellIndex);
-    const sitio = (await pessoa.locator('xpath=ancestor::tr').locator('td').first().innerText()).trim();
-    const nome = (await pessoa.innerText()).trim();
-    const destino = celula(page, 'manha', sitio, coluna === 1 ? 1 : 0);
-    await pessoa.dragTo(destino);
-    await expect(celula(page, 'manha', sitio, coluna - 1).getByText(nome, { exact: true })).toHaveCount(0);
-    await expect(destino.getByText(nome, { exact: true })).toBeVisible();
+    // Leia só as pessoas da grade exibida, sem os textos de violações.
+    // O helper escolhe outro sítio no mesmo dia, onde a pessoa não está.
+    // Violações de categoria são aceitas pelo editor e marcadas pelo validador.
+    const manha = await page.getByRole('table').first().locator('tbody tr').evaluateAll(linhas =>
+      Object.fromEntries(linhas.map(linha => {
+        const celulas = Array.from(linha.querySelectorAll('td'));
+        return [celulas[0].textContent!.trim(), celulas.slice(1).map(c =>
+          Array.from(c.querySelectorAll('[draggable="true"]'), p => p.textContent!.trim()))];
+      })));
+    const mov = movimentoQueViolaCategoria(configDemo, { manha, tarde: {} });
+    const origem = celula(page, 'manha', mov.de[0], mov.de[1]);
+    const destino = celula(page, 'manha', mov.para[0], mov.para[1]);
+    await expect(destino.getByText(mov.nome, { exact: true })).toHaveCount(0);
+    // Mire no topo: as mensagens de validação podem deixar a célula alta.
+    await origem.getByText(mov.nome, { exact: true }).dragTo(destino, { targetPosition: { x: 8, y: 8 } });
+    await expect(origem.getByText(mov.nome, { exact: true })).toHaveCount(0);
+    await expect(destino.getByText(mov.nome, { exact: true })).toBeVisible();
     await gerar.click();
     expect(dialogos).toEqual(['confirm']);
-    await expect(destino.getByText(nome, { exact: true })).toBeVisible();
+    await expect(destino.getByText(mov.nome, { exact: true })).toBeVisible();
     await expect(banner).toContainText('Grade nova, ainda não salva');
   });
 

@@ -1,9 +1,11 @@
 import { supabase, isSupabaseConfigured } from './supabase';
-import { exigirUnidade } from './db';
+import { exigirUnidade, getEquipes } from './db';
 export const TAMANHO_PAGINA = 10;
 export interface Pagina<T> { linhas: T[]; total: number }
 export interface FiltroPagina {
   pagina: number; busca: string; colunasBusca?: string[]; ordem?: string; crescente?: boolean;
+  /** Colunas UUID cuja busca deve usar o nome curto atual da equipe. */
+  colunasPessoa?: string[];
   /** Critérios extras depois de `ordem`, antes do desempate final por id. */
   desempate?: { coluna: string; crescente: boolean }[];
 }
@@ -18,14 +20,26 @@ export function paginarMemoria<T>(dados: T[], { pagina, busca, colunasBusca = []
   return { linhas: filtrados.slice((pagina - 1) * TAMANHO_PAGINA, pagina * TAMANHO_PAGINA), total: filtrados.length };
 }
 export async function listarPagina<T = any>(tabela: string, unidadeId: string | null, filtro: FiltroPagina, escopo: 'unidade' | 'global' = 'unidade'): Promise<Pagina<T>> {
-  if (!isSupabaseConfigured) return paginarMemoria(dadosDemo(tabela, unidadeId), filtro);
+  const colunasPessoa = filtro.colunasPessoa ?? [];
+  const ids = filtro.busca && colunasPessoa.length
+    ? (await getEquipes(unidadeId)).filter(p => p.nome_curto.toLocaleLowerCase().includes(filtro.busca.toLocaleLowerCase())).map(p => p.id)
+    : [];
+  if (!isSupabaseConfigured) {
+    const dados = dadosDemo(tabela, unidadeId);
+    const filtrados = dados.filter(r => !filtro.busca || (filtro.colunasBusca ?? []).some(c =>
+      colunasPessoa.includes(c) ? ids.includes(r[c]) : String(r[c] ?? '').toLocaleLowerCase().includes(filtro.busca.toLocaleLowerCase())));
+    return paginarMemoria(filtrados, { ...filtro, busca: '' });
+  }
   let query = supabase.from(tabela).select('*', { count: 'exact' });
   if (escopo === 'unidade') query = query.eq('unidade_id', exigirUnidade(unidadeId));
   if (filtro.busca && filtro.colunasBusca?.length) {
     const termo = filtro.busca.replace(/\\/g, '\\\\').replace(/[%_]/g, '\\$&');
     // Quoting protects commas and parentheses in PostgREST's OR grammar.
     const pattern = JSON.stringify(`%${termo}%`);
-    query = query.or(filtro.colunasBusca.map(c => `${c}.ilike.${pattern}`).join(','));
+    const condicoes = filtro.colunasBusca.filter(c => !colunasPessoa.includes(c)).map(c => `${c}.ilike.${pattern}`);
+    if (ids.length) condicoes.push(...colunasPessoa.map(c => `${c}.in.(${ids.map(id => JSON.stringify(id)).join(',')})`));
+    if (!condicoes.length) return { linhas: [], total: 0 };
+    query = query.or(condicoes.join(','));
   }
   query = query.order(filtro.ordem ?? 'id', { ascending: filtro.crescente ?? true });
   for (const d of filtro.desempate ?? []) query = query.order(d.coluna, { ascending: d.crescente });

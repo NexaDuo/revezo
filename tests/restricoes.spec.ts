@@ -35,29 +35,29 @@ test('duplas proibidas e colocações fixas são cadastradas pelo modal', async 
   const secaoDuplas = page.locator('section').filter({ has: page.getByRole('heading', { name: /^Duplas proibidas/ }) });
   await secaoDuplas.getByRole('button', { name: 'Novo', exact: true }).click();
   let modal = page.getByRole('dialog', { name: 'Novo — Duplas proibidas' });
-  await modal.getByLabel('Pessoa', { exact: true }).selectOption('Ana F');
-  await modal.getByLabel('Não junto com', { exact: true }).selectOption('Ana F');
+  await modal.getByLabel('Pessoa', { exact: true }).selectOption({ label: 'Ana F' });
+  await modal.getByLabel('Não junto com', { exact: true }).selectOption({ label: 'Ana F' });
   await modal.getByRole('button', { name: 'Salvar', exact: true }).click();
   await expect(modal.getByRole('alert')).toHaveText('Escolha duas pessoas diferentes.');
   expect(duplas).toHaveLength(0);
 
-  await modal.getByLabel('Não junto com', { exact: true }).selectOption('Bia F');
+  await modal.getByLabel('Não junto com', { exact: true }).selectOption({ label: 'Bia F' });
   await modal.getByRole('button', { name: 'Salvar', exact: true }).click();
   await expect(modal).toHaveCount(0);
-  expect(duplas).toEqual([{ pessoa_a: 'Ana F', pessoa_b: 'Bia F', motivo: null, unidade_id: FAKE_UNIT_ID }]);
+  expect(duplas).toEqual([{ pessoa_a_id: 'p-1', pessoa_b_id: 'p-2', motivo: null, unidade_id: FAKE_UNIT_ID }]);
   await expect(secaoDuplas.getByRole('cell', { name: 'Bia F', exact: true })).toBeVisible();
 
   const secaoFixas = page.locator('section').filter({ has: page.getByRole('heading', { name: /^Colocações fixas/ }) });
   await secaoFixas.getByRole('button', { name: 'Novo', exact: true }).click();
   modal = page.getByRole('dialog', { name: 'Novo — Colocações fixas' });
-  await modal.getByLabel('Pessoa', { exact: true }).selectOption('Bia F');
+  await modal.getByLabel('Pessoa', { exact: true }).selectOption({ label: 'Bia F' });
   await modal.getByLabel('Dia', { exact: true }).selectOption({ label: 'Quarta' });
   await modal.getByLabel('Colocação', { exact: true }).selectOption({ label: 'Fica fora das Ações' });
   await modal.getByLabel('Depende do dia de plantão').check();
   await modal.getByRole('button', { name: 'Salvar', exact: true }).click();
   await expect(modal).toHaveCount(0);
   expect(fixas).toEqual([{
-    pessoa_curto: 'Bia F', dia: 2, turno: 'manha', tipo: 'fora_do', sitio_id: null,
+    pessoa_id: 'p-2', dia: 2, turno: 'manha', tipo: 'fora_do', sitio_id: null,
     descricao: null, depende_de_plantao: true, unidade_id: FAKE_UNIT_ID,
   }]);
   await expect(secaoFixas.getByRole('cell', { name: 'Fora das Ações' })).toBeVisible();
@@ -66,22 +66,22 @@ test('duplas proibidas e colocações fixas são cadastradas pelo modal', async 
   // renomear o sítio não deixe a colocação órfã.
   await secaoFixas.getByRole('button', { name: 'Novo', exact: true }).click();
   modal = page.getByRole('dialog', { name: 'Novo — Colocações fixas' });
-  await modal.getByLabel('Pessoa', { exact: true }).selectOption('Ana F');
+  await modal.getByLabel('Pessoa', { exact: true }).selectOption({ label: 'Ana F' });
   await modal.getByLabel('Sítio (quando fica num sítio)').selectOption({ label: 'Sala Fictícia' });
   await modal.getByRole('button', { name: 'Salvar', exact: true }).click();
   await expect(modal).toHaveCount(0);
-  expect(fixas[1]).toMatchObject({ pessoa_curto: 'Ana F', tipo: 'fixa_sitio', sitio_id: 's-1' });
+  expect(fixas[1]).toMatchObject({ pessoa_id: 'p-1', tipo: 'fixa_sitio', sitio_id: 's-1' });
   expect(fixas[1]).not.toHaveProperty('sitio_nome');
   await expect(secaoFixas.getByRole('cell', { name: 'Sala Fictícia' })).toBeVisible();
 
   const secaoProib = page.locator('section').filter({ has: page.getByRole('heading', { name: /^Proibições por sítio/ }) });
   await secaoProib.getByRole('button', { name: 'Novo', exact: true }).click();
   modal = page.getByRole('dialog', { name: 'Novo — Proibições por sítio' });
-  await modal.getByLabel('Pessoa', { exact: true }).selectOption('Bia F');
+  await modal.getByLabel('Pessoa', { exact: true }).selectOption({ label: 'Bia F' });
   await modal.getByLabel('Sítio', { exact: true }).selectOption({ label: 'Sala Fictícia' });
   await modal.getByRole('button', { name: 'Salvar', exact: true }).click();
   await expect(modal).toHaveCount(0);
-  expect(proibicoes).toEqual([{ pessoa_curto: 'Bia F', sitio_id: 's-1', motivo: null, unidade_id: FAKE_UNIT_ID }]);
+  expect(proibicoes).toEqual([{ pessoa_id: 'p-2', sitio_id: 's-1', motivo: null, unidade_id: FAKE_UNIT_ID }]);
   await expect(secaoProib.getByRole('cell', { name: 'Sala Fictícia' })).toBeVisible();
 });
 

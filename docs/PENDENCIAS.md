@@ -23,6 +23,11 @@ registro do que falta. Item feito sai daqui no mesmo PR que o resolve.
   é indexado pelo nome do sítio; renomear um sítio deixa as versões antigas
   apontando para o nome velho (a migração de sítio por id não cobre a grade).
 
+- **Disponibilidade semanal ainda referencia pessoa por nome.** O JSON de
+  `disponibilidade_semanal.dados` vem da planilha; renomear o nome curto exige
+  revisar/reimportar a semana. A grade avisa nomes fora da equipe ativa e pessoas
+  sem linha de disponibilidade. Migrar esse vínculo para id permanece pendente.
+
 ## Segurança (@sec, baixa)
 - **Semana com versões e nenhuma ativa.** Pela API direta um coordenador pode
   marcar a ativa como substituída (ou apagá-la). A semana abre como "Nenhuma
