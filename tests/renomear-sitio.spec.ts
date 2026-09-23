@@ -58,15 +58,15 @@ test.describe('montarConfig: linhas da unidade -> Config', () => {
     { id: 's3', ordem: 3, nome: 'Ações antigo', nome_tarde: null, categoria_permitida: 'ambos' as const, opcional: false, prioridade_dupla: null },
   ];
   const pessoaLinha = (nome_curto: string, categoria: string, fixo_sitio_id: string | null = null) =>
-    ({ nome_curto, categoria, turno_base: 'ambos', fixo_sitio_id, isento_acoes: false, custo_extra: 0 });
+    ({ id: `p-${nome_curto}`, ativo: true, nome_curto, categoria, turno_base: 'ambos', fixo_sitio_id, isento_acoes: false, custo_extra: 0 });
   const base = {
     equipe: [pessoaLinha('Ana', 'enf'), pessoaLinha('Bia', 'tec'), pessoaLinha('Caio', 'tec', 's2'), pessoaLinha('Duda', 'tec')],
     sitios, regras: [], duplas: [],
-    proibicoes: [{ pessoa_curto: 'Bia', sitio_id: 's2' }],
+    proibicoes: [{ pessoa_id: 'p-Bia', sitio_id: 's2' }],
     fixas: [
-      { pessoa_curto: 'Duda', dia: 0, turno: 'tarde', tipo: 'fixa_sitio', sitio_id: 's2' },
-      { pessoa_curto: 'Duda', dia: 2, turno: 'manha', tipo: 'fixa_sitio', sitio_id: 's2' },
-      { pessoa_curto: 'Ana', dia: 1, turno: 'manha', tipo: 'fixa_sitio', sitio_id: 's3' },
+      { pessoa_id: 'p-Duda', dia: 0, turno: 'tarde', tipo: 'fixa_sitio', sitio_id: 's2' },
+      { pessoa_id: 'p-Duda', dia: 2, turno: 'manha', tipo: 'fixa_sitio', sitio_id: 's2' },
+      { pessoa_id: 'p-Ana', dia: 1, turno: 'manha', tipo: 'fixa_sitio', sitio_id: 's3' },
     ],
   };
 
@@ -106,8 +106,8 @@ test.describe('montarConfig: linhas da unidade -> Config', () => {
     const { config, avisos } = montarConfig({
       ...base,
       equipe: [...base.equipe, pessoaLinha('Eva', 'tec', 'sumiu')],
-      proibicoes: [{ pessoa_curto: 'Bia', sitio_id: 'sumiu' }],
-      fixas: [{ pessoa_curto: 'Ana', dia: 1, turno: 'manha', tipo: 'fixa_sitio', sitio_id: 'sumiu' }],
+      proibicoes: [{ pessoa_id: 'p-Bia', sitio_id: 'sumiu' }],
+      fixas: [{ pessoa_id: 'p-Ana', dia: 1, turno: 'manha', tipo: 'fixa_sitio', sitio_id: 'sumiu' }],
     });
     const texto = avisos.join('\n');
     expect(texto).toContain('Colocações fixas apontam para sítio que não foi encontrado nesta unidade (1 regra): Ana (Terça, manhã)');
@@ -139,7 +139,7 @@ const equipe = nomes.map((nome, i) => ({
 const sitio = (id: string, ordem: number, nome: string, categoria_permitida: string) =>
   ({ id, ordem, nome, nome_tarde: null, categoria_permitida, opcional: false, prioridade_dupla: null });
 const fixa = (i: number, sitio_id: string) => ({
-  id: `cf-${i}`, pessoa_curto: nomes[i % nomes.length], dia: i % 5, turno: i % 2 ? 'tarde' : 'manha',
+  id: `cf-${i}`, pessoa_id: `pessoa-${i % nomes.length}`, dia: i % 5, turno: i % 2 ? 'tarde' : 'manha',
   sitio_id, tipo: 'fixa_sitio', descricao: null, depende_de_plantao: false,
 });
 

@@ -4,7 +4,7 @@ import {
   salvarDisponibilidade,
   excluirDisponibilidade, SemanaDisponibilidade,
 } from '../lib/db';
-import { Save, Trash2, CalendarDays, Info, Plus, X } from 'lucide-react';
+import { Save, Trash2, Info, Plus, X } from 'lucide-react';
 
 /** Os códigos que o solver entende. Qualquer outro vindo da planilha é
  *  preservado e mostrado como desconhecido — não some em silêncio. */
@@ -27,7 +27,7 @@ const fmt = (iso: string) => {
 };
 
 export const DisponibilidadeManager: React.FC = () => {
-  const { podeGravar, unidadeId, semanaInicio, isLoading: unidadeCarregando, disponibilidades: semanas, revalidarSemanas: carregarLista, setSemanaInicio: setSel } = useWorkContext();
+  const { podeGravar, unidadeId, semanaInicio, isLoading: unidadeCarregando, disponibilidades: semanas, revalidarSemanas: carregarLista } = useWorkContext();
   const canEdit = podeGravar;
 
   const sel = semanaInicio;
@@ -91,7 +91,6 @@ export const DisponibilidadeManager: React.FC = () => {
     if (!atual || !confirm(`Excluir a disponibilidade da semana de ${fmt(atual.data_inicio)}?`)) return;
     try {
       await excluirDisponibilidade(atual.data_inicio, unidadeId);
-      setSel(semanaInicio);
       setAtual(null);
       setRascunho({});
       carregarLista();
@@ -117,24 +116,6 @@ export const DisponibilidadeManager: React.FC = () => {
           </p>
         </div>
 
-        {semanas.length > 0 && (
-          <div className="flex items-center gap-2">
-            <CalendarDays className="w-4 h-4 text-slate-400" />
-            <select
-              aria-label="Semana da disponibilidade"
-              value={sel}
-              onChange={e => setSel(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-caneta-500 focus:outline-none"
-            >
-              {!semanas.some(s => s.data_inicio === sel) && <option value={sel}>{fmt(sel)}</option>}
-              {semanas.map(s => (
-                <option key={s.data_inicio} value={s.data_inicio}>
-                  {fmt(s.data_inicio)} a {fmt(s.data_fim)}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
       </div>
 
       {msg && (

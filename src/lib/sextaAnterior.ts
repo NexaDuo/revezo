@@ -1,3 +1,4 @@
+import { linhaSitio, rotuloSitio, type SitioSnapshot } from './sitiosSnapshot';
 import { Escala, SextaAnterior } from './solver/types';
 
 /** Segunda-feira anterior a `semanaInicio` (YYYY-MM-DD), no mesmo formato.
@@ -13,7 +14,7 @@ const normalizar = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g,
 /** Quem estava em cada sítio na sexta da grade salva. Devolve `null` se a
  *  grade não tem sexta — aí a regra "sexta ≠ segunda" não tem de onde tirar
  *  o estado, e quem chama precisa avisar em vez de fingir que aplicou. */
-export function sextaDaEscala(grade: Escala | null | undefined, dias: string[] | null | undefined): SextaAnterior | null {
+export function sextaDaEscala(grade: Escala | null | undefined, dias: string[] | null | undefined, fotografia?: SitioSnapshot[], atuais?: SitioSnapshot[]): SextaAnterior | null {
   if (!grade || !dias?.length) return null;
   const nomes = dias.map(normalizar);
   let idx = nomes.length - 1;
@@ -23,7 +24,13 @@ export function sextaDaEscala(grade: Escala | null | undefined, dias: string[] |
   for (const turno of ['manha', 'tarde'] as const) {
     for (const [sitio, porDia] of Object.entries(grade[turno] || {})) {
       const quem = porDia?.[idx] || [];
-      if (quem.length) sexta[turno][sitio] = [...quem];
+      const antigo = fotografia?.find(s => linhaSitio(s, turno) === sitio);
+      const atual = atuais?.find(s => s.id === antigo?.id && !s.removido);
+      // Com fotografia, só o ID determina a continuidade, inclusive após rename.
+      // Quem chama avisa sobre IDs excluídos/linhas sem correspondência.
+      if (fotografia && atuais && !atual) continue;
+      const nome = atual ? rotuloSitio(atual, turno) : sitio;
+      if (quem.length) sexta[turno][nome] = [...quem];
     }
   }
   return sexta;

@@ -1,5 +1,6 @@
+import { configDaFotografia, fotografarSitios, inferirFotografia, orfaosDaGrade, sitiosDemo, rotuloSitio, type SitioSnapshot } from './sitiosSnapshot';
 import { supabase } from './supabase';
-import { Config } from './solver/types';
+import { Config, Escala } from './solver/types';
 import { defaultConfig } from './solver/defaultConfig';
 import { montarConfig, LinhaSitio } from './montarConfig';
 
@@ -12,6 +13,8 @@ export interface ConfigCarregada {
   avisos: string[];
   /** true = veio do Supabase; false = caiu no defaultConfig do caso-origem. */
   doBanco: boolean;
+  sitios: SitioSnapshot[];
+  atuais: SitioSnapshot[];
 }
 
 /**
@@ -25,27 +28,46 @@ export interface ConfigCarregada {
  */
 export async function carregarConfigUnidade(
   isSupabaseConfigured: boolean,
-  unidadeId: string | null
+  unidadeId: string | null,
+  historica?: { grade: Escala; sitios?: SitioSnapshot[] | null },
+  permitirCadastroVazio = false
 ): Promise<ConfigCarregada> {
   if (!isSupabaseConfigured) {
-    return {
-      config: defaultConfig,
-      doBanco: false,
-      avisos: ['Supabase não configurado: usando a configuração de demonstração do caso-origem.'],
-    };
+    const atuais = sitiosDemo(defaultConfig);
+    const sitios = historica ? historica.sitios ?? inferirFotografia(historica.grade, atuais) : atuais;
+    const avisos = ['Supabase não configurado: usando a configuração de demonstração do caso-origem.'];
+    let config = defaultConfig;
+    if (historica) {
+      const nome = (n: string, t: 'manha' | 'tarde' = 'manha') => {
+        const id = atuais.find(s => rotuloSitio(s, t) === n)?.id;
+        const s = sitios.find(s => s.id === id);
+        if (!s) avisos.push(`Regra aponta para sítio fora da fotografia: ${n}.`);
+        return s ? rotuloSitio(s, t) : n;
+      };
+      const estrutura = montarConfig({ equipe: [], sitios, regras: [], proibicoes: [], duplas: [], fixas: [] }).config;
+      config = { ...defaultConfig, sitios: estrutura.sitios, sitiosTec: estrutura.sitiosTec,
+        acoes: estrutura.acoes, prioridadeDupla: estrutura.prioridadeDupla,
+        equipe: defaultConfig.equipe.map(p => ({ ...p, fixo: p.fixo && nome(p.fixo), fixoTarde: p.fixo && nome(p.fixoTarde || p.fixo, 'tarde') })),
+        fixas: defaultConfig.fixas.map(f => ({ ...f, s: nome(f.s, f.t) })),
+        proibicoes: defaultConfig.proibicoes.map(p => ({ ...p, sitio: nome(p.sitio) })),
+      };
+      limitarConferencia(config, historica.grade, sitios);
+      avisarOrfaos(avisos, historica.grade, sitios, atuais);
+    }
+    return { config, doBanco: false, avisos, sitios, atuais };
   }
 
   if (!unidadeId) {
     return {
       config: defaultConfig,
-      doBanco: false,
+      doBanco: false, sitios: sitiosDemo(defaultConfig), atuais: sitiosDemo(defaultConfig),
       avisos: ['Nenhuma unidade selecionada: usando a configuração de demonstração do caso-origem.'],
     };
   }
 
   try {
     const [eq, st, rg, pr, dp, cf] = await Promise.all([
-      supabase.from('equipe').select('*').eq('unidade_id', unidadeId).eq('ativo', true).order('ordem'),
+      supabase.from('equipe').select('*').eq('unidade_id', unidadeId).order('ordem'),
       supabase.from('sitios').select('*').eq('unidade_id', unidadeId).order('ordem'),
       supabase.from('regras_config').select('*').eq('unidade_id', unidadeId).order('ordem'),
       supabase.from('proibicoes').select('*').eq('unidade_id', unidadeId),
@@ -56,28 +78,43 @@ export async function carregarConfigUnidade(
     const erro = [eq, st, rg, pr, dp, cf].find(r => r.error)?.error;
     if (erro) throw erro;
 
-    if (!eq.data?.length || !st.data?.length) {
+    if (!historica && !permitirCadastroVazio && (!eq.data?.some(p => p.ativo) || !st.data?.length)) {
       return {
         config: defaultConfig,
-        doBanco: false,
+        doBanco: false, sitios: sitiosDemo(defaultConfig), atuais: sitiosDemo(defaultConfig),
         avisos: ['A unidade não tem equipe ou sítios cadastrados: geração bloqueada.'],
       };
     }
 
+    const atuais = fotografarSitios(st.data as LinhaSitio[]);
+    const sitios = historica ? historica.sitios ?? inferirFotografia(historica.grade, atuais) : atuais;
     const { config, avisos } = montarConfig({
-      equipe: eq.data,
-      sitios: st.data as LinhaSitio[],
+      equipe: eq.data || [],
+      sitios,
       regras: rg.data || [],
       proibicoes: pr.data || [],
       duplas: dp.data || [],
       fixas: cf.data || [],
     });
-    return { doBanco: true, avisos, config };
+    if (historica) {
+      limitarConferencia(config, historica.grade, sitios);
+      avisarOrfaos(avisos, historica.grade, sitios, atuais);
+    }
+    return { doBanco: true, avisos, config, sitios, atuais };
   } catch (e: any) {
     return {
       config: defaultConfig,
-      doBanco: false,
+      doBanco: false, sitios: sitiosDemo(defaultConfig), atuais: sitiosDemo(defaultConfig),
       avisos: [`Falha ao ler a configuração da unidade (${e?.message || e}): geração bloqueada.`],
     };
   }
+}
+
+function limitarConferencia(config: Config, grade: Escala, sitios: SitioSnapshot[]) {
+  Object.assign(config, configDaFotografia(config, grade, sitios));
+}
+
+export function avisarOrfaos(avisos: string[], grade: Escala, sitios: SitioSnapshot[], atuais: SitioSnapshot[]) {
+  const orfaos = orfaosDaGrade(grade, sitios, atuais);
+  if (orfaos.length) avisos.push(`A grade salva usa sítios removidos ou sem correspondência inequívoca: ${orfaos.join(', ')} — confira as linhas preservadas antes de salvar.`);
 }

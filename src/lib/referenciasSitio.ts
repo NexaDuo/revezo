@@ -1,12 +1,8 @@
 import { Escala, Sitio } from './solver/types';
 import { canon } from './solver/utils';
 
-/** No banco, regras e pessoas apontam para sítio pelo ID (FK). O solver e o
- *  validador continuam trabalhando por nome, então quem carrega resolve o id
- *  para o nome ATUAL do sítio. Grades salvas, por outro lado, guardam o nome
- *  da época: um sítio renomeado depois vira uma linha "que não existe mais".
- *  Este módulo resolve e diz o que ficou órfão, para quem carrega avisar na
- *  tela em vez de descartar em silêncio. Sem Supabase aqui: é lógica pura. */
+/** Regras e pessoas apontam para sítio pelo ID. A resolução usa os rótulos
+ *  do cadastro atual ao gerar e os da fotografia ao conferir o histórico. */
 
 export interface RotulosSitio { id: string; nome: string; nome_tarde: string | null }
 

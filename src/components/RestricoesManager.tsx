@@ -9,6 +9,7 @@ import {
 import { listarPagina } from '../lib/paginacao';
 import { DataTable } from './DataTable';
 import { RecordForm } from './RecordForm';
+import { nomeDaPessoa } from '../lib/referenciasPessoa';
 import { nomeDoSitio } from '../lib/referenciasSitio';
 
 const DIAS_SEMANA = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
@@ -28,10 +29,11 @@ export function RestricoesManager() {
   // ['sitios', unidade] para que editar a Equipe ou os Sítios as invalide.
   const equipe = useQuery({ queryKey: ['equipe', unidadeId, 'opcoes'], queryFn: () => getEquipes(unidadeId), enabled: habilitado });
   const sitios = useQuery({ queryKey: ['sitios', unidadeId, 'opcoes'], queryFn: () => getSitios(unidadeId), enabled: habilitado });
-  const pessoas: [string, string][] = (equipe.data ?? []).map((p: any) => [p.nome_curto, p.nome_curto]);
+  const pessoas: [string, string][] = (equipe.data ?? []).map((p: any) => [p.id, p.nome_curto + (p.ativo === false ? ' (inativa)' : '')]);
   // O formulário grava o ID do sítio (FK); a tela mostra o nome atual.
   // Renomear um sítio muda o rótulo aqui e não deixa nenhuma regra órfã.
   const opcoesSitios: [string, string][] = (sitios.data ?? []).map((s: any) => [s.id, s.nome]);
+  const nomePessoa = (id: string) => nomeDaPessoa(equipe, id);
   const nomeSitio = (id: string | null) => nomeDoSitio(sitios, id);
   const semOpcoes = equipe.isError || sitios.isError
     ? 'Não foi possível carregar a equipe e os sítios desta unidade para montar o formulário.'
@@ -49,25 +51,25 @@ export function RestricoesManager() {
         titulo="Proibições por sítio"
         descricao="Quem nunca entra em determinado sítio. O solver respeita enquanto a regra Proibições por sítio estiver ligada."
         queryKey={['proibicoes', unidadeId]} enabled={habilitado} podeEditar={podeGravar}
-        fetchPage={f => listarPagina('proibicoes', unidadeId, { ...f, ordem: 'pessoa_curto' })}
+        fetchPage={f => listarPagina('proibicoes', unidadeId, { ...f, ordem: 'id', colunasPessoa: ['pessoa_id'] })}
         getRowId={r => r.id}
         columns={[
-          { key: 'pessoa_curto', header: 'Pessoa', searchable: true },
+          { key: 'pessoa_id', header: 'Pessoa', searchable: true, render: r => nomePessoa(r.pessoa_id) },
           { key: 'sitio_id', header: 'Sítio', render: r => nomeSitio(r.sitio_id) },
           { key: 'motivo', header: 'Motivo', render: r => r.motivo || '—' },
         ]}
         renderForm={(r, fechar) => <>
           {aviso}
           <RecordForm
-            inicial={r ?? { pessoa_curto: '', sitio_id: '', motivo: '' }} fechar={fechar}
+            inicial={r ?? { pessoa_id: '', sitio_id: '', motivo: '' }} fechar={fechar}
             fields={[
-              { key: 'pessoa_curto', label: 'Pessoa', options: [SELECIONE, ...pessoas] },
+              { key: 'pessoa_id', label: 'Pessoa', options: [SELECIONE, ...pessoas] },
               { key: 'sitio_id', label: 'Sítio', options: [SELECIONE, ...opcoesSitios] },
               { key: 'motivo', label: 'Motivo' },
             ]}
             salvar={async d => {
-              exigir(d.pessoa_curto, 'a pessoa'); exigir(d.sitio_id, 'o sítio');
-              const payload = { pessoa_curto: d.pessoa_curto, sitio_id: d.sitio_id, motivo: d.motivo?.trim() || null };
+              exigir(d.pessoa_id, 'a pessoa'); exigir(d.sitio_id, 'o sítio');
+              const payload = { pessoa_id: d.pessoa_id, sitio_id: d.sitio_id, motivo: d.motivo?.trim() || null };
               if (r) await updateProibicao(r.id, payload, unidadeId); else await addProibicao(payload, unidadeId);
               await invalidar('proibicoes');
             }}
@@ -80,26 +82,26 @@ export function RestricoesManager() {
         titulo="Duplas proibidas"
         descricao="Duas pessoas que não devem ficar no mesmo sítio e turno."
         queryKey={['duplas_proibidas', unidadeId]} enabled={habilitado} podeEditar={podeGravar}
-        fetchPage={f => listarPagina('duplas_proibidas', unidadeId, { ...f, ordem: 'pessoa_a' })}
+        fetchPage={f => listarPagina('duplas_proibidas', unidadeId, { ...f, ordem: 'id', colunasPessoa: ['pessoa_a_id', 'pessoa_b_id'] })}
         getRowId={r => r.id}
         columns={[
-          { key: 'pessoa_a', header: 'Pessoa', searchable: true },
-          { key: 'pessoa_b', header: 'Não junto com', searchable: true },
+          { key: 'pessoa_a_id', header: 'Pessoa', searchable: true, render: r => nomePessoa(r.pessoa_a_id) },
+          { key: 'pessoa_b_id', header: 'Não junto com', searchable: true, render: r => nomePessoa(r.pessoa_b_id) },
           { key: 'motivo', header: 'Motivo', render: r => r.motivo || '—' },
         ]}
         renderForm={(r, fechar) => <>
           {aviso}
           <RecordForm
-            inicial={r ?? { pessoa_a: '', pessoa_b: '', motivo: '' }} fechar={fechar}
+            inicial={r ?? { pessoa_a_id: '', pessoa_b_id: '', motivo: '' }} fechar={fechar}
             fields={[
-              { key: 'pessoa_a', label: 'Pessoa', options: [SELECIONE, ...pessoas] },
-              { key: 'pessoa_b', label: 'Não junto com', options: [SELECIONE, ...pessoas] },
+              { key: 'pessoa_a_id', label: 'Pessoa', options: [SELECIONE, ...pessoas] },
+              { key: 'pessoa_b_id', label: 'Não junto com', options: [SELECIONE, ...pessoas] },
               { key: 'motivo', label: 'Motivo' },
             ]}
             salvar={async d => {
-              exigir(d.pessoa_a, 'a pessoa'); exigir(d.pessoa_b, 'com quem ela não pode ficar');
-              if (d.pessoa_a === d.pessoa_b) throw new Error('Escolha duas pessoas diferentes.');
-              const payload = { pessoa_a: d.pessoa_a, pessoa_b: d.pessoa_b, motivo: d.motivo?.trim() || null };
+              exigir(d.pessoa_a_id, 'a pessoa'); exigir(d.pessoa_b_id, 'com quem ela não pode ficar');
+              if (d.pessoa_a_id === d.pessoa_b_id) throw new Error('Escolha duas pessoas diferentes.');
+              const payload = { pessoa_a_id: d.pessoa_a_id, pessoa_b_id: d.pessoa_b_id, motivo: d.motivo?.trim() || null };
               if (r) await updateDuplaProibida(r.id, payload, unidadeId); else await addDuplaProibida(payload, unidadeId);
               await invalidar('duplas_proibidas');
             }}
@@ -112,10 +114,10 @@ export function RestricoesManager() {
         titulo="Colocações fixas"
         descricao="Lugar garantido num dia e turno. Marque quando a colocação depende do dia de plantão da pessoa: se o plantão mudar, ela precisa ser revista."
         queryKey={['colocacoes_fixas', unidadeId]} enabled={habilitado} podeEditar={podeGravar}
-        fetchPage={f => listarPagina('colocacoes_fixas', unidadeId, { ...f, ordem: 'dia' })}
+        fetchPage={f => listarPagina('colocacoes_fixas', unidadeId, { ...f, ordem: 'dia', colunasPessoa: ['pessoa_id'] })}
         getRowId={r => r.id}
         columns={[
-          { key: 'pessoa_curto', header: 'Pessoa', searchable: true },
+          { key: 'pessoa_id', header: 'Pessoa', searchable: true, render: r => nomePessoa(r.pessoa_id) },
           { key: 'dia', header: 'Dia', render: r => DIAS_SEMANA[r.dia] ?? r.dia },
           { key: 'turno', header: 'Turno', render: r => r.turno === 'manha' ? 'Manhã' : 'Tarde' },
           { key: 'tipo', header: 'Colocação', render: r => r.tipo === 'fora_do' ? 'Fora das Ações' : nomeSitio(r.sitio_id) },
@@ -125,10 +127,10 @@ export function RestricoesManager() {
         renderForm={(r, fechar) => <>
           {aviso}
           <RecordForm
-            inicial={r ? { ...r, dia: String(r.dia), sitio_id: r.sitio_id ?? '' } : { pessoa_curto: '', dia: '0', turno: 'manha', tipo: 'fixa_sitio', sitio_id: '', descricao: '', depende_de_plantao: false }}
+            inicial={r ? { ...r, dia: String(r.dia), sitio_id: r.sitio_id ?? '' } : { pessoa_id: '', dia: '0', turno: 'manha', tipo: 'fixa_sitio', sitio_id: '', descricao: '', depende_de_plantao: false }}
             fechar={fechar}
             fields={[
-              { key: 'pessoa_curto', label: 'Pessoa', options: [SELECIONE, ...pessoas] },
+              { key: 'pessoa_id', label: 'Pessoa', options: [SELECIONE, ...pessoas] },
               { key: 'dia', label: 'Dia', options: DIAS_SEMANA.map((d, i) => [String(i), d]) },
               { key: 'turno', label: 'Turno', options: TURNOS },
               { key: 'tipo', label: 'Colocação', options: TIPOS },
@@ -137,10 +139,10 @@ export function RestricoesManager() {
               { key: 'depende_de_plantao', label: 'Depende do dia de plantão', type: 'checkbox' },
             ]}
             salvar={async d => {
-              exigir(d.pessoa_curto, 'a pessoa');
+              exigir(d.pessoa_id, 'a pessoa');
               if (d.tipo === 'fixa_sitio') exigir(d.sitio_id, 'o sítio');
               const payload = {
-                pessoa_curto: d.pessoa_curto, dia: Number(d.dia), turno: d.turno, tipo: d.tipo,
+                pessoa_id: d.pessoa_id, dia: Number(d.dia), turno: d.turno, tipo: d.tipo,
                 // "Fora das Ações" não usa sítio; o banco exige NULL nesse tipo.
                 sitio_id: d.tipo === 'fixa_sitio' ? d.sitio_id : null,
                 descricao: d.descricao?.trim() || null, depende_de_plantao: !!d.depende_de_plantao,

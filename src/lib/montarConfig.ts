@@ -93,12 +93,19 @@ export function pessoaDaLinha(p: any, rotulo: ReturnType<typeof indexarRotulos>)
 export function montarConfig(l: LinhasUnidade): { config: Config; avisos: string[] } {
   const avisos: string[] = [];
   const rotulo = indexarRotulos(l.sitios);
-  const quando = (x: any) => `${x.pessoa_curto} (${DIAS[x.dia] ?? `dia ${x.dia}`}, ${TURNO[x.turno] ?? x.turno})`;
+  const porId = new Map(l.equipe.map(p => [p.id, p]));
+  const pessoa = (id: string, regra: string): string | null => {
+    const p = porId.get(id);
+    if (p && p.ativo !== false) return p.nome_curto;
+    avisos.push(`${regra}: ${p ? `pessoa inativa (${p.nome_curto})` : 'pessoa não encontrada na equipe desta unidade'} — regra ignorada. Confira a pessoa em Regras e Equipe.`);
+    return null;
+  };
+  const quando = (x: any) => `${porId.get(x.pessoa_id)?.nome_curto ?? 'Pessoa não encontrada'} (${DIAS[x.dia] ?? `dia ${x.dia}`}, ${TURNO[x.turno] ?? x.turno})`;
 
   // Posto fixo vale nos dois turnos: guarda o rótulo de cada um, porque o
   // sítio pode ter outro nome à tarde.
   const postosOrfaos: string[] = [];
-  const equipe: Pessoa[] = l.equipe.map((p: any) => {
+  const equipe: Pessoa[] = l.equipe.filter(p => p.ativo !== false).map((p: any) => {
     const pessoa = pessoaDaLinha(p, rotulo);
     if (p.fixo_sitio_id && !pessoa.fixo) postosOrfaos.push(p.nome_curto);
     return pessoa;
@@ -122,29 +129,40 @@ export function montarConfig(l: LinhasUnidade): { config: Config; avisos: string
   // tarde), senão um sítio com `nome_tarde` escaparia à tarde.
   const proibicoesOrfas: string[] = [];
   const proibicoes: Proibicao[] = l.proibicoes.flatMap((x: any) => {
+    const nome = pessoa(x.pessoa_id, 'Proibição');
+    if (!nome) return [];
     const manhaN = rotulo(x.sitio_id, 'manha'), tardeN = rotulo(x.sitio_id, 'tarde');
-    if (!manhaN || !tardeN) { proibicoesOrfas.push(x.pessoa_curto); return []; }
-    return [...new Set([manhaN, tardeN])].map(sitio => ({ pessoa: x.pessoa_curto, sitio }));
+    if (!manhaN || !tardeN) { proibicoesOrfas.push(nome); return []; }
+    return [...new Set([manhaN, tardeN])].map(sitio => ({ pessoa: nome, sitio }));
   });
   if (proibicoesOrfas.length)
     avisos.push(`Proibições apontam para sítio que não foi encontrado nesta unidade: ${proibicoesOrfas.join(', ')} — foram ignoradas. Confira o sítio em Regras.`);
 
-  const duplasProibidas: DuplaProibida[] = l.duplas.map((x: any) => [x.pessoa_a, x.pessoa_b]);
+  const duplasProibidas: DuplaProibida[] = l.duplas.flatMap((x: any) => {
+    const a = pessoa(x.pessoa_a_id, 'Dupla proibida (primeira pessoa)');
+    const b = pessoa(x.pessoa_b_id, 'Dupla proibida (segunda pessoa)');
+    return a && b ? [[a, b] as DuplaProibida] : [];
+  });
 
   const fixasOrfas: string[] = [];
   const fixas: ColocacaoFixa[] = l.fixas
     .filter((x: any) => x.tipo === 'fixa_sitio')
     .flatMap((x: any) => {
+      const nome = pessoa(x.pessoa_id, `Colocação fixa (${quando(x)})`);
+      if (!nome) return [];
       const s = rotulo(x.sitio_id, x.turno);
       if (!s) { fixasOrfas.push(quando(x)); return []; }
-      return [{ p: x.pessoa_curto, d: x.dia, t: x.turno, s }];
+      return [{ p: nome, d: x.dia, t: x.turno, s }];
     });
   if (fixasOrfas.length)
     avisos.push(`Colocações fixas apontam para sítio que não foi encontrado nesta unidade (${fixasOrfas.length} regra${fixasOrfas.length > 1 ? 's' : ''}): ${fixasOrfas.join(', ')} — foram ignoradas. Confira o sítio em Regras.`);
 
   const fixasNaoAcoes: ColocacaoFixaNaoAcoes[] = l.fixas
     .filter((x: any) => x.tipo === 'fora_do')
-    .map((x: any) => ({ p: x.pessoa_curto, d: x.dia, t: x.turno }));
+    .flatMap((x: any) => {
+      const nome = pessoa(x.pessoa_id, `Fora das Ações (${quando(x)})`);
+      return nome ? [{ p: nome, d: x.dia, t: x.turno }] : [];
+    });
 
   const regras = montarRegras(l.regras, avisos);
 

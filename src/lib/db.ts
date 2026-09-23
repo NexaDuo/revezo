@@ -1,3 +1,4 @@
+import type { SitioSnapshot } from './sitiosSnapshot';
 import { dadosDemo } from './paginacao';
 import { queryClient } from './queryClient';
 import { ScheduleResult } from './solver/types';
@@ -44,6 +45,7 @@ export interface EscalaSalva {
   data_fim: string;
   dias: string[];
   grade: ScheduleResult['escala'];
+  sitios?: SitioSnapshot[] | null;
   rodape?: string[];
   violacoes: ScheduleResult['violacoes'];
   score: number;
@@ -60,14 +62,16 @@ export interface DadosEscala {
   data_fim: string;
   dias: string[];
   resultado: ScheduleResult;
+  sitios: SitioSnapshot[];
   rodape?: string[];
 }
 
 const CHAVE_DEMO_ESCALAS = 'demo_escalas';
 
-function campos(d: Pick<DadosEscala, 'resultado' | 'dias'>) {
+function campos(d: Pick<DadosEscala, 'resultado' | 'dias' | 'sitios'>) {
   return {
     dias: d.dias,
+    sitios: d.sitios,
     grade: d.resultado.escala,
     violacoes: d.resultado.violacoes,
     score: Math.round(d.resultado.score),
@@ -116,6 +120,7 @@ export async function salvarEscalaNova(unidadeId: string | null, d: DadosEscala)
       p_data_fim: d.data_fim,
       p_dias: c.dias,
       p_grade: c.grade,
+      p_sitios: c.sitios,
       p_rodape: d.rodape ?? [],
       p_violacoes: c.violacoes,
       p_score: c.score,
@@ -139,7 +144,7 @@ export async function salvarEscalaNova(unidadeId: string | null, d: DadosEscala)
 }
 
 /** Regrava uma versão existente PELO ID. Não cria linha e não troca a ativa. */
-export async function atualizarEscala(id: string, unidadeId: string | null, d: Pick<DadosEscala, 'resultado' | 'dias'>): Promise<EscalaSalva> {
+export async function atualizarEscala(id: string, unidadeId: string | null, d: Pick<DadosEscala, 'resultado' | 'dias' | 'sitios'>): Promise<EscalaSalva> {
   let salva: EscalaSalva;
   if (isSupabaseConfigured) {
     const { data, error } = await supabase
@@ -322,12 +327,12 @@ export const addRegra     = (i: any, unidadeId: string | null) => inserir('regra
 export const updateRegra  = (id: string, i: any, unidadeId: string | null) => atualizar('regras_config', id, i, unidadeId);
 export const deleteRegra  = (id: string, unidadeId: string | null) => remover('regras_config', id, unidadeId);
 
-export const getProibicoes = (unidadeId: string | null) => listar('proibicoes', 'pessoa_curto', unidadeId);
+export const getProibicoes = (unidadeId: string | null) => listar('proibicoes', 'id', unidadeId);
 export const addProibicao  = (i: any, unidadeId: string | null) => inserir('proibicoes', i, unidadeId);
 export const updateProibicao = (id: string, i: any, unidadeId: string | null) => atualizar('proibicoes', id, i, unidadeId);
 export const deleteProibicao = (id: string, unidadeId: string | null) => remover('proibicoes', id, unidadeId);
 
-export const getDuplasProibidas = (unidadeId: string | null) => listar('duplas_proibidas', 'pessoa_a', unidadeId);
+export const getDuplasProibidas = (unidadeId: string | null) => listar('duplas_proibidas', 'id', unidadeId);
 export const addDuplaProibida   = (i: any, unidadeId: string | null) => inserir('duplas_proibidas', i, unidadeId);
 export const updateDuplaProibida = (id: string, i: any, unidadeId: string | null) => atualizar('duplas_proibidas', id, i, unidadeId);
 export const deleteDuplaProibida = (id: string, unidadeId: string | null) => remover('duplas_proibidas', id, unidadeId);
