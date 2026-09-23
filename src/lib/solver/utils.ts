@@ -81,11 +81,6 @@ export function postoFixoNoTurno(p: Pessoa | undefined, turno: "manha" | "tarde"
   return turno === "tarde" ? (p.fixoTarde || p.fixo) : p.fixo;
 }
 
-/** Alguém tem este sítio como posto fixo? Então o sítio é isento de `diasSeguidos`. */
-export function sitioTemPostoFixo(equipe: Pessoa[], sitio: string, turno: "manha" | "tarde"): boolean {
-  return equipe.some(p => { const f = postoFixoNoTurno(p, turno); return !!f && canon(f) === canon(sitio); });
-}
-
 export function sitioProibido(config: Config, n: string, sitio: string): boolean {
   return config.proibicoes.some(x => x.pessoa === n && canon(x.sitio) === canon(sitio));
 }

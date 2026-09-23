@@ -23,15 +23,16 @@ export function indexarRotulos(linhas: RotulosSitio[]) {
 
 /** Nome atual do sítio para as tabelas de Equipe e Regras, que guardam só o id.
  *  Falha de leitura não pode parecer dado corrompido: "não foi possível
- *  carregar" é diferente de "sítio não encontrado". */
+ *  carregar" é diferente de "sítio não encontrado". Se a lista já está em
+ *  cache (um refetch falhou depois), o nome em cache vale mais que o erro. */
 export function nomeDoSitio(
   sitios: { data?: { id: string; nome: string }[]; isLoading: boolean; isError: boolean },
   id: string | null | undefined
 ): string {
   if (!id) return '—';
-  if (sitios.isError) return 'Não foi possível carregar os sítios';
   const s = (sitios.data ?? []).find(x => x.id === id);
   if (s) return s.nome;
+  if (sitios.isError) return 'Não foi possível carregar os sítios';
   return sitios.isLoading ? '…' : 'Sítio não encontrado';
 }
 
