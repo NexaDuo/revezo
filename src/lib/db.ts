@@ -172,11 +172,17 @@ export const deleteRegra  = (id: string, unidadeId: string | null) => remover('r
 
 export const getProibicoes = (unidadeId: string | null) => listar('proibicoes', 'pessoa_curto', unidadeId);
 export const addProibicao  = (i: any, unidadeId: string | null) => inserir('proibicoes', i, unidadeId);
+export const updateProibicao = (id: string, i: any, unidadeId: string | null) => atualizar('proibicoes', id, i, unidadeId);
 export const deleteProibicao = (id: string, unidadeId: string | null) => remover('proibicoes', id, unidadeId);
 
 export const getDuplasProibidas = (unidadeId: string | null) => listar('duplas_proibidas', 'pessoa_a', unidadeId);
 export const addDuplaProibida   = (i: any, unidadeId: string | null) => inserir('duplas_proibidas', i, unidadeId);
+export const updateDuplaProibida = (id: string, i: any, unidadeId: string | null) => atualizar('duplas_proibidas', id, i, unidadeId);
 export const deleteDuplaProibida = (id: string, unidadeId: string | null) => remover('duplas_proibidas', id, unidadeId);
+
+export const addColocacaoFixa    = (i: any, unidadeId: string | null) => inserir('colocacoes_fixas', i, unidadeId);
+export const updateColocacaoFixa = (id: string, i: any, unidadeId: string | null) => atualizar('colocacoes_fixas', id, i, unidadeId);
+export const deleteColocacaoFixa = (id: string, unidadeId: string | null) => remover('colocacoes_fixas', id, unidadeId);
 
 // ---------------------------------------------------------------------------
 // Disponibilidade semanal (o que a planilha .xlsx importa)

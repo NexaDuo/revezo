@@ -79,7 +79,7 @@ test.describe('WorkContext — semana e unidade dirigem o que a tela carrega', (
     // um indicador de carregamento, nunca o erro de unidade ausente — a
     // unidade só está demorando a resolver, não está de fato faltando.
     await expect(page.getByText(/Nenhuma unidade selecionada/)).not.toBeVisible();
-    await expect(page.getByText('Carregando...')).toBeVisible();
+    await expect(page.getByText('Carregando...').first()).toBeVisible();
 
     // Depois que o perfil chega e a unidade resolve, o erro nunca deveria ter
     // aparecido em nenhum momento da espera.
