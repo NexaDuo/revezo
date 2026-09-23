@@ -4,9 +4,6 @@ Até a primeira versão oficial o Revezo roda sem issues/board: este arquivo é 
 registro do que falta. Item feito sai daqui no mesmo PR que o resolve.
 
 ## Produto
-- **Telas para proibições, duplas proibidas e colocações fixas.** O solver já lê
-  essas tabelas por unidade (`src/lib/loadConfig.ts`), mas não há tela para
-  cadastrá-las: hoje só entram por SQL. Fazer já no padrão de tabela (`DataTable` + `RecordForm`).
 - **Anonimizar os dados de exemplo** antes de abrir o repositório:
   `docs/referencia/`, `src/lib/solver/defaultConfig.ts` e os mocks com nome de
   pessoa real.
