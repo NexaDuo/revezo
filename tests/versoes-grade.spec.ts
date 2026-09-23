@@ -70,6 +70,11 @@ test.describe('versões da grade — modo demonstração', () => {
   test('entrar na semana abre a grade ativa salva e arrastar refaz a conferência', async ({ page }) => {
     const grade = generateSchedule(configDemo).escala;
     const mov = movimentoQueViolaCategoria(configDemo, grade);
+    // Simula um sítio renomeado depois da gravação: a grade salva guarda o
+    // nome velho e não tem a linha do nome novo.
+    const renomeado = configDemo.sitios.manha.find(s => s.quem === 'tec' && s.n !== mov.de[0])!.n;
+    grade.manha[`${renomeado} (nome antigo)`] = grade.manha[renomeado];
+    delete grade.manha[renomeado];
     const ativa = {
       id: '0a0a0a0a-0000-4000-8000-000000000001', titulo: 'ativa', data_inicio: SEMANA, data_fim: '2026-08-07',
       dias: DIAS, grade, violacoes: [], score: 0, ativa: true, substituida_em: null,
@@ -84,6 +89,10 @@ test.describe('versões da grade — modo demonstração', () => {
     await expect(banner).toHaveAttribute('data-versao-id', ativa.id);
     await expect(page.getByTestId('indicador-score')).toContainText(/Score: \d+/);
     await expect(page.getByText(mov.msg)).toHaveCount(0);
+    await expect(page.getByText(
+      `A grade salva usa sítios que não existem mais: ${renomeado} (nome antigo) — as pessoas nessas linhas não são conferidas.`)).toBeVisible();
+    // A linha do nome atual entra vazia, para o validador ter o que percorrer.
+    await expect(celula(page, 'manha', renomeado, 0)).toBeVisible();
 
     await arrastar(page, mov.nome, mov.de, mov.para);
     await expect(celula(page, 'manha', mov.para[0], mov.para[1])).toContainText(mov.msg);
@@ -230,7 +239,8 @@ test.describe('versões da grade — Supabase', () => {
   test('abre a ativa ao entrar, versão nova por RPC, regravar por id e "Tornar ativa"', async ({ page }) => {
     const ANTIGA = '0a0a0a0a-0000-4000-8000-0000000000aa';
     const banco = await bancoSimulado(page, [{
-      id: ANTIGA, titulo: 'antiga', data_inicio: SEMANA, data_fim: '2026-08-07', dias: DIAS, grade: gradeManual(),
+      id: ANTIGA, titulo: 'antiga', data_inicio: SEMANA, data_fim: '2026-08-07', dias: DIAS,
+      grade: (g => ({ ...g, manha: { ...g.manha, 'Sala Extinta': [['Íris Lunar'], [], [], [], []] } }))(gradeManual()),
       violacoes: [], score: 0, status: 'validada', ativa: true, substituida_em: null,
       created_at: '2026-08-01T10:00:00.000Z', updated_at: '2026-08-01T10:00:00.000Z',
     }]);
@@ -242,6 +252,7 @@ test.describe('versões da grade — Supabase', () => {
     await expect(banner).toContainText('Versão ativa');
     await expect(banner).toHaveAttribute('data-versao-id', ANTIGA);
     await expect(page.getByText(msg)).toHaveCount(0);
+    await expect(page.getByText('A grade salva usa sítios que não existem mais: Sala Extinta — as pessoas nessas linhas não são conferidas.')).toBeVisible();
     await arrastar(page, 'Ciro Cometa', ['Cuidados demonstrativos', 0], ['Consulta demonstrativa', 0]);
     await expect(celula(page, 'manha', 'Consulta demonstrativa', 0)).toContainText(msg);
 

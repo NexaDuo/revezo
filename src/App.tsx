@@ -25,6 +25,7 @@ import { formatarSemana } from './lib/datas';
 import { fetchEquipe } from './lib/fetchData';
 import { generateSchedule, defaultConfig, Escala, Violacao, validar } from './lib/solver';
 import type { Config } from './lib/solver/types';
+import { canon } from './lib/solver/utils';
 import { ScheduleGrid } from './components/ScheduleGrid';
 import { ExcelImportModal } from './components/ExcelImportModal';
 import { EquipeManager } from './components/EquipeManager';
@@ -45,6 +46,19 @@ function somarDias(iso: string, n: number) {
   const d = new Date(`${iso}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
+}
+/** Sítios que a grade salva tem e a unidade não tem mais (renomeado ou
+ *  apagado depois da gravação). O validador só percorre os sítios da unidade,
+ *  então quem está nessas linhas não é conferido — isso tem que ir para a tela.
+ *  TODO: trocar por `sitiosForaDaUnidade` de `src/lib/referenciasSitio.ts`
+ *  quando o PR #33 (fix/renomear-sitio) entrar; a semântica é a mesma. */
+function sitiosForaDaUnidade(grade: Partial<Escala> | null | undefined, sitios: Config['sitios']): string[] {
+  const fora = new Set<string>();
+  for (const turno of ['manha', 'tarde'] as const) {
+    const existentes = new Set(sitios[turno].map(s => canon(s.n)));
+    for (const s of Object.keys(grade?.[turno] || {})) if (!existentes.has(canon(s))) fora.add(s);
+  }
+  return [...fora];
 }
 const dataHora = (iso?: string | null) => iso
   ? new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
@@ -216,10 +230,25 @@ export const App: React.FC = () => {
           'A grade salva foi aberta sem a configuração da semana: arrastar NÃO refaz a conferência, e as marcas mostradas são as da hora em que ela foi salva.']);
         return;
       }
-      const vs = validar(m.config, salva.grade);
+      // Sítio criado (ou renomeado) depois da gravação não tem linha na grade
+      // salva: entra vazio, senão o validador não tem o que percorrer.
+      const grade: Escala = JSON.parse(JSON.stringify(salva.grade ?? {}));
+      for (const turno of ['manha', 'tarde'] as const) {
+        grade[turno] = grade[turno] || {};
+        for (const s of m.config.sitios[turno]) grade[turno][s.n] = grade[turno][s.n] || m.config.dias.map(() => []);
+      }
+      let vs: Violacao[];
+      try { vs = validar(m.config, grade); }
+      catch (e: any) {
+        setAvisos([...m.avisos, `Não consegui conferir a grade salva (${e?.message || e}): arrastar NÃO refaz a conferência.`]);
+        return;
+      }
       const agora = pontuar(vs);
-      setCurrentConfig(m.config); setViolacoes(vs); setScore(agora);
-      setAvisos([...m.avisos, ...(agora !== salva.score
+      const orfaos = sitiosForaDaUnidade(salva.grade, m.config.sitios);
+      setEscala(grade); setCurrentConfig(m.config); setViolacoes(vs); setScore(agora);
+      setAvisos([...m.avisos,
+        ...(orfaos.length ? [`A grade salva usa sítios que não existem mais: ${orfaos.join(', ')} — as pessoas nessas linhas não são conferidas.`] : []),
+        ...(agora !== salva.score
         ? [`Conferência refeita com as regras e a disponibilidade de agora: score salvo ${salva.score}, agora ${agora}.`] : [])]);
     })();
     return () => { cancelado = true; };
