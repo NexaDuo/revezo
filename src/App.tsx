@@ -799,14 +799,14 @@ export const App: React.FC = () => {
         isOpen={isExcelModalOpen}
         onClose={() => setIsExcelModalOpen(false)}
         baseEquipe={equipeBase.data ?? SEM_EQUIPE}
-        onApply={async (equipe, disp, dias, semana, presumidos) => {
-
-
+        onApply={async (equipe, disp, dias, semana, presumidos, naoCasados) => {
           // A disponibilidade importada precisa sobreviver ao reload: até aqui
           // ela vivia só no estado do React. Reimportar a mesma semana
           // sobrescreve (chave: unidade + data_inicio).
           if (!podeGravar) throw new Error('Modo visitante: entre para salvar');
           const extras: string[] = [];
+          if (naoCasados.length)
+            extras.push(`Na planilha, mas sem correspondência única na Equipe: ${naoCasados.join('; ')}. Entraram com o nome da planilha, sem posto fixo nem regras da pessoa. Confira a coluna Nome em Equipe.`);
           if (presumidos.length)
             extras.push(`Estão na Equipe mas não na planilha, e entraram como disponíveis a semana toda: ${presumidos.join(', ')}.`);
           if (equipeBase.isError)

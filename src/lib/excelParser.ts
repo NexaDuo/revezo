@@ -99,28 +99,97 @@ export function semanasDoMes(ano: number, mes: number) {
 
 const semAcento = (s: string) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
 
-/** Nome curto de quem aparece na planilha, pela Equipe da unidade: primeiro
- *  pelo nome como está cadastrado (`completo`, o mais longo que casar), depois
- *  pelo primeiro nome igual ao nome curto. O apelido é dado da unidade. */
-export function nomeCurto(txt: string, equipe: Pessoa[]): string | null {
-  const t = semAcento(txt);
-  const porNome = equipe
-    .filter(p => { const c = p.completo && semAcento(p.completo); return !!c && (t === c || t.startsWith(c + ' ')); })
-    .sort((a, b) => b.completo!.length - a.completo!.length)[0];
-  if (porNome) return porNome.n;
-  const prim = txt.trim().split(/\s+/)[0];
-  return equipe.find(p=>semAcento(p.n)===semAcento(prim))?.n || null;
+const palavras = (s: string) => semAcento(s).replace(/[.,]/g, " ").split(/\s+/).filter(Boolean);
+
+/** Quantas palavras do nome cadastrado casam com o nome da planilha; 0 = não
+ *  casa. A primeira palavra tem que ser igual; as demais aparecem na mesma
+ *  ordem, podendo pular palavras da planilha (o cadastro costuma omitir
+ *  sobrenomes do meio). Uma letra solta é inicial: "K" casa com "Kaufmann".
+ *  Palavra inteira sempre: "Lia" não casa com "Liana". */
+function casarPalavras(cadastro: string[], planilha: string[]): number {
+  if (!cadastro.length || cadastro[0] !== planilha[0]) return 0;
+  let j = 1;
+  for (let i = 1; i < cadastro.length; i++) {
+    const w = cadastro[i];
+    while (j < planilha.length && planilha[j] !== w && !(w.length === 1 && planilha[j].startsWith(w))) j++;
+    if (j >= planilha.length) return 0;
+    j++;
+  }
+  return cadastro.length;
 }
 
-export function nomesCurtos(pessoas: any[], equipe: Pessoa[]) {
-  const base = pessoas.map(p=> nomeCurto(p.nome, equipe) || p.nome.trim().split(/\s+/)[0]);
+/** Resultado de casar uma linha da planilha com a Equipe da unidade. */
+export type Casamento =
+  | { curto: string; na: "equipe" }
+  | { curto: string; na: "fora" }
+  | { curto: string; na: "ambiguo"; candidatos: string[] };
+
+/** Quem da Equipe casa com o nome da planilha, pelo nome cadastrado
+ *  (`completo`) ou pelo nome curto. Vence quem casa mais palavras; empate
+ *  entre pessoas diferentes é ambíguo e não se chuta. */
+function candidatos(txt: string, equipe: Pessoa[]): string[] {
+  const plan = palavras(txt);
+  let melhor = 0, quem: string[] = [];
+  for (const p of equipe) {
+    const nota = Math.max(
+      p.completo ? casarPalavras(palavras(p.completo), plan) : 0,
+      casarPalavras(palavras(p.n), plan),
+    );
+    if (!nota || nota < melhor) continue;
+    if (nota > melhor) { melhor = nota; quem = []; }
+    if (!quem.includes(p.n)) quem.push(p.n);
+  }
+  return quem;
+}
+
+/** Nome curto de quem aparece na planilha, pela Equipe da unidade. `null`
+ *  quando ninguém casa ou quando mais de uma pessoa casa igualmente. O
+ *  apelido é dado da unidade (coluna `nome` da Equipe), nunca código. */
+export function nomeCurto(txt: string, equipe: Pessoa[]): string | null {
+  const c = candidatos(txt, equipe);
+  return c.length === 1 ? c[0] : null;
+}
+
+/** Casa cada linha da planilha com a Equipe. Quem não casa (ou casa com mais
+ *  de uma pessoa, ou disputa a mesma pessoa com outra linha) fica com um nome
+ *  derivado da planilha e marcado, para a tela dizer isso em vez de trocar a
+ *  disponibilidade de alguém em silêncio. */
+export function casarComEquipe(pessoas: { nome: string }[], equipe: Pessoa[]): Casamento[] {
+  const achados = pessoas.map(p => candidatos(p.nome, equipe));
+  const usos: Record<string, number> = {};
+  achados.forEach(c => { if (c.length === 1) usos[c[0]] = (usos[c[0]] || 0) + 1; });
+
+  const prim = (nome: string) => nome.trim().split(/\s+/)[0];
+  const base = pessoas.map(p => prim(p.nome));
   const conta: Record<string, number> = {};
-  base.forEach(n=> conta[n] = (conta[n]||0)+1);
-  return base.map((n,i)=>{
-    if(conta[n]===1) return n;
+  achados.forEach((c, i) => { if (!(c.length === 1 && usos[c[0]] === 1)) conta[base[i]] = (conta[base[i]] || 0) + 1; });
+  const doCadastro = new Set(equipe.map(p => p.n));
+  const derivado = (i: number) => {
     const partes = pessoas[i].nome.trim().split(/\s+/);
-    return `${n} ${partes[partes.length-1][0].toUpperCase()}`;
+    const n = conta[base[i]] > 1 ? `${base[i]} ${partes[partes.length - 1][0].toUpperCase()}` : base[i];
+    // Nunca herdar o nome curto de outra pessoa da Equipe (e o posto fixo dela).
+    return doCadastro.has(n) ? pessoas[i].nome.trim() : n;
+  };
+
+  return achados.map((c, i): Casamento => {
+    if (c.length === 1 && usos[c[0]] === 1) return { curto: c[0], na: "equipe" };
+    if (c.length === 0) return { curto: derivado(i), na: "fora" };
+    return { curto: derivado(i), na: "ambiguo", candidatos: c };
   });
+}
+
+export function nomesCurtos(pessoas: { nome: string }[], equipe: Pessoa[]) {
+  return casarComEquipe(pessoas, equipe).map(c => c.curto);
+}
+
+/** Texto do aviso para as linhas que não viraram ninguém da Equipe. */
+export function avisoNaoCasados(pessoas: { nome: string }[], casamentos: Casamento[]): string[] {
+  return casamentos.flatMap((c, i) =>
+    c.na === "fora" ? [`${pessoas[i].nome} (não está na Equipe)`]
+    : c.na === "ambiguo" ? [c.candidatos.length > 1
+        ? `${pessoas[i].nome} (pode ser ${c.candidatos.join(" ou ")})`
+        : `${pessoas[i].nome} (outra linha da planilha também casa com ${c.candidatos[0]})`]
+    : []);
 }
 
 export async function parseExcel(file: File) {

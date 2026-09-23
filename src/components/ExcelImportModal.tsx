@@ -8,7 +8,8 @@ import {
   MESES,
   descobrirAno,
   semanasDoMes,
-  nomesCurtos,
+  casarComEquipe,
+  avisoNaoCasados,
   classificar,
 } from '../lib/excelParser';
 
@@ -21,7 +22,8 @@ interface ExcelImportModalProps {
     disp: Record<string, StatusDisponibilidade[]>,
     diasRotulos: string[],
     semana: { data_inicio: string; data_fim: string; origem: { arquivo?: string; aba?: string; semana?: string } },
-    presumidos: string[]
+    presumidos: string[],
+    naoCasados: string[]
   ) => void;
 }
 
@@ -98,8 +100,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ isOpen, onCl
       if (selSemana >= sems.length) setSelSemana(0);
       
       const sem = sems[selSemana] || sems[0];
-      const curtos = nomesCurtos(info.pessoas, baseEquipe);
-      
+      const casamentos = casarComEquipe(info.pessoas, baseEquipe);
+
       const cods = new Set<string>();
       const linhas = info.pessoas.map((p: any, i: number) => {
         const status = sem.dias.map((d: number) => {
@@ -107,7 +109,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ isOpen, onCl
           if (bruto) cods.add(bruto.toUpperCase());
           return classificar(bruto);
         });
-        return { p, curto: curtos[i], status };
+        return { p, curto: casamentos[i].curto, casamento: casamentos[i], status };
       });
       
       setLinhasParsed(linhas);
@@ -132,8 +134,9 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ isOpen, onCl
     const cadastro = new Map(baseEquipe.map(p => [p.n, p]));
     for (const p of newEquipe) {
       const c = cadastro.get(p.n);
-      if (c) Object.assign(p, { fixo: c.fixo, isentoAcoes: c.isentoAcoes, custoExtra: c.custoExtra });
+      if (c) Object.assign(p, { fixo: c.fixo, fixoTarde: c.fixoTarde, isentoAcoes: c.isentoAcoes, custoExtra: c.custoExtra });
     }
+    const naoCasados = avisoNaoCasados(linhasParsed.map(l => l.p), linhasParsed.map(l => l.casamento));
     const presumidos = baseEquipe.filter(p => !newEquipe.some(x => x.n === p.n));
     newEquipe.push(...presumidos.map(p => ({ ...p })));
     
@@ -149,7 +152,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ isOpen, onCl
       data_inicio: sem.inicio,
       data_fim: sem.fim,
       origem: { arquivo: file?.name, aba: String(selAba ?? ''), semana: sem.label },
-    }, presumidos.map(p => p.n));
+    }, presumidos.map(p => p.n), naoCasados);
     onClose();
   };
 
@@ -244,6 +247,16 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ isOpen, onCl
                         <td className="px-3 py-2">
                           <span className="font-semibold text-slate-800">{l.curto}</span>
                           <span className="ml-1 text-[10px] text-slate-400 uppercase">{l.p.c === 'enf' ? 'enf' : 'téc'}</span>
+                          {l.casamento.na === 'fora' && (
+                            <span data-testid="importar-fora-equipe" className="block text-[11px] text-red-600">não está na Equipe</span>
+                          )}
+                          {l.casamento.na === 'ambiguo' && (
+                            <span data-testid="importar-ambiguo" className="block text-[11px] text-red-600">
+                              {l.casamento.candidatos.length > 1
+                                ? `ambíguo: ${l.casamento.candidatos.join(' ou ')}`
+                                : `outra linha também casa com ${l.casamento.candidatos[0]}`}
+                            </span>
+                          )}
                         </td>
                         <td className="px-3 py-2 text-center text-slate-500">{l.p.t === 'noite' ? '16h' : l.p.t}</td>
                         {l.status.map((s: string, idx: number) => (
