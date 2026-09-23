@@ -48,8 +48,9 @@ Toda regra específica de pessoa ou unidade é **dado**, nunca código.
     src/lib/solver/solver.ts src/lib/solver/validator.ts src/lib/solver/utils.ts
   ```
 
-  tem que voltar vazio. O próximo passo é esses campos virem de `regras_config` por
-  unidade em vez de `defaultConfig.ts`.
+  tem que voltar vazio. Com Supabase, esses campos já vêm das tabelas da unidade
+  (`src/lib/loadConfig.ts`); `defaultConfig.ts` só vale no modo demonstração. O que
+  falta está em `docs/PENDENCIAS.md`.
 - **Falhar alto, sempre.** Violação silenciosa é o pior modo de falha do domínio: a
   escala vai impressa para a parede. Todo componente novo mostra o que não conseguiu
   resolver, na tela. Nada de defaults que escondem incerteza.
@@ -99,8 +100,9 @@ Definição de pronto:
   O gargalo nunca foi a geração — foi a leitura.
 - **A regra "sexta ≠ segunda" exige estado.** Precisa da escala da semana *anterior* como
   entrada, o que obriga o produto a ter histórico. Regra aparentemente inócua que muda a
-  arquitetura. Hoje `config.sextaAnterior` nunca é preenchido: a regra existe no código e
-  está morta na prática.
+  arquitetura. `config.sextaAnterior` vem da escala salva da semana anterior
+  (`src/lib/sextaAnterior.ts`); sem ela, a geração avisa na tela que a regra não foi
+  aplicada.
 - **Posto fixo precisa de isenção explícita.** Alguém fixo num sítio todos os dias viola
   "não repetir sítio em dias seguidos". Sem a isenção, o solver nunca fecha.
 - **Guloso + ~350 reinícios ganha de backtracking** nesta escala de problema (9 sítios ×
