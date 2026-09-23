@@ -1,12 +1,15 @@
 import { useState, type ReactNode } from 'react';
 import { mensagemErroGravacao } from '../lib/errosGravacao';
+import { useMarcarSujo } from '../lib/modal';
 export interface FormField { key: string; label: string; type?: 'text' | 'number' | 'checkbox' | 'email'; options?: [string, string][]; required?: boolean; disabled?: boolean }
 /** Form state lives inside the modal, including write failures. */
 export function RecordForm({ inicial, fields, salvar, excluir, fechar, children, textoSalvar = 'Salvar', textoExcluir = 'Excluir' }: {
   inicial: any; fields: FormField[]; salvar: (dados: any) => Promise<void>; excluir?: () => Promise<void>; fechar: () => void;
   children?: ReactNode; textoSalvar?: string; textoExcluir?: string;
 }) {
-  const [dados, setDados] = useState({ ...inicial }); const [erro, setErro] = useState(''); const [ocupado, setOcupado] = useState(false);
+  const [dados, setDados] = useState({ ...inicial });
+  const [original] = useState(() => JSON.stringify({ ...inicial }));
+  useMarcarSujo(JSON.stringify(dados) !== original); const [erro, setErro] = useState(''); const [ocupado, setOcupado] = useState(false);
   async function executar(acao: () => Promise<void>) {
     if (ocupado) return;
     setOcupado(true); setErro('');

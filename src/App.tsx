@@ -317,7 +317,7 @@ export const App: React.FC = () => {
   return (
     <SidebarProvider>
     <div className="min-h-screen flex flex-col">
-      {/* Cabeçalho = título da folha: hospital e semana, como no papel. */}
+      {/* Cabeçalho = título da folha: unidade de saúde e semana, como no papel. */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 print:hidden">
         <div className="px-4 sm:px-6 h-28 md:h-16 flex flex-wrap md:flex-nowrap items-center gap-x-6 gap-y-1 py-2">
           <div className="flex items-center gap-2 md:w-52 md:shrink-0">
@@ -328,13 +328,13 @@ export const App: React.FC = () => {
 
           <div className="order-last md:order-none w-full md:w-auto min-w-0 flex items-end gap-4">
             <label className="min-w-0 flex-1 md:flex-none">
-              <span className="sr-only md:not-sr-only block text-xs text-slate-500">Hospital</span>
+              <span className="sr-only md:not-sr-only block text-xs text-slate-500">Unidade de saúde</span>
               {podeEscolherUnidade ? (
-                <select aria-label="Hospital" value={unidadeId ?? ''} onChange={e => setUnidadeId(e.target.value)} className="w-full md:max-w-56 truncate border-0 bg-transparent p-0 pr-6 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-caneta-500 rounded-sm">
+                <select aria-label="Unidade de saúde" value={unidadeId ?? ''} onChange={e => setUnidadeId(e.target.value)} className="w-full md:max-w-56 truncate border-0 bg-transparent p-0 pr-6 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-caneta-500 rounded-sm">
                   {!unidadeId && <option value="">Selecione</option>}
                   {unidadesDisponiveis.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
                 </select>
-              ) : <span className="block truncate md:max-w-56 text-sm font-bold">{unidadesDisponiveis.find(u => u.id === unidadeId)?.nome ?? (unidadeCarregando ? 'Carregando hospital...' : 'Entre para escolher hospital')}</span>}
+              ) : <span className="block truncate md:max-w-56 text-sm font-bold">{unidadesDisponiveis.find(u => u.id === unidadeId)?.nome ?? (unidadeCarregando ? 'Carregando unidade de saúde...' : 'Entre para escolher a unidade de saúde')}</span>}
             </label>
             <div className="shrink-0">
             <span aria-hidden="true" className="hidden md:block pl-7 text-xs text-slate-500">Semana</span>
@@ -433,7 +433,7 @@ export const App: React.FC = () => {
       <Sidebar />
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 min-w-0 max-w-7xl w-full px-4 sm:px-6 lg:px-10 py-6 space-y-6">
+      <main className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-10 py-6 space-y-6">
         {contextoInvalido ? <p role="alert">Corrija o contexto da URL para continuar.</p> : <>
         {!unidadeCarregando && !erroUnidade && unidadeId && !disponibilidades.some(s => s.data_inicio === semanaInicio) && tela !== 'disponibilidade' && (
           <p role="status" data-print-hide className="rounded-md border-l-4 border-marca bg-white px-3 py-2 text-sm text-slate-800 print:hidden">Nenhuma disponibilidade salva para a semana de {semanaInicio}. Importe a planilha ou confira a Disponibilidade.</p>
