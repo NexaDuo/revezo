@@ -9,6 +9,7 @@ import {
 import { listarPagina } from '../lib/paginacao';
 import { DataTable } from './DataTable';
 import { RecordForm } from './RecordForm';
+import { nomeDoSitio } from '../lib/referenciasSitio';
 
 const DIAS_SEMANA = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 const TURNOS: [string, string][] = [['manha', 'Manhã'], ['tarde', 'Tarde']];
@@ -28,7 +29,10 @@ export function RestricoesManager() {
   const equipe = useQuery({ queryKey: ['equipe', unidadeId, 'opcoes'], queryFn: () => getEquipes(unidadeId), enabled: habilitado });
   const sitios = useQuery({ queryKey: ['sitios', unidadeId, 'opcoes'], queryFn: () => getSitios(unidadeId), enabled: habilitado });
   const pessoas: [string, string][] = (equipe.data ?? []).map((p: any) => [p.nome_curto, p.nome_curto]);
-  const nomesSitios: [string, string][] = (sitios.data ?? []).map((s: any) => [s.nome, s.nome]);
+  // O formulário grava o ID do sítio (FK); a tela mostra o nome atual.
+  // Renomear um sítio muda o rótulo aqui e não deixa nenhuma regra órfã.
+  const opcoesSitios: [string, string][] = (sitios.data ?? []).map((s: any) => [s.id, s.nome]);
+  const nomeSitio = (id: string | null) => nomeDoSitio(sitios, id);
   const semOpcoes = equipe.isError || sitios.isError
     ? 'Não foi possível carregar a equipe e os sítios desta unidade para montar o formulário.'
     : equipe.data && !equipe.data.length ? 'Cadastre a equipe da unidade antes de criar restrições.' : null;
@@ -49,21 +53,21 @@ export function RestricoesManager() {
         getRowId={r => r.id}
         columns={[
           { key: 'pessoa_curto', header: 'Pessoa', searchable: true },
-          { key: 'sitio_nome', header: 'Sítio', searchable: true },
+          { key: 'sitio_id', header: 'Sítio', render: r => nomeSitio(r.sitio_id) },
           { key: 'motivo', header: 'Motivo', render: r => r.motivo || '—' },
         ]}
         renderForm={(r, fechar) => <>
           {aviso}
           <RecordForm
-            inicial={r ?? { pessoa_curto: '', sitio_nome: '', motivo: '' }} fechar={fechar}
+            inicial={r ?? { pessoa_curto: '', sitio_id: '', motivo: '' }} fechar={fechar}
             fields={[
               { key: 'pessoa_curto', label: 'Pessoa', options: [SELECIONE, ...pessoas] },
-              { key: 'sitio_nome', label: 'Sítio', options: [SELECIONE, ...nomesSitios] },
+              { key: 'sitio_id', label: 'Sítio', options: [SELECIONE, ...opcoesSitios] },
               { key: 'motivo', label: 'Motivo' },
             ]}
             salvar={async d => {
-              exigir(d.pessoa_curto, 'a pessoa'); exigir(d.sitio_nome, 'o sítio');
-              const payload = { pessoa_curto: d.pessoa_curto, sitio_nome: d.sitio_nome, motivo: d.motivo?.trim() || null };
+              exigir(d.pessoa_curto, 'a pessoa'); exigir(d.sitio_id, 'o sítio');
+              const payload = { pessoa_curto: d.pessoa_curto, sitio_id: d.sitio_id, motivo: d.motivo?.trim() || null };
               if (r) await updateProibicao(r.id, payload, unidadeId); else await addProibicao(payload, unidadeId);
               await invalidar('proibicoes');
             }}
@@ -114,31 +118,31 @@ export function RestricoesManager() {
           { key: 'pessoa_curto', header: 'Pessoa', searchable: true },
           { key: 'dia', header: 'Dia', render: r => DIAS_SEMANA[r.dia] ?? r.dia },
           { key: 'turno', header: 'Turno', render: r => r.turno === 'manha' ? 'Manhã' : 'Tarde' },
-          { key: 'tipo', header: 'Colocação', render: r => r.tipo === 'fora_do' ? 'Fora das Ações' : r.sitio_nome },
+          { key: 'tipo', header: 'Colocação', render: r => r.tipo === 'fora_do' ? 'Fora das Ações' : nomeSitio(r.sitio_id) },
           { key: 'descricao', header: 'Descrição', searchable: true, render: r => r.descricao || '—' },
           { key: 'depende_de_plantao', header: 'Depende do plantão', render: r => r.depende_de_plantao ? 'Sim' : 'Não' },
         ]}
         renderForm={(r, fechar) => <>
           {aviso}
           <RecordForm
-            inicial={r ? { ...r, dia: String(r.dia) } : { pessoa_curto: '', dia: '0', turno: 'manha', tipo: 'fixa_sitio', sitio_nome: '', descricao: '', depende_de_plantao: false }}
+            inicial={r ? { ...r, dia: String(r.dia), sitio_id: r.sitio_id ?? '' } : { pessoa_curto: '', dia: '0', turno: 'manha', tipo: 'fixa_sitio', sitio_id: '', descricao: '', depende_de_plantao: false }}
             fechar={fechar}
             fields={[
               { key: 'pessoa_curto', label: 'Pessoa', options: [SELECIONE, ...pessoas] },
               { key: 'dia', label: 'Dia', options: DIAS_SEMANA.map((d, i) => [String(i), d]) },
               { key: 'turno', label: 'Turno', options: TURNOS },
               { key: 'tipo', label: 'Colocação', options: TIPOS },
-              { key: 'sitio_nome', label: 'Sítio (quando fica num sítio)', options: [SELECIONE, ...nomesSitios] },
+              { key: 'sitio_id', label: 'Sítio (quando fica num sítio)', options: [SELECIONE, ...opcoesSitios] },
               { key: 'descricao', label: 'Descrição' },
               { key: 'depende_de_plantao', label: 'Depende do dia de plantão', type: 'checkbox' },
             ]}
             salvar={async d => {
               exigir(d.pessoa_curto, 'a pessoa');
-              if (d.tipo === 'fixa_sitio') exigir(d.sitio_nome, 'o sítio');
+              if (d.tipo === 'fixa_sitio') exigir(d.sitio_id, 'o sítio');
               const payload = {
                 pessoa_curto: d.pessoa_curto, dia: Number(d.dia), turno: d.turno, tipo: d.tipo,
-                // A coluna é obrigatória; "fora das Ações" não usa sítio.
-                sitio_nome: d.tipo === 'fixa_sitio' ? d.sitio_nome : '',
+                // "Fora das Ações" não usa sítio; o banco exige NULL nesse tipo.
+                sitio_id: d.tipo === 'fixa_sitio' ? d.sitio_id : null,
                 descricao: d.descricao?.trim() || null, depende_de_plantao: !!d.depende_de_plantao,
               };
               if (r) await updateColocacaoFixa(r.id, payload, unidadeId); else await addColocacaoFixa(payload, unidadeId);

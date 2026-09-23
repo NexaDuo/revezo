@@ -1,5 +1,15 @@
 name: Deploy to GitHub Pages
 
+# Um workflow só para banco e site, em série: build -> migrate -> deploy.
+# O bundle só vai para o Pages depois que as migrações do Supabase foram
+# aplicadas, e a migração só roda se o build passou (senão o banco ficaria
+# migrado com o bundle antigo no ar). Antes eram dois workflows independentes
+# no mesmo push, e uma migração que falhava deixava no ar um app lendo
+# colunas que não existiam.
+#
+# `migrate` roda em todo push para main. Sem migração nova, `supabase db push`
+# não faz nada ("Remote database is up to date") e o deploy segue normal.
+
 on:
   push:
     branches:
@@ -16,6 +26,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  migrate:
+    # Banco de produção: só a partir de main, nunca de um dispatch em outra branch.
+    if: github.ref == 'refs/heads/main'
+    # Build quebrado não migra o banco.
+    needs: build
+    runs-on: ubuntu-latest
+    # Só lê o repositório; nada de pages/id-token neste job.
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1.7.1
+        with:
+          version: 2.117.0
+
+      # A senha vai só por env: a CLI lê SUPABASE_DB_PASSWORD (viper com
+      # prefixo SUPABASE + AutomaticEnv), sem aparecer na linha de comando.
+      - name: Link and push migrations
+        run: |
+          supabase link --project-ref pqjwzladsiktzttejcmp
+          supabase db push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -46,11 +86,12 @@ jobs:
           path: './dist'
 
   deploy:
+    # Migração falhou (ou foi pulada fora de main)? O site não sai.
+    needs: migrate
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
     steps:
       - name: Deploy to GitHub Pages
         id: deployment

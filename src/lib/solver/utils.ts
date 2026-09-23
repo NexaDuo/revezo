@@ -52,24 +52,33 @@ export function cabeNoSitio(config: Config, pessoaMap: Record<string, Pessoa>, n
   return s.quem === "ambos" || s.quem === c;
 }
 
+/** Quem está na célula. Nunca lança: uma referência a sítio que não existe na
+ *  grade (sítio renomeado ou apagado, grade salva antiga) é célula vazia. Quem
+ *  carrega os dados é que avisa na tela que a referência ficou órfã. */
+export function celula(escala: Escala, turno: "manha" | "tarde", sitio: string, d: number): string[] {
+  return escala[turno]?.[sitio]?.[d] || [];
+}
+
 export function ondeEsteve(escala: Escala, config: Config, n: string, d: number, turno: "manha" | "tarde"): string[] {
   const out: string[] = [];
   for (const s of config.sitios[turno]) {
-    if ((escala[turno][s.n][d] || []).includes(n)) out.push(s.n);
+    if (celula(escala, turno, s.n, d).includes(n)) out.push(s.n);
   }
   return out;
 }
 
 /** Posto fixo: a pessoa ocupa o sítio todos os dias. Quem tem posto fixo fica
  *  isento de `diasSeguidos` — sem essa isenção o solver nunca fecha. */
-export function ehPostoFixo(pessoaMap: Record<string, Pessoa>, n: string, sitio: string): boolean {
-  const f = pessoaMap[n]?.fixo;
+export function ehPostoFixo(pessoaMap: Record<string, Pessoa>, n: string, sitio: string, turno: "manha" | "tarde"): boolean {
+  const f = postoFixoNoTurno(pessoaMap[n], turno);
   return !!f && canon(f) === canon(sitio);
 }
 
-/** Alguém tem este sítio como posto fixo? Então o sítio é isento de `diasSeguidos`. */
-export function sitioTemPostoFixo(equipe: Pessoa[], sitio: string): boolean {
-  return equipe.some(p => p.fixo && canon(p.fixo) === canon(sitio));
+/** Rótulo do posto fixo da pessoa na grade daquele turno (o sítio pode ter
+ *  outro nome à tarde). `undefined` = sem posto fixo. */
+export function postoFixoNoTurno(p: Pessoa | undefined, turno: "manha" | "tarde"): string | undefined {
+  if (!p?.fixo) return undefined;
+  return turno === "tarde" ? (p.fixoTarde || p.fixo) : p.fixo;
 }
 
 export function sitioProibido(config: Config, n: string, sitio: string): boolean {

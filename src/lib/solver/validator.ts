@@ -1,6 +1,6 @@
 import { Config, Escala, Violacao } from "./types";
 import { indexarEquipe, estaFora, podeTurno, cabeNoSitio, ondeEsteve, status, ehPlantao, canon,
-         ehPostoFixo, sitioProibido, duplaProibidaEm, pessoas16h } from "./utils";
+         ehPostoFixo, sitioProibido, duplaProibidaEm, pessoas16h, celula } from "./utils";
 
 export function validar(config: Config, escala: Escala): Violacao[] {
   const v: Violacao[] = [];
@@ -13,7 +13,7 @@ export function validar(config: Config, escala: Escala): Violacao[] {
   for (const turno of ["manha", "tarde"] as ("manha" | "tarde")[]) {
     for (const s of config.sitios[turno]) {
       for (let d = 0; d < diasLength; d++) {
-        const nomes = escala[turno][s.n][d] || [];
+        const nomes = celula(escala, turno, s.n, d);
         for (const n of nomes) {
           if (config.regras.disponibilidade.on && estaFora(config.disp, n, d))
             add(true, "disponibilidade", turno, s.n, d, `${n} está de ${status(config.disp, n, d)} nesse dia`);
@@ -36,7 +36,7 @@ export function validar(config: Config, escala: Escala): Violacao[] {
               add(true, "plantaoMesmo", turno, s.n, d, `${n} está de plantão e já ficou em ${canon(s.n)} de manhã`);
           }
           
-          if (config.regras.diasSeguidos.on && !ehPostoFixo(pessoaMap, n, s.n) && d > 0 && (escala[turno][s.n][d - 1] || []).includes(n))
+          if (config.regras.diasSeguidos.on && !ehPostoFixo(pessoaMap, n, s.n, turno) && d > 0 && celula(escala, turno, s.n, d - 1).includes(n))
             add(true, "diasSeguidos", turno, s.n, d, `${n} já estava em ${canon(s.n)} no dia anterior`);
           
           if (config.regras.sextaSegunda.on && d === 0) {
@@ -59,7 +59,9 @@ export function validar(config: Config, escala: Escala): Violacao[] {
   if (config.regras.fixas.on) {
     for (const f of config.fixas) {
       if (!pessoaMap[f.p] || estaFora(config.disp, f.p, f.d)) continue;
-      if (!(escala[f.t][f.s][f.d] || []).includes(f.p))
+      // Fixa para sítio que não está na grade continua sendo violação (não
+      // some em silêncio); `carregarConfigUnidade` já avisa e descarta as órfãs.
+      if (!celula(escala, f.t, f.s, f.d).includes(f.p))
         add(true, "fixas", f.t, f.s, f.d, `${f.p} tem colocação fixa em ${canon(f.s)} (grupo/atividade)`);
     }
     for (const f of config.fixasNaoAcoes) {
@@ -76,7 +78,7 @@ export function validar(config: Config, escala: Escala): Violacao[] {
       let tem = false, temSemana = false;
       for (let d = 0; d < diasLength; d++) {
         if (!estaFora(config.disp, p.n, d)) temSemana = true;
-        for (const t of ["manha", "tarde"] as ("manha" | "tarde")[]) if ((escala[t][config.acoes][d] || []).includes(p.n)) tem = true;
+        for (const t of ["manha", "tarde"] as ("manha" | "tarde")[]) if (celula(escala, t, config.acoes, d).includes(p.n)) tem = true;
       }
       if (temSemana && !tem)
         add(false, "acoesSemana", p.t === "manha" ? "manha" : "tarde", config.acoes, diasLength - 1, `${p.n} não passou por Ações nesta semana`);

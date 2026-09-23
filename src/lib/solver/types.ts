@@ -9,11 +9,17 @@ export interface Pessoa {
   /** Posto fixo: a pessoa ocupa este sítio todos os dias, nos dois turnos.
    *  Quem tem posto fixo fica isento de `diasSeguidos` (senão o solver nunca fecha). */
   fixo?: string;
+  /** Rótulo do mesmo posto fixo na grade da tarde, quando o sítio muda de nome
+   *  à tarde (`nome_tarde`). Ausente = o mesmo de `fixo`. */
+  fixoTarde?: string;
   /** Não exigir que passe por Ações 1x na semana. */
   isentoAcoes?: boolean;
   /** Penalidade somada ao custo do solver: quanto maior, menos a pessoa é escolhida
    *  para preencher sítio comum. Serve para quem só entra como reforço. */
   custoExtra?: number;
+  /** Nome como aparece na planilha de disponibilidade (coluna `nome` da Equipe).
+   *  O importador usa para achar o nome curto — o apelido é dado, não código. */
+  completo?: string;
 }
 
 export interface Sitio {

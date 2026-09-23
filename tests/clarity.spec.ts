@@ -109,7 +109,7 @@ test('trocar de unidade só atualiza a tag, sem reidentificar; inativo não apar
   const tags = async (tag: string) => (await chamadas()).filter(c => c[0] === 'set' && c[1] === tag).map(c => c[2]);
   await expect.poll(() => tags('unidade')).toEqual(['hospital-teste']);
   expect(await tags('papel')).toEqual(['admin']);
-  await page.getByRole('combobox', { name: 'Hospital', exact: true }).selectOption({ label: 'Hospital B' });
+  await page.getByRole('combobox', { name: 'Unidade de saúde', exact: true }).selectOption({ label: 'Hospital B' });
   await expect.poll(() => tags('unidade')).toEqual(['hospital-teste', 'hospital-b']);
   expect((await chamadas()).filter(c => c[0] === 'identify')).toHaveLength(1);
 

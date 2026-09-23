@@ -167,7 +167,7 @@ test.describe('Contexto na URL', () => {
     test(`recusa contexto inválido ${contexto}`, async ({ page }) => {
       await page.goto(`/${contexto}/regras`);
       await expect(page.getByRole('alert')).toContainText('Corrija o contexto');
-      await expect(page.getByText(/Hospital inexistente|Semana inválida/)).toBeVisible();
+      await expect(page.getByText(/Unidade de saúde inexistente|Semana inválida/)).toBeVisible();
       await page.getByRole('link', { name: 'Ir para contexto válido' }).click();
       await expect(page.getByRole('heading', { name: /^Regras/ })).toBeVisible();
     });
@@ -205,7 +205,7 @@ test('admin troca hospital mantendo semana e tela; perfil comum tem rótulo', as
   await autenticarComoCoordenador(page);
   await page.goto('/hospital-teste/2026-08-03/regras');
   await expect(page.getByLabel('Semana', { exact: true })).toHaveValue('2026-08-03');
-  await expect(page.getByRole('combobox', { name: 'Hospital', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: 'Unidade de saúde', exact: true })).toHaveCount(0);
   await page.route('**/rest/v1/profiles*', route => route.fulfill({ json: {
     id: FAKE_USER_ID, unidade_id: FAKE_UNIT_ID, role: 'admin', nome: 'Teste Admin', ativo: true,
   } }));
@@ -214,10 +214,10 @@ test('admin troca hospital mantendo semana e tela; perfil comum tem rótulo', as
     { id: '33333333-3333-4333-8333-333333333333', slug: 'hospital-b', nome: 'Hospital B' },
   ] }));
   await page.reload();
-  await page.getByRole('combobox', { name: 'Hospital', exact: true }).selectOption({ label: 'Hospital B' });
+  await page.getByRole('combobox', { name: 'Unidade de saúde', exact: true }).selectOption({ label: 'Hospital B' });
   await expect(page).toHaveURL(/\/hospital-b\/2026-08-03\/regras$/);
   await page.reload();
-  await expect(page.getByRole('combobox', { name: 'Hospital', exact: true })).toHaveValue('33333333-3333-4333-8333-333333333333');
+  await expect(page.getByRole('combobox', { name: 'Unidade de saúde', exact: true })).toHaveValue('33333333-3333-4333-8333-333333333333');
 });
 
 test('salvar disponibilidade revalida a fonte de semanas do header e da tela', async ({ page }) => {
@@ -311,7 +311,7 @@ for (const tela of ['equipe', 'sitios'] as const) {
     test.skip(!HAS_ENV, 'Payload REST exige Supabase configurado; demonstração não envia requisições.');
     await autenticarComoCoordenador(page);
     const inicial = tela === 'equipe'
-      ? { nome: 'Pessoa teste', nome_curto: 'PT', categoria: 'tec', turno_base: 'manha', fixo_sitio: null, isento_acoes: false, custo_extra: 0, ativo: true, ordem: 7 }
+      ? { nome: 'Pessoa teste', nome_curto: 'PT', categoria: 'tec', turno_base: 'manha', fixo_sitio_id: null, isento_acoes: false, custo_extra: 0, ativo: true, ordem: 7 }
       : { nome: 'Sítio teste', nome_tarde: null, categoria_permitida: 'ambos', opcional: false, prioridade_dupla: null, ordem: 7 };
     const linhas: Record<string, unknown>[] = [{ ...inicial, id: 'existente', unidade_id: FAKE_UNIT_ID, created_at: '2026-09-01' }];
     const escritas: { metodo: string; dados: Record<string, unknown> }[] = [];
@@ -353,7 +353,8 @@ for (const tela of ['equipe', 'sitios'] as const) {
       await page.getByLabel('Isento de Ações').check();
       await page.getByLabel('Custo extra').fill('1.5');
       await page.getByLabel('Ativo', { exact: true }).uncheck();
-      await page.getByLabel('Sítio fixo').fill('   ');
+      // Posto fixo é um select de sítios (grava o id); "Nenhum" vira NULL.
+      await page.getByLabel('Sítio fixo').selectOption({ label: 'Nenhum' });
     } else {
       await page.getByLabel('Categoria permitida').selectOption('tec');
       await page.getByLabel('Opcional').check();

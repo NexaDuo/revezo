@@ -2,6 +2,7 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Pencil, Plus, Search, X } from 'lucide-react';
 import { TAMANHO_PAGINA, type Pagina } from '../lib/paginacao';
+import { AVISO_NAO_SALVO, ModalSujoContext, useFecharAoClicarFora } from '../lib/modal';
 
 export interface Column<T> {
   key: string;
@@ -14,7 +15,8 @@ const FOCAVEIS = 'button:not(:disabled), input:not(:disabled), select:not(:disab
 
 /** Modal de edição de registro: Esc fecha, Tab fica preso dentro e o foco
  *  volta para quem abriu. */
-export function TableModal({ titulo, fechar, children }: { titulo: string; fechar: () => void; children: React.ReactNode }) {
+export function TableModal({ titulo, fechar, sujo = false, children }: { titulo: string; fechar: () => void; sujo?: boolean; children: React.ReactNode }) {
+  const fora = useFecharAoClicarFora(fechar, sujo);
   const fecharRef = useRef(fechar);
   fecharRef.current = fechar;
   const id = useId();
@@ -46,7 +48,7 @@ export function TableModal({ titulo, fechar, children }: { titulo: string; fecha
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+    <div {...fora.fundo} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
       <div
         ref={ref}
         tabIndex={-1}
@@ -61,7 +63,8 @@ export function TableModal({ titulo, fechar, children }: { titulo: string; fecha
             <X className="h-5 w-5" />
           </button>
         </div>
-        {children}
+        {fora.bloqueado && <p role="status" className="rounded-md border-l-4 border-marca bg-white px-3 py-2 text-sm text-slate-800">{AVISO_NAO_SALVO}</p>}
+        <ModalSujoContext.Provider value={fora.marcarSujo}>{children}</ModalSujoContext.Provider>
       </div>
     </div>
   );
@@ -75,12 +78,16 @@ interface Props<T> {
   titulo: string;
   /** Uma frase sob o título: o que esta lista controla. */
   descricao?: React.ReactNode;
+  /** Filtros extras, na linha da busca (à esquerda dela). */
+  filtros?: React.ReactNode;
   enabled?: boolean;
   podeEditar?: boolean | ((r: T) => boolean);
   podeCriar?: boolean;
   /** Quem controla o próprio modal passa `onEdit`; os demais usam `renderForm`. */
   onEdit?: (r: T | null) => void;
   onRowClick?: (r: T) => void;
+  /** Rótulo do botão que acompanha `onRowClick`. */
+  textoAbrir?: string;
   renderForm?: (r: T | null, fechar: () => void) => React.ReactNode;
 }
 
@@ -92,8 +99,8 @@ export function DataTable<T>(props: Props<T>) {
 }
 
 function TableContent<T>({
-  queryKey, fetchPage, columns, getRowId, titulo, descricao, enabled = true,
-  podeEditar = false, podeCriar = true, onEdit, onRowClick, renderForm,
+  queryKey, fetchPage, columns, getRowId, titulo, descricao, filtros, enabled = true,
+  podeEditar = false, podeCriar = true, onEdit, onRowClick, textoAbrir = 'Abrir semana', renderForm,
 }: Props<T>) {
   const [pagina, setPagina] = useState(1);
   const [busca, setBusca] = useState('');
@@ -117,34 +124,40 @@ function TableContent<T>({
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-        <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">
-          {titulo} <span className="font-medium text-slate-500">({total})</span>
-        </h2>
-        {podeEditar && podeCriar && (
-          <button
-            onClick={() => editar(null)}
-            className="ml-auto flex items-center gap-2 rounded-md bg-caneta-600 px-3.5 py-2 text-sm font-bold text-white hover:bg-caneta-700"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Novo</span>
-          </button>
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <div className="min-w-0 space-y-1">
+          <h2 className="titulo-lista text-2xl font-extrabold tracking-tight text-slate-900">
+            {titulo} <span className="font-medium text-slate-500">({total})</span>
+          </h2>
+          {descricao && <p className="max-w-prose text-sm text-slate-600">{descricao}</p>}
+        </div>
+        {(filtros || buscaPesquisavel || (podeEditar && podeCriar)) && (
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+            {filtros}
+            {buscaPesquisavel && (
+              <div className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                <input
+                  aria-label={`Buscar ${titulo}`}
+                  placeholder="Buscar"
+                  value={busca}
+                  onChange={e => { setBusca(e.target.value); setPagina(1); }}
+                  className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm placeholder:text-slate-500 focus:border-caneta-500 focus:outline-none focus:ring-2 focus:ring-caneta-500"
+                />
+              </div>
+            )}
+            {podeEditar && podeCriar && (
+              <button
+                onClick={() => editar(null)}
+                className="flex shrink-0 items-center gap-2 rounded-md bg-caneta-600 px-3.5 py-2 text-sm font-bold text-white hover:bg-caneta-700"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Novo</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
-      {descricao && <p className="-mt-2 max-w-prose text-sm text-slate-600">{descricao}</p>}
-
-      {buscaPesquisavel && (
-        <div className="relative max-w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-          <input
-            aria-label={`Buscar ${titulo}`}
-            placeholder="Buscar"
-            value={busca}
-            onChange={e => { setBusca(e.target.value); setPagina(1); }}
-            className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm placeholder:text-slate-500 focus:border-caneta-500 focus:outline-none focus:ring-2 focus:ring-caneta-500"
-          />
-        </div>
-      )}
 
       {query.isError && (
         <p role="alert" className="rounded-md border-l-4 border-marca-rigida bg-white px-3 py-2 text-sm text-red-900">
@@ -196,7 +209,7 @@ function TableContent<T>({
                             onClick={() => onRowClick(r)}
                             className="rounded-md px-2 py-1 text-sm font-bold text-caneta-700 hover:bg-caneta-50"
                           >
-                            Abrir semana
+                            {textoAbrir}
                           </button>
                         )}
                       </td>

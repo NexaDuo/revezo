@@ -2,30 +2,30 @@
   "titulo": "Escala de enfermagem semana 20 a 24 de julho/26",
   "dias": ["Segunda 20", "Terça 21", "Quarta 22", "Quinta 23", "Sexta 24"],
   "manha": {
-    "Consultas - Sala 1": ["Sandra", "Ana Claudia", "May/Allan", "May", "Carolina"],
-    "Consultas - Sala 5": ["May", "Sandra", "Carolina", "Sandra", "Letícia"],
-    "Supervisão": ["Ana Claudia", "May", "Sandra", "Ana Claudia", "May"],
-    "Ensino": ["Leticia", "Leticia", "Leticia", "Leticia", "-"],
-    "Procedim. de enfermagem": ["Dani P", "Maria", "Vanessa", "Luciana", "Maria"],
-    "Vacina": ["Luciana", "Vanessa", "Dani P", "Vanessa", "Luciana"],
-    "Acolhimento": ["Vanessa", "Luciana", "Maria", "Allan/Dani J/Dani P 10h", "Nicole"],
-    "Curativo": ["Maria", "Dani P", "Luciana", "Maria", "Vanessa"],
-    "Ações de vigilância/VD/PSE/Ensino/cursos/grupos": ["Vanessa", "Curso Manejo: Paula P", "Regina 10h/Carol V 10h/Maria", "Dani J P 10h/ Carol P 10h", "Jomalba 10h/Sandra grupo/ Nicole P/ Allan VD com Renata"]
+    "Consultas - Sala 1": ["Sônia", "Ana Lucia", "Lia/Artur", "Lia", "Clara"],
+    "Consultas - Sala 5": ["Lia", "Sônia", "Clara", "Sônia", "Lívia"],
+    "Supervisão": ["Ana Lucia", "Lia", "Sônia", "Ana Lucia", "Lia"],
+    "Ensino": ["Livia", "Livia", "Livia", "Livia", "-"],
+    "Procedim. de enfermagem": ["Bia P", "Marta", "Valéria", "Luana", "Marta"],
+    "Vacina": ["Luana", "Valéria", "Bia P", "Valéria", "Luana"],
+    "Acolhimento": ["Valéria", "Luana", "Marta", "Artur/Bia J/Bia P 10h", "Noemi"],
+    "Curativo": ["Marta", "Bia P", "Luana", "Marta", "Valéria"],
+    "Ações de vigilância/VD/PSE/Ensino/cursos/grupos": ["Valéria", "Curso Manejo: Pâmela P", "Rita 10h/Clara V 10h/Marta", "Bia J P 10h/ Clara P 10h", "Joana 10h/Sônia grupo/ Noemi P/ Artur VD com Rosa"]
   },
   "tarde": {
-    "Consultas - Sala 1": ["Carolina", "Fernanda", "Ana Claudia", "Carol", "Letícia/Allan"],
-    "Consultas - Sala 5": ["", "Carol 16h", "Carol 16h", "-", "Carol"],
-    "Supervisão": ["Fernanda", "Carolina", "Fernanda", "Carolina", "Ana Claudia"],
-    "Ensino": ["Leticia", "Leticia", "Leticia", "Leticia", ""],
-    "Procedim. de enfermagem": ["Nicole", "Paula", "Dani J", "Fabiano", "Nicole"],
-    "Vacina": ["Fabiano", "Nicole", "Paula", "Dani J", "Fabiano"],
-    "Acolhimento": ["Luciana", "Fabiano", "Nicole", "Paula", "Jomalba"],
-    "Curativo- CME 16h": ["Ana/ Allan/ Jomalba 16h", "Dani J", "Fabiano", "Nicole", "Paula"],
-    "Ações de vigilância/VD/PSE/Ensino/cursos/grupos": ["Carol V 16h VD /Ana/ Regina 16h", "Curso Manejo: Vanessa/I/Regina (CME)", "Maria P CLS-17h", "Sandra P grupo/Dani P P", "Curso Manejo: Carolina e Dani J"]
+    "Consultas - Sala 1": ["Clara", "Flávia", "Ana Lucia", "Clara", "Lívia/Artur"],
+    "Consultas - Sala 5": ["", "Clara 16h", "Clara 16h", "-", "Clara"],
+    "Supervisão": ["Flávia", "Clara", "Flávia", "Clara", "Ana Lucia"],
+    "Ensino": ["Livia", "Livia", "Livia", "Livia", ""],
+    "Procedim. de enfermagem": ["Noemi", "Pâmela", "Bia J", "Fábio", "Noemi"],
+    "Vacina": ["Fábio", "Noemi", "Pâmela", "Bia J", "Fábio"],
+    "Acolhimento": ["Luana", "Fábio", "Noemi", "Pâmela", "Joana"],
+    "Curativo- CME 16h": ["Ana/ Artur/ Joana 16h", "Bia J", "Fábio", "Noemi", "Pâmela"],
+    "Ações de vigilância/VD/PSE/Ensino/cursos/grupos": ["Clara V 16h VD /Ana/ Rita 16h", "Curso Manejo: Valéria/I/Rita (CME)", "Marta P CLS-17h", "Sônia P grupo/Bia P P", "Curso Manejo: Clara e Bia J"]
   },
   "rodape": [
-    "Férias: Michele, Andressa",
-    "Segunda: Lu troca Dani J  |  Terça: Shana FC  |  Quarta: Shana Férias  |  Quinta: Michele FC  |  Sexta: Luciana FC",
-    "Nicole troca Dani P  |  Fernanda férias  |  Michele FC  |  Carolina P"
+    "Férias: Mirela, Adriana",
+    "Segunda: Lu troca Bia J  |  Terça: Tainá FC  |  Quarta: Tainá Férias  |  Quinta: Mirela FC  |  Sexta: Luana FC",
+    "Noemi troca Bia P  |  Flávia férias  |  Mirela FC  |  Clara P"
   ]
 }

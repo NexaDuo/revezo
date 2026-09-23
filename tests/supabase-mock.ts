@@ -107,6 +107,36 @@ export async function visitanteSemDados(page: Page) {
   ] }));
 }
 
+/** Linhas das tabelas que `carregarConfigUnidade` lê, no formato do banco.
+ *  Sítio é referenciado por ID: `colocacoes_fixas.sitio_id`,
+ *  `proibicoes.sitio_id` e `equipe.fixo_sitio_id` apontam para `sitios.id`. */
+export interface UnidadeMock {
+  equipe: Record<string, unknown>[];
+  sitios: Record<string, unknown>[];
+  colocacoesFixas?: Record<string, unknown>[];
+  proibicoes?: Record<string, unknown>[];
+  /** Semana com todos disponíveis (OK) para estes nomes curtos. */
+  disponiveis: { data_inicio: string; dias: string[] };
+}
+
+/** Serve a configuração da unidade (depois de `autenticarComoCoordenador`)
+ *  para o fluxo "Gerar Grade" rodar ponta a ponta contra o mock. */
+export async function mockarUnidade(page: Page, u: UnidadeMock) {
+  const comUnidade = (linhas: Record<string, unknown>[]) => linhas.map(l => ({ unidade_id: FAKE_UNIT_ID, ...l }));
+  await page.route('**/rest/v1/equipe*', route => responderPagina(route, comUnidade(u.equipe)));
+  await page.route('**/rest/v1/sitios*', route => responderPagina(route, comUnidade(u.sitios)));
+  await page.route('**/rest/v1/colocacoes_fixas*', route => responderPagina(route, comUnidade(u.colocacoesFixas ?? [])));
+  await page.route('**/rest/v1/proibicoes*', route => responderPagina(route, comUnidade(u.proibicoes ?? [])));
+  await page.route('**/rest/v1/disponibilidade_semanal*', route => {
+    const semana = {
+      unidade_id: FAKE_UNIT_ID, data_inicio: u.disponiveis.data_inicio, data_fim: u.disponiveis.data_inicio,
+      dias: u.disponiveis.dias,
+      dados: Object.fromEntries(u.equipe.map(p => [p.nome_curto, u.disponiveis.dias.map(() => 'OK')])),
+    };
+    return route.fulfill({ json: new URL(route.request().url()).searchParams.has('data_inicio') ? semana : [semana] });
+  });
+}
+
 export async function autenticarComoAdmin(page: Page) {
   await autenticarComoCoordenador(page, { role: 'admin' });
 }

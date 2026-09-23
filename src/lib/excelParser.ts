@@ -97,22 +97,17 @@ export function semanasDoMes(ano: number, mes: number) {
   }));
 }
 
-const NOME_CURTO: [string, string][] = [
-  ["May Britt","May"],["Sandra Rejane","Sandra"],["Shana","Shana"],
-  ["Ana Cláudia","Ana Claudia"],["Ana Claudia","Ana Claudia"],
-  ["Daniele de Souza","Dani P"],["Daniela Prado","Dani P"],["Luciana","Luciana"],
-  ["Maria Janir","Maria"],["Maria","Maria"],["Andressa","Andressa"],["Vanessa","Vanessa"],
-  ["Fernanda","Fernanda"],["Carolina Santana","Carolina K"],["Michele","Michele"],
-  ["Fabiano","Fabiano"],["Nicole","Nicole"],["Daniele Volkmer","Dani J"],
-  ["Daniela Jacobsen","Dani J"],["Paula","Paula"],["Carolina Feijó","Carol V"],
-  ["Jomalba","Jomalba"],["Regina","Regina"],["Leticia","Leticia"],["Letícia","Leticia"],["Allan","Allan"],
-];
-
 const semAcento = (s: string) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
 
+/** Nome curto de quem aparece na planilha, pela Equipe da unidade: primeiro
+ *  pelo nome como está cadastrado (`completo`, o mais longo que casar), depois
+ *  pelo primeiro nome igual ao nome curto. O apelido é dado da unidade. */
 export function nomeCurto(txt: string, equipe: Pessoa[]): string | null {
   const t = semAcento(txt);
-  for(const [longo,curto] of NOME_CURTO) if(t.startsWith(semAcento(longo))) return curto;
+  const porNome = equipe
+    .filter(p => { const c = p.completo && semAcento(p.completo); return !!c && (t === c || t.startsWith(c + ' ')); })
+    .sort((a, b) => b.completo!.length - a.completo!.length)[0];
+  if (porNome) return porNome.n;
   const prim = txt.trim().split(/\s+/)[0];
   return equipe.find(p=>semAcento(p.n)===semAcento(prim))?.n || null;
 }

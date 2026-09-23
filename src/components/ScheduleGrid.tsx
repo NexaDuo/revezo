@@ -2,18 +2,22 @@ import React, { useState } from 'react';
 import { Escala, Violacao } from '../lib/solver/types';
 import { canon } from '../lib/solver/utils';
 import { useWorkContext } from '../context/WorkContext';
-import { saveSchedule } from '../lib/db';
 
 interface ScheduleGridProps {
   escala: Escala;
   violacoes: Violacao[];
   dias: string[];
   onUpdateEscala?: (novaEscala: Escala) => void;
+  /** Quem decide se é versão nova ou atualização da aberta é o App. */
+  onSalvar?: () => Promise<void>;
+  textoSalvar?: string;
+  /** Motivo para a grade estar só leitura agora (carregando, sem conferência). */
+  bloqueio?: string | null;
 }
 
-export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, dias, onUpdateEscala }) => {
+export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, dias, onUpdateEscala, onSalvar, textoSalvar = 'Salvar e Publicar', bloqueio = null }) => {
   const [soltarEm, setSoltarEm] = useState<string | null>(null);
-  const { podeGravar, visitante, unidadeId, semanaInicio, revalidarSemanas } = useWorkContext();
+  const { podeGravar, visitante } = useWorkContext();
   const getViolacoes = (turno: string, sitio: string, d: number) => {
     return violacoes.filter(v => v.turno === turno && canon(v.sitio) === canon(sitio) && v.d === d);
   };
@@ -22,7 +26,7 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
   const renderTurno = (turno: 'manha' | 'tarde', titulo: string) => {
     const sourceData = escala[turno] || {};
     const sitios = Object.keys(sourceData);
-    const canEdit = podeGravar || visitante;
+    const canEdit = (podeGravar || visitante) && !bloqueio;
 
     const handleDragStart = (e: React.DragEvent, nome: string, sourceTurno: string, sourceSitio: string, sourceD: number) => {
       e.dataTransfer.setData('application/json', JSON.stringify({ nome, sourceTurno, sourceSitio, sourceD }));
@@ -129,40 +133,10 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
     );
   };
   const [isSaving, setIsSaving] = useState(false);
-
   const handleSave = async () => {
+    if (!onSalvar) return;
     setIsSaving(true);
-    try {
-      // A chave da semana é a segunda-feira EM CONTEXTO (WorkContext), não uma
-      // recalculada de `new Date()` aqui dentro — senão salvar sempre grava na
-      // semana corrente, mesmo quando a grade gerada era de outra semana.
-      const [ano, mes, dia] = semanaInicio.split('-').map(Number);
-      const segunda = new Date(ano, (mes || 1) - 1, dia || 1);
-      const sexta = new Date(segunda);
-      sexta.setDate(segunda.getDate() + 4);
-      const iso = (d: Date) => {
-        const dd = (n: number) => String(n).padStart(2, '0');
-        return `${d.getFullYear()}-${dd(d.getMonth() + 1)}-${dd(d.getDate())}`;
-      };
-
-      const score = violacoes.reduce((a, v) => a + (v.hard ? 100 : 1), 0);
-      await saveSchedule(
-        unidadeId,
-        { escala, violacoes, score },
-        `Escala de ${iso(segunda)} a ${iso(sexta)}`,
-        iso(segunda), iso(sexta), dias
-      );
-      revalidarSemanas();
-      const rigidas = violacoes.filter(v => v.hard).length;
-      alert(rigidas
-        ? `Escala salva como rascunho: ainda tem ${rigidas} violação(ões) rígida(s).`
-        : 'Escala salva e marcada como validada.');
-    } catch (e: any) {
-      console.error(e);
-      alert('Erro ao salvar escala: ' + (e.message || JSON.stringify(e)));
-    } finally {
-      setIsSaving(false);
-    }
+    try { await onSalvar(); } finally { setIsSaving(false); }
   };
 
   return (
@@ -170,14 +144,15 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, violacoes, d
       {renderTurno('manha', 'Manhã')}
       {renderTurno('tarde', 'Tarde')}
 
-      {podeGravar && (
-        <div className="mt-6 flex justify-end print:hidden">
+      {podeGravar && onSalvar && (
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-3 print:hidden">
+          {bloqueio && <p role="status" className="text-sm font-bold text-slate-700">{bloqueio}</p>}
           <button
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || !!bloqueio}
             className="flex items-center gap-2 rounded-md bg-caneta-600 px-4 py-2 text-sm font-bold text-white hover:bg-caneta-700 disabled:opacity-50"
           >
-            {isSaving ? 'Salvando...' : 'Salvar e Publicar'}
+            {isSaving ? 'Salvando...' : textoSalvar}
           </button>
         </div>
       )}

@@ -1,4 +1,4 @@
-import { Config, Regras, Sitio, ColocacaoFixa, ColocacaoFixaNaoAcoes, Proibicao, DuplaProibida } from "./types";
+import { Config, Pessoa, Regras, Sitio, ColocacaoFixa, ColocacaoFixaNaoAcoes, Proibicao, DuplaProibida } from "./types";
 
 export const DIAS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
 
@@ -36,11 +36,18 @@ export const PRIORIDADE_DUPLA = ["Acolhimento", "Vacina", "Procedim. de enfermag
 /** Regras específicas de pessoa, do caso-origem. São DADO, não código:
  *  outra unidade carrega as suas próprias (tabela `regras_config`). */
 export const PROIBICOES: Proibicao[] = [
-  { pessoa: "Maria", sitio: "Vacina" },
+  { pessoa: "Marta", sitio: "Vacina" },
 ];
 
 export const DUPLAS_PROIBIDAS: DuplaProibida[] = [
-  ["Vanessa", "Dani P"],
+  ["Valéria", "Bia P"],
+];
+
+/** Quem não aparece na planilha de disponibilidade do caso-origem mas trabalha
+ *  na unidade: posto fixo no Ensino e reforço isento de Ações. Só demonstração. */
+export const EQUIPE_FORA_DA_PLANILHA_DEMO: Pessoa[] = [
+  { n: "Livia", c: "enf", t: "ambos", fixo: "Ensino" },
+  { n: "Artur", c: "enf", t: "ambos", isentoAcoes: true, custoExtra: 3 },
 ];
 
 export const REGRAS_DEFAULT: Regras = {
@@ -59,22 +66,22 @@ export const REGRAS_DEFAULT: Regras = {
 };
 
 export const FIXAS: ColocacaoFixa[] = [
-  { p: "Dani P", d: 1, t: "manha", s: ACOES },
-  { p: "Dani P", d: 3, t: "tarde", s: ACOES },
-  { p: "Luciana", d: 3, t: "manha", s: ACOES },
-  { p: "Regina", d: 0, t: "tarde", s: ACOES },
-  { p: "Regina", d: 2, t: "tarde", s: ACOES },
-  { p: "Sandra", d: 4, t: "manha", s: ACOES },
-  { p: "Sandra", d: 3, t: "tarde", s: ACOES },
-  { p: "Vanessa", d: 2, t: "tarde", s: ACOES },
-  { p: "Fabiano", d: 2, t: "manha", s: ACOES },
-  { p: "Paula", d: 1, t: "tarde", s: ACOES },
-  { p: "Dani J", d: 3, t: "tarde", s: ACOES },
+  { p: "Bia P", d: 1, t: "manha", s: ACOES },
+  { p: "Bia P", d: 3, t: "tarde", s: ACOES },
+  { p: "Luana", d: 3, t: "manha", s: ACOES },
+  { p: "Rita", d: 0, t: "tarde", s: ACOES },
+  { p: "Rita", d: 2, t: "tarde", s: ACOES },
+  { p: "Sônia", d: 4, t: "manha", s: ACOES },
+  { p: "Sônia", d: 3, t: "tarde", s: ACOES },
+  { p: "Valéria", d: 2, t: "tarde", s: ACOES },
+  { p: "Fábio", d: 2, t: "manha", s: ACOES },
+  { p: "Pâmela", d: 1, t: "tarde", s: ACOES },
+  { p: "Bia J", d: 3, t: "tarde", s: ACOES },
 ];
 
 export const FIXAS_NAO_ACOES: ColocacaoFixaNaoAcoes[] = [
-  { p: "Paula", d: 1, t: "manha" },
-  { p: "Dani J", d: 3, t: "manha" },
+  { p: "Pâmela", d: 1, t: "manha" },
+  { p: "Bia J", d: 3, t: "manha" },
 ];
 
 export const defaultConfig: Config = {

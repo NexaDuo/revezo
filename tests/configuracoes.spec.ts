@@ -10,10 +10,10 @@ async function abrir(page: Page) {
 test.describe('Configurações com Supabase', () => {
   test.beforeEach(() => { test.skip(!HAS_ENV, 'Exige Supabase configurado; todas as chamadas são mockadas.'); });
 
-  test('coordenador vê Meus dados e Usuários; Esc fecha e devolve foco', async ({ page }) => {
+  test('coordenador vê Meus dados, Usuários e Convites; Esc fecha e devolve foco', async ({ page }) => {
     await autenticarComoCoordenador(page);
     await abrir(page);
-    await expect(page.getByRole('tab')).toHaveText(['Meus dados', 'Usuários']);
+    await expect(page.getByRole('tab')).toHaveText(['Meus dados', 'Usuários', 'Convites']);
     await expect(page.getByRole('tab', { name: 'Unidades', exact: true })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -26,10 +26,10 @@ test.describe('Configurações com Supabase', () => {
     await expect(page.getByRole('tab')).toHaveText(['Meus dados']);
   });
 
-  test('admin vê as três abas e navega por setas', async ({ page }) => {
+  test('admin vê as quatro abas e navega por setas', async ({ page }) => {
     await autenticarComoAdmin(page);
     await abrir(page);
-    await expect(page.getByRole('tab')).toHaveText(['Meus dados', 'Usuários', 'Unidades']);
+    await expect(page.getByRole('tab')).toHaveText(['Meus dados', 'Usuários', 'Convites', 'Unidades']);
     await page.getByRole('tab', { name: 'Meus dados' }).focus();
     await page.keyboard.press('ArrowRight');
     await expect(page.getByRole('tab', { name: 'Usuários', exact: true })).toHaveAttribute('aria-selected', 'true');
@@ -110,6 +110,6 @@ test.describe('Configurações com Supabase', () => {
 test('modo demonstração também oferece Configurações', async ({ page }) => {
   test.skip(HAS_ENV, 'Cobre o modo demonstração sem .env.');
   await abrir(page);
-  await expect(page.getByRole('tab')).toHaveText(['Meus dados', 'Usuários']);
+  await expect(page.getByRole('tab')).toHaveText(['Meus dados', 'Usuários', 'Convites']);
   await expect(page.getByRole('button', { name: 'Salvar nome' })).toBeDisabled();
 });
