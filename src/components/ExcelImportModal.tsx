@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, FileSpreadsheet, UploadCloud } from 'lucide-react';
+import { AVISO_NAO_SALVO, useFecharAoClicarFora } from '../lib/modal';
 import { Pessoa, StatusDisponibilidade } from '../lib/solver/types';
 import {
   parseExcel,
@@ -152,10 +153,13 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ isOpen, onCl
     onClose();
   };
 
+  // Arquivo escolhido é trabalho em andamento: clique fora não descarta.
+  const fora = useFecharAoClicarFora(onClose, !!file);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+    <div {...fora.fundo} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-slate-100">
           <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
@@ -166,6 +170,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({ isOpen, onCl
             <X className="w-5 h-5" />
           </button>
         </div>
+        {fora.bloqueado && <p role="status" className="mx-4 mt-3 rounded-md border-l-4 border-marca bg-white px-3 py-2 text-sm text-slate-800">{AVISO_NAO_SALVO}</p>}
         
         <div className="p-5 flex-1 overflow-y-auto">
           <p className="text-sm text-slate-600 mb-4">

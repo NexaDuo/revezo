@@ -14,6 +14,7 @@ const EquipeContent: React.FC = () => {
   const [erro, setErro] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
+  const [original, setOriginal] = useState('{}');
 
   const fetchData = () => client.invalidateQueries({ queryKey: ['equipe', unidadeId] });
   const handleAdd = async () => {
@@ -23,12 +24,14 @@ const EquipeContent: React.FC = () => {
     catch (e: any) { setErro(mensagemErroGravacao(e)); }
     const newItem = { nome: '', nome_curto: '', categoria: 'tec', turno_base: 'manha', fixo_sitio: '', isento_acoes: false, custo_extra: 0, ativo: true, ordem };
     setEditForm(newItem);
+    setOriginal(JSON.stringify(newItem));
     setEditingId('new');
   };
 
   const handleEdit = (item: any) => {
     setErro(null);
     setEditForm({...item});
+    setOriginal(JSON.stringify({...item}));
     setEditingId(item.id);
   };
 
@@ -119,7 +122,7 @@ const EquipeContent: React.FC = () => {
       fetchPage={f => listarPagina('equipe', unidadeId, {...f, ordem: 'ordem'})}
       titulo="Equipe" getRowId={(r: any) => r.id} podeEditar={canEdit}
       onEdit={r => r ? handleEdit(r) : handleAdd()} columns={[{ key: 'nome', header: 'Nome', searchable: true, render: (item: any) => <>{item.nome ?? '—'}</> },{ key: 'nome_curto', header: 'Nome curto', searchable: true, render: (item: any) => <>{item.nome_curto ?? '—'}</> },{ key: 'categoria', header: 'Categoria', searchable: false, render: (item: any) => <>{({ 'enf': 'Enfermeira', 'tec': 'Técnica' } as Record<string, string>)[item.categoria]}</> },{ key: 'turno_base', header: 'Turno base', searchable: false, render: (item: any) => <>{({ 'manha': 'Manhã', 'tarde': 'Tarde', 'noite': 'Noite', 'ambos': 'Ambos' } as Record<string, string>)[item.turno_base]}</> },{ key: 'fixo_sitio', header: 'Sítio fixo', searchable: false, render: (item: any) => <>{item.fixo_sitio ?? '—'}</> },{ key: 'isento_acoes', header: 'Isento de Ações', searchable: false, render: (item: any) => <>{item.isento_acoes ? 'Sim' : 'Não'}</> },{ key: 'custo_extra', header: 'Custo extra', searchable: false, render: (item: any) => <>{item.custo_extra ?? '—'}</> },{ key: 'ativo', header: 'Ativo', searchable: false, render: (item: any) => <>{item.ativo ? 'Sim' : 'Não'}</> },{ key: 'ordem', header: 'Ordem', searchable: false, render: (item: any) => <>{item.ordem ?? '—'}</> }]} />
-    {editingId && canEdit && <TableModal key={unidadeId} titulo={editingId === 'new' ? 'Novo registro' : 'Editar registro'} fechar={handleCancel}>
+    {editingId && canEdit && <TableModal key={unidadeId} titulo={editingId === 'new' ? 'Novo registro' : 'Editar registro'} fechar={handleCancel} sujo={JSON.stringify(editForm) !== original}>
       {erro && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">{erro}</p>}
       <div className="grid gap-3">{renderEditCells()}</div>
     </TableModal>}

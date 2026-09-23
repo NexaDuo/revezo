@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AVISO_NAO_SALVO, useFecharAoClicarFora } from '../../lib/modal';
 import { useAuth } from '../../context/AuthContext';
 import { X, ShieldAlert, Sparkles, Mail, Lock, LogIn } from 'lucide-react';
 
@@ -21,10 +22,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     if (ok) onClose();
   };
 
+  // E-mail ou senha digitados contam como alteração: clique fora não apaga.
+  const fora = useFecharAoClicarFora(onClose, !!(email || senha));
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 animate-fade-in">
+    <div {...fora.fundo} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 animate-fade-in">
       <div className="relative w-full max-w-md bg-white rounded-lg shadow-2xl border border-slate-200 overflow-hidden">
         {/* Header */}
         <div className="p-6 pb-4 border-b border-slate-100 flex items-center justify-between">
@@ -42,6 +46,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
           </button>
         </div>
 
+        {fora.bloqueado && <p role="status" className="mx-6 mt-4 rounded-md border-l-4 border-marca bg-white px-3 py-2 text-sm text-slate-800">{AVISO_NAO_SALVO}</p>}
         {/* Content */}
         <div className="p-6 space-y-5">
           <div className="bg-slate-50 border border-slate-200 rounded-md p-4 text-xs text-slate-600 space-y-2">

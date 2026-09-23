@@ -82,7 +82,7 @@ test('coordenador cria convite normalizado e login aceita convite uma vez', asyn
   });
   await page.goto('/');
   await page.getByRole('button', { name: 'Configurações', exact: true }).click();
-  await page.getByRole('tab', { name: 'Usuários', exact: true }).click();
+  await page.getByRole('tab', { name: 'Convites', exact: true }).click();
   await page.getByRole('region', {name:'Convites',exact:true}).getByRole('button', {name:'Novo',exact:true}).click();
   const papel = page.getByLabel('Papel do convite');
   await expect(papel.locator('option[value="admin"]')).toHaveCount(0);
@@ -113,7 +113,7 @@ test('coordenador vê públicas e não grava fora da própria unidade', async ({
     { id: PUBLIC_ID, slug: 'demonstracao', nome: 'Hospital Demonstração', publica: true },
   ] }));
   await page.goto('/');
-  const hospital = page.getByRole('combobox', { name: 'Hospital', exact: true });
+  const hospital = page.getByRole('combobox', { name: 'Unidade de saúde', exact: true });
   await expect(hospital.locator('option')).toHaveCount(2);
   await hospital.selectOption(PUBLIC_ID);
   await expect(page).toHaveURL(/demonstracao/);

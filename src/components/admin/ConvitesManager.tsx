@@ -11,13 +11,12 @@ export function ConvitesManager() {
  const [destino,setDestino] = useState<string | null>(null); const unidade = isAdmin ? destino ?? unidadeId : profile?.unidade_id ?? null;
  const client = useQueryClient(); const invalidar = () => client.invalidateQueries({queryKey:['convites',unidade]});
  if (!isCoordenador) return null;
- if (!isSupabaseConfigured) return <p className="p-4">Convites indisponíveis na demonstração offline.</p>;
- return <section aria-label="Convites" className="p-4 space-y-3">
- <p>O acesso será vinculado quando a pessoa entrar com este e-mail. Não é enviado e-mail automático.</p>
- {isAdmin && <label>Unidade do convite<select value={unidade ?? ''} onChange={e=>setDestino(e.target.value)}><option value="">Selecione</option>{unidadesDisponiveis.map(u=><option key={u.id} value={u.id}>{u.nome}</option>)}</select></label>}
- <DataTable<any> titulo="Convites por e-mail" queryKey={['convites',unidade]} getRowId={r=>r.id}
+ if (!isSupabaseConfigured) return <p className="text-sm text-slate-600">Convites indisponíveis na demonstração offline.</p>;
+ return <section aria-label="Convites" className="space-y-4">
+ {isAdmin && <label className="block max-w-sm text-sm font-medium text-slate-700">Unidade do convite<select value={unidade ?? ''} onChange={e=>setDestino(e.target.value)} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"><option value="">Selecione</option>{unidadesDisponiveis.map(u=><option key={u.id} value={u.id}>{u.nome}</option>)}</select></label>}
+ <DataTable<any> titulo="Convites por e-mail" descricao="O acesso é vinculado quando a pessoa entra com este e-mail. Nenhum e-mail é enviado automaticamente." queryKey={['convites',unidade]} getRowId={r=>r.id}
  fetchPage={f=>listarPagina('convites',unidade,{...f,ordem:'created_at',crescente:false})} podeEditar={!!unidade}
- columns={[{key:'email',header:'E-mail',searchable:true},{key:'role',header:'Papel'},{key:'aceito_em',header:'Estado',render:r=>r.aceito_em?'Aceito':'Pendente'}]}
+ columns={[{key:'email',header:'E-mail',searchable:true},{key:'role',header:'Papel',render:r=>({admin:'Administrador',coordenador:'Coordenador',visualizador:'Visualizador'} as Record<string,string>)[r.role] ?? r.role},{key:'aceito_em',header:'Estado',render:r=>r.aceito_em?'Aceito':'Pendente'}]}
  renderForm={(r,fechar)=><RecordForm inicial={r??{email:'',role:'visualizador'}} fechar={fechar} textoSalvar={r?'Salvar':'Criar convite'} textoExcluir="Revogar convite"
  fields={[{key:'email',label:'E-mail do convite',type:'email',required:true,disabled:!!r?.aceito_em},{key:'role',label:'Papel do convite',disabled:!!r?.aceito_em,options:[['visualizador','Visualizador'],['coordenador','Coordenador'],...(isAdmin?[['admin','Administrador'] as [string,string]]:[])]}]}
  salvar={async d=>{
