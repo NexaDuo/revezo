@@ -51,3 +51,10 @@ pnpm-debug.log*
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Estado local do Claude Code (worktrees de agentes, permissões, links de skills)
+.claude/worktrees/
+.claude/settings.local.json
+.claude/skills/
+# Notas de passagem de sessão: locais, nunca versionadas
+docs/HANDOFF.md

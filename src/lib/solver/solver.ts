@@ -15,7 +15,7 @@ function podeColocar(escala: Escala, config: Config, pessoaMap: Record<string, P
   // de mudar a GERAÇÃO, não só a conferência. Sem isto o painel é enfeite.
   const r = config.regras;
 
-  if (r.mariaVacina.on && sitioProibido(config, n, sitio)) return false;
+  if (r.proibicoesSitio.on && sitioProibido(config, n, sitio)) return false;
 
   if (r.diasSeguidos.on && !ehPostoFixo(pessoaMap, n, sitio, turno)
       && d > 0 && celula(escala, turno, sitio, d - 1).includes(n)) return false;

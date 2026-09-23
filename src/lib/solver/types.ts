@@ -61,7 +61,7 @@ export interface Regras {
   disponibilidade: RegraConfig;
   turnoBase: RegraConfig;
   categoria: RegraConfig;
-  mariaVacina: RegraConfig;
+  proibicoesSitio: RegraConfig;
   plantaoMesmo: RegraConfig;
   diasSeguidos: RegraConfig;
   sextaSegunda: RegraConfig;

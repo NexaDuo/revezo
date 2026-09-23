@@ -146,7 +146,7 @@ O importador casa nome completo da planilha → nome curto via `NOME_CURTO`.
 | `disponibilidade` | não escalar quem está de F / FC / FE / AT no dia |
 | `turnoBase` | cada um só no seu turno-base (exceto plantão); quem é 16h nunca de manhã |
 | `categoria` | Sala 1/5, Supervisão e Ensino só enfermeiro; Procedimento→Curativo só técnico |
-| `mariaVacina` | Marta nunca na Vacina |
+| `proibicoesSitio` (antes `mariaVacina`) | Marta nunca na Vacina |
 | `plantaoMesmo` | quem está de plantão não fica no mesmo sítio de manhã e de tarde |
 | `diasSeguidos` | não repetir o mesmo sítio em dias seguidos (vale para Ações) |
 | `sextaSegunda` | não repetir o sítio da sexta anterior na segunda |

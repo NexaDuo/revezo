@@ -258,6 +258,25 @@ export async function carregarEscalaPorId(id: string, dataInicio: string, unidad
   return (data as EscalaSalva) ?? null;
 }
 
+/** Versões salvas de UMA semana (sem `grade`/`violacoes`/`sitios`/`rodape`:
+ *  serve só para saber "quantas há" e "qual a mais recente", não para abrir
+ *  uma delas). Usado quando a semana não tem nenhuma ativa — a ativa pode ter
+ *  sido apagada ou marcada como substituída por fora do app — para distinguir
+ *  "nenhuma grade gerada ainda" de "tem grade, só que nenhuma é a ativa". */
+export async function listarVersoesSemana(dataInicio: string, unidadeId: string | null): Promise<EscalaSalva[]> {
+  if (!isSupabaseConfigured) {
+    return lerDemoEscalas().filter(e => e.data_inicio === dataInicio).sort(ordenarVersoes);
+  }
+  const { data, error } = await supabase
+    .from('escalas_semanais')
+    .select('id,titulo,data_inicio,data_fim,dias,ativa,substituida_em,status,score,created_at,updated_at')
+    .eq('unidade_id', exigirUnidade(unidadeId))
+    .eq('data_inicio', dataInicio)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data || []) as EscalaSalva[];
+}
+
 async function listar(tabela: string, ordem: string, unidadeId: string | null) {
   if (!isSupabaseConfigured) return [...dadosDemo(tabela, unidadeId)].sort((a,b) => a[ordem] > b[ordem] ? 1 : -1);
   const { data, error } = await supabase

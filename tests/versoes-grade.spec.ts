@@ -121,6 +121,70 @@ test.describe('versões da grade — modo demonstração', () => {
     await expect(banner).toContainText('Alterações não salvas');
   });
 
+  test('voltar do navegador com grade não salva pergunta e, se cancelar, fica', async ({ page }) => {
+    await semeiaDisp(page);
+    await page.goto(`/${slug}/${SEMANA}/regras`);
+    await page.getByRole('link', { name: 'Grade da Semana' }).click();
+    await expect(page).toHaveURL(new RegExp(`/${slug}/${SEMANA}$`));
+    await page.getByRole('button', { name: 'Gerar Grade', exact: true }).click();
+    const banner = page.getByTestId('versao-grade');
+    await expect(banner).toContainText('Grade nova, ainda não salva');
+
+    const dialogos: string[] = [];
+    page.once('dialog', d => { dialogos.push(d.message()); d.dismiss(); });
+    await page.goBack();
+    await expect.poll(() => dialogos.length).toBe(1);
+    await expect(page).toHaveURL(new RegExp(`/${slug}/${SEMANA}$`));
+    await expect(banner).toContainText('Grade nova, ainda não salva');
+
+    page.once('dialog', d => d.accept());
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`/${slug}/${SEMANA}/regras$`));
+  });
+
+  test('semana com versões e nenhuma ativa diz isso e permite tornar ativa', async ({ page }) => {
+    await semeiaDisp(page);
+    const grade = generateSchedule(configDemo).escala;
+    await page.addInitScript(e => {
+      if (!localStorage.getItem('demo_escalas')) localStorage.setItem('demo_escalas', JSON.stringify([e]));
+    }, {
+      id: '0a0a0a0a-0000-4000-8000-000000000077', titulo: 'substituída', data_inicio: SEMANA, data_fim: '2026-08-07',
+      dias: DIAS, grade, violacoes: [], score: 0, ativa: false, substituida_em: '2026-08-02T10:00:00Z',
+      created_at: '2026-08-01T10:00:00Z',
+    });
+    await page.goto(`/${slug}/${SEMANA}`);
+    await expect(page.getByTestId('semana-sem-ativa')).toContainText('1 versão salva, nenhuma ativa');
+    await page.getByRole('button', { name: 'Tornar ativa a versão mais recente' }).click();
+    await expect(page.getByTestId('versao-grade')).toContainText('Versão ativa');
+  });
+
+  test('localStorage indisponível não derruba a demonstração', async ({ page }) => {
+    // O script do Clarity (terceiro) também usa storage e lança; o que se testa é o app.
+    await page.route('**/*clarity.ms/**', r => r.abort());
+    await page.addInitScript(() => {
+      for (const m of ['getItem', 'setItem', 'removeItem'] as const)
+        Storage.prototype[m] = () => { throw new DOMException('bloqueado', 'SecurityError'); };
+    });
+    const erros: string[] = [];
+    page.on('pageerror', e => erros.push(e.message));
+    await page.goto(`/${slug}/${SEMANA}`);
+    await expect(page.getByLabel('Semana', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Gerar Grade', exact: true })).toBeVisible();
+    expect(erros).toEqual([]);
+  });
+
+  test('impressão em largura de celular mostra a grade sem os controles', async ({ page }) => {
+    await semeiaDisp(page);
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto(`/${slug}/${SEMANA}`);
+    await page.getByRole('button', { name: 'Gerar Grade', exact: true }).click();
+    await expect(page.getByTestId('versao-grade')).toContainText('Grade nova, ainda não salva');
+    await page.emulateMedia({ media: 'print' });
+    await expect(page.getByRole('table').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Gerar Grade', exact: true })).toBeHidden();
+    await expect(page.getByTestId('versao-grade')).toBeHidden();
+  });
+
   test('entrar na semana abre a grade ativa salva e arrastar refaz a conferência', async ({ page }) => {
     const grade = generateSchedule(configDemo).escala;
     const mov = movimentoQueViolaCategoria(configDemo, grade);
