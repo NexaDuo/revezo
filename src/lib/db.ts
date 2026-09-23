@@ -3,6 +3,7 @@ import { dadosDemo } from './paginacao';
 import { queryClient } from './queryClient';
 import { ScheduleResult } from './solver/types';
 import { supabase, isSupabaseConfigured } from './supabase';
+import { dadosParaIds, dadosParaNomes, type PessoaRef } from './dispIds';
 
 /** Unidade do usuário logado. Toda escrita no domínio é escopada por ela —
  *  as tabelas têm `unidade_id not null` e RLS por unidade. Usado só como
@@ -376,6 +377,19 @@ export interface SemanaDisponibilidade {
 
 const CHAVE_DEMO = 'demo_disponibilidade';
 
+/** Equipe da unidade para traduzir `dados` (id ↔ nome curto). Ver dispIds.ts. */
+async function refsEquipe(unidade_id: string): Promise<PessoaRef[]> {
+  const { data, error } = await supabase.from('equipe').select('id,nome_curto').eq('unidade_id', unidade_id);
+  if (error) throw error;
+  return (data || []) as PessoaRef[];
+}
+
+async function comNomes(linhas: SemanaDisponibilidade[], unidade_id: string) {
+  if (!linhas.length) return linhas;
+  const equipe = await refsEquipe(unidade_id);
+  return linhas.map(l => ({ ...l, dados: dadosParaNomes(l.dados || {}, equipe) }));
+}
+
 function lerDemo(): SemanaDisponibilidade[] {
   try {
     return JSON.parse(localStorage.getItem(CHAVE_DEMO) || '[]');
@@ -403,7 +417,7 @@ export async function salvarDisponibilidade(s: SemanaDisponibilidade, unidadeId:
       data_inicio: s.data_inicio,
       data_fim: s.data_fim,
       dias: s.dias,
-      dados: s.dados,
+      dados: dadosParaIds(s.dados, await refsEquipe(unidade_id)),
       origem: s.origem ?? {},
       atualizado_por: auth?.user?.id ?? null,
     }],
@@ -422,7 +436,7 @@ export async function listarDisponibilidades(unidadeId: string | null): Promise<
     .eq('unidade_id', exigirUnidade(unidadeId))
     .order('data_inicio', { ascending: false });
   if (error) throw error;
-  return (data || []) as SemanaDisponibilidade[];
+  return comNomes((data || []) as SemanaDisponibilidade[], exigirUnidade(unidadeId));
 }
 
 export async function carregarDisponibilidade(dataInicio: string, unidadeId: string | null): Promise<SemanaDisponibilidade | null> {
@@ -436,7 +450,8 @@ export async function carregarDisponibilidade(dataInicio: string, unidadeId: str
     .eq('data_inicio', dataInicio)
     .maybeSingle();
   if (error) throw error;
-  return (data as SemanaDisponibilidade) ?? null;
+  if (!data) return null;
+  return (await comNomes([data as SemanaDisponibilidade], exigirUnidade(unidadeId)))[0];
 }
 
 export async function excluirDisponibilidade(dataInicio: string, unidadeId: string | null) {
