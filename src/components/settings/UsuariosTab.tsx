@@ -34,6 +34,7 @@ export function UsuariosTab() {
  const { profile, isAdmin, isCoordenador, refreshProfile } = useAuth();
  const { unidadeId } = useWorkContext(); const client = useQueryClient();
  if (!isCoordenador) return null;
+ const [salvando, setSalvando] = useState<string | null>(null);
  const escopo = isAdmin ? 'global' : 'unidade';
  const unidade = isAdmin ? unidadeId : profile?.unidade_id ?? null;
  const podeEditar = (u: UserProfile) => u.id !== profile?.id && (isAdmin || (u.unidade_id === profile?.unidade_id && u.role === 'visualizador'));
@@ -41,9 +42,49 @@ export function UsuariosTab() {
    {id:'demo-usuario-1',nome:'Pessoa Fictícia Alfa',email:'alfa@example.com',role:'visualizador',ativo:true,unidade_id:unidade},
    {id:'demo-usuario-2',nome:'Pessoa Fictícia Beta',email:'beta@example.com',role:'visualizador',ativo:true,unidade_id:unidade},
  ]);
+ 
+ const alternarAtivo = async (u: UserProfile) => {
+  if (!podeEditar(u)) return;
+  setSalvando(u.id);
+  try {
+    const payload = { ativo: !u.ativo };
+    if (isSupabaseConfigured) {
+      let q = supabase.from('profiles').update(payload).eq('id',u.id);
+      if (!isAdmin) q = q.eq('unidade_id',profile!.unidade_id!).eq('role','visualizador');
+      const {error} = await q.select('id'); if (error) throw error;
+    } else {
+      const demoUser = dadosDemo('profiles',unidade).find(r=>r.id===u.id);
+      if (demoUser) Object.assign(demoUser,payload);
+    }
+    await client.invalidateQueries({queryKey:['profiles']}); 
+    await refreshProfile();
+  } catch (e) {
+    console.error('Erro ao alternar status', e);
+    alert('Erro ao alterar status.');
+  } finally {
+    setSalvando(null);
+  }
+ };
+
  return <div className="space-y-3"><DataTable<UserProfile> titulo="Usuários" descricao="Apenas administradores podem promover ou revogar coordenadores." queryKey={['profiles', unidade]} podeCriar={false}
  fetchPage={f => listarPagina('profiles', unidade, {...f, ordem:'created_at',crescente:false}, escopo)} getRowId={u => u.id} podeEditar={podeEditar}
- columns={[{key:'nome',header:'Nome',searchable:true},{key:'email',header:'E-mail',searchable:true},{key:'role',header:'Papel',render:u=>PAPEIS[u.role] ?? u.role},{key:'ativo',header:'Ativo',render:u=>u.ativo?'Sim':'Não'}]}
+ columns={[{key:'nome',header:'Nome',searchable:true},{key:'email',header:'E-mail',searchable:true},{key:'role',header:'Papel',render:u=>PAPEIS[u.role] ?? u.role},{key:'ativo',header:'Ativo',render:u=>(
+  <button
+    onClick={(e) => { e.stopPropagation(); void alternarAtivo(u); }}
+    disabled={!podeEditar(u) || salvando === u.id}
+    aria-pressed={u.ativo}
+    title={podeEditar(u) ? 'Alternar acesso' : 'Sem permissão'}
+    className={`relative align-middle w-11 h-6 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+      u.ativo ? 'bg-caneta-600' : 'bg-slate-300'
+    }`}
+  >
+    <span
+      className={`absolute left-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white transition-all ${
+        u.ativo ? 'translate-x-5' : 'translate-x-0'
+      }`}
+    />
+  </button>
+)}]}
  renderForm={(u, fechar) => u && <RecordForm inicial={u} fechar={fechar} fields={[
  {key:'role',label:'Papel',disabled:!isAdmin,options:[['visualizador','Visualizador (Somente Leitura)'],['coordenador','Coordenador de Escala'],['admin','Administrador']]},
  {key:'ativo',label:'Ativo',type:'checkbox'}]}
