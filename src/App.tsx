@@ -609,7 +609,7 @@ export const App: React.FC = () => {
                     <span><span className="marca-rigida px-1 text-slate-900">Regra rígida</span> bloqueia</span>
                     <span><span className="marca-alerta px-1 text-slate-900">Alerta</span> só avisa</span>
                   </p>
-                  <ScheduleGrid linhasOrfas={fotoGrade.length ? linhasOrfas(escala, fotoGrade) : undefined} escala={escala} violacoes={violacoes} dias={currentConfig?.dias || diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala}
+                  <ScheduleGrid config={currentConfig || undefined} linhasOrfas={fotoGrade.length ? linhasOrfas(escala, fotoGrade) : undefined} escala={escala} violacoes={violacoes} dias={currentConfig?.dias || diasOverride || defaultConfig.dias} onUpdateEscala={handleUpdateEscala}
                     onSalvar={handleSalvar} bloqueio={bloqueioEdicao} textoSalvar={versao ? 'Salvar nesta versão' : 'Salvar e Publicar'} />
                 </>
               )}

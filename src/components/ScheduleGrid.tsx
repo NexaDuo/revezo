@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Escala, Violacao } from '../lib/solver/types';
 import { canon } from '../lib/solver/utils';
 import { useWorkContext } from '../context/WorkContext';
+import { X } from 'lucide-react';
+import { estaFora } from '../lib/solver/utils';
 
 interface ScheduleGridProps {
   escala: Escala;
@@ -15,9 +17,10 @@ interface ScheduleGridProps {
   textoSalvar?: string;
   /** Motivo para a grade estar só leitura agora (carregando, sem conferência). */
   bloqueio?: string | null;
+  config?: import('../lib/solver/types').Config;
 }
 
-export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, linhasOrfas, violacoes, dias, onUpdateEscala, onSalvar, textoSalvar = 'Salvar e Publicar', bloqueio = null }) => {
+export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, linhasOrfas, violacoes, dias, onUpdateEscala, onSalvar, textoSalvar = 'Salvar e Publicar', bloqueio = null, config }) => {
   const [soltarEm, setSoltarEm] = useState<string | null>(null);
   const { podeGravar, visitante } = useWorkContext();
   const getViolacoes = (turno: string, sitio: string, d: number) => {
@@ -114,14 +117,73 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, linhasOrfas,
                       {nomes.map((nome, i) => (
                         <div
                           key={i}
-                          className={`w-fit rounded-sm px-1 font-medium leading-6 text-slate-900 ${marca} ${canEdit ? 'cursor-grab hover:bg-slate-100 active:cursor-grabbing' : ''}`}
+                          className={`w-fit rounded-sm px-1 font-medium leading-6 text-slate-900 ${marca} ${canEdit ? 'cursor-grab hover:bg-slate-100 active:cursor-grabbing' : ''} group flex items-center gap-1`}
                           draggable={canEdit}
                           onDragStart={canEdit ? (e) => handleDragStart(e, nome, turno, s, d) : undefined}
                           onDragEnd={() => setSoltarEm(null)}
                         >
-                          {nome}
+                          <span>{nome}</span>
+                          {canEdit && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!onUpdateEscala) return;
+                                const novaEscala = JSON.parse(JSON.stringify(escala));
+                                novaEscala[turno][s][d] = novaEscala[turno][s][d].filter((n: string) => n !== nome);
+                                onUpdateEscala(novaEscala);
+                              }}
+                              className="hidden group-hover:flex items-center justify-center w-3.5 h-3.5 rounded-full bg-red-100 text-red-600 hover:bg-red-200"
+                              title="Remover"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          )}
                         </div>
                       ))}
+                                            {canEdit && config && (
+                        <div className="mt-1" data-print-hide="true">
+                          <select
+                            className="text-xs bg-transparent hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded px-1 py-0.5 text-slate-500 hover:text-slate-700 w-full cursor-pointer focus:outline-none focus:ring-1 focus:ring-caneta-500 transition-colors"
+                            value=""
+                            onChange={(e) => {
+                              if (!e.target.value || !onUpdateEscala) return;
+                              const nome = e.target.value;
+                              const novaEscala = JSON.parse(JSON.stringify(escala));
+                              if (!novaEscala[turno]) novaEscala[turno] = {};
+                              if (!novaEscala[turno][s]) novaEscala[turno][s] = [];
+                              if (!novaEscala[turno][s][d]) novaEscala[turno][s][d] = [];
+                              if (!novaEscala[turno][s][d].includes(nome)) {
+                                novaEscala[turno][s][d].push(nome);
+                                onUpdateEscala(novaEscala);
+                              }
+                            }}
+                          >
+                            <option value="">+ Adicionar</option>
+                            {config.equipe
+                               .map(p => {
+                                 const noTurno = Object.values(escala[turno] || {}).some(dias => (dias[d] || []).includes(p.n));
+                                 const outroTurno = turno === 'manha' ? 'tarde' : 'manha';
+                                 const noOutro = Object.values(escala[outroTurno] || {}).some(dias => (dias[d] || []).includes(p.n));
+                                 const indisp = estaFora(config.disp, p.n, d);
+                                 
+                                 let status = '';
+                                 let ordem = 0;
+                                 if (indisp) { status = ' (folga/indisp)'; ordem = 3; }
+                                 else if (noTurno) { status = ' (já neste turno)'; ordem = 2; }
+                                 else if (noOutro) { status = ' (no outro turno)'; ordem = 1; }
+                                 else { status = ' (ocioso)'; ordem = 0; }
+                                 
+                                 return { nome: p.n, status, ordem };
+                               })
+                               .sort((a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome))
+                               .map(p => (
+                                 <option key={p.nome} value={p.nome}>{p.nome}{p.status}</option>
+                               ))
+                            }
+                          </select>
+                        </div>
+                      )}
                       {vs.length > 0 && (
                         <ul data-print-hide="true" className={`mt-1 space-y-0.5 text-xs ${vs.some(v => v.hard) ? 'text-red-800' : 'text-slate-600'}`}>
                           {vs.map((v, i) => <li key={i}>{v.msg}</li>)}
