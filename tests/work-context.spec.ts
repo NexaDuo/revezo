@@ -335,6 +335,8 @@ for (const tela of ['equipe', 'sitios'] as const) {
     await expect(page.getByLabel('Ordem', { exact: true })).toHaveValue('8');
     await page.getByLabel('Nome', { exact: true }).fill('Novo registro');
     if (tela === 'equipe') {
+      await expect(page.getByLabel('Nome curto', { exact: true })).toHaveValue('Novo R.');
+      await page.getByLabel('Nome curto', { exact: true }).fill('');
       await page.getByRole('button', { name: 'Salvar', exact: true }).click();
       await expect(page.getByRole('alert')).toHaveText('Informe o nome curto.');
       expect(escritas).toHaveLength(0);
@@ -349,14 +351,14 @@ for (const tela of ['equipe', 'sitios'] as const) {
     if (tela === 'equipe') {
       await page.getByLabel('Categoria', { exact: true }).selectOption('enf');
       await page.getByLabel('Turno base').selectOption('noite');
-      await page.getByLabel('Isento de Ações').check();
+      await page.getByLabel('Isento de Ações').click();
       await page.getByLabel('Custo extra').fill('1.5');
-      await page.getByLabel('Ativo', { exact: true }).uncheck();
+      await page.getByLabel('Ativo', { exact: true }).click();
       // Posto fixo é um select de sítios (grava o id); "Nenhum" vira NULL.
       await page.getByLabel('Sítio fixo').selectOption({ label: 'Nenhum' });
     } else {
       await page.getByLabel('Categoria permitida').selectOption('tec');
-      await page.getByLabel('Opcional').check();
+      await page.getByLabel('Opcional').click();
       await page.getByLabel('Prioridade de dupla').fill('2');
       await page.getByLabel('Nome à tarde').fill('   ');
     }

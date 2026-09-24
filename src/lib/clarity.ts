@@ -34,10 +34,9 @@ function chamar(comando: string, ...args: unknown[]) {
 /** Chamar só quando o uuid muda (login, restauração de sessão). */
 export function identificarNoClarity(usuarioId: string) {
   chamar('identify', usuarioId);
-  chamar('set', 'usuario_id', usuarioId);
 }
 
-/** Tags que mudam durante a sessão (papel, unidade); valor ausente não é enviado. */
-export function marcarNoClarity(tag: 'papel' | 'unidade' | 'versao', valor: string | null | undefined) {
+/** Tags que mudam durante a sessão (papel, environment); valor ausente não é enviado. */
+export function marcarNoClarity(tag: 'papel' | 'environment' | 'versao', valor: string | null | undefined) {
   if (valor) chamar('set', tag, valor);
 }

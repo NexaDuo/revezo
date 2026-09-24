@@ -163,9 +163,9 @@ export const Sidebar: React.FC = () => {
           flex flex-col
           fixed top-28 md:top-16 bottom-0 left-0 z-50
           md:sticky md:h-[calc(100vh-4rem)]
-          transition-all duration-200
+          transition-[width,transform] duration-200
           ${collapsed ? 'w-16' : 'w-60'}
-          ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+          ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} md:transform-none
         `}
       >
         <nav aria-label="Navegação principal" className="flex-1 py-3 space-y-1 px-2 overflow-y-auto">

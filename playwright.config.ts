@@ -12,6 +12,7 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${port}`,
     trace: 'on-first-retry',
+    headless: true,
   },
   projects: [
     {

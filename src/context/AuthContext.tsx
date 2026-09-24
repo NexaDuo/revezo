@@ -32,6 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [role, setRole] = useState<UserRole>('visualizador');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
 
   const fetchProfile = async (userId: string, retries = 3, delay = 500): Promise<UserProfile | null> => {
     try {
@@ -264,6 +265,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  useEffect(() => {
+    if (!user || !isSupabaseConfigured || !profile?.unidade_id) {
+      setOnlineUsers(new Set());
+      return;
+    }
+
+    const channel = supabase.channel(`system-presence:${profile.unidade_id}`, {
+      config: {
+        presence: { key: user.id },
+      },
+    });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        setOnlineUsers(new Set(Object.keys(state)));
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ online_at: new Date().toISOString() });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, isSupabaseConfigured, profile?.unidade_id]);
+
   const isAdmin = !!profile?.ativo && role === 'admin';
   const isCoordenador = !!profile?.ativo && (role === 'admin' || role === 'coordenador');
 
@@ -284,6 +313,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateUserRole,
         toggleUserActive,
         isSupabaseConfigured,
+        onlineUsers,
       }}
     >
       {children}

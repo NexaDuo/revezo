@@ -88,10 +88,9 @@ export const WorkProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // (troca de conta: o perfil anterior ainda está em memória por um instante).
   const clarityId = isSupabaseConfigured ? user?.id ?? null : null;
   const clarityPapel = clarityId && profile && profile.id === clarityId ? (profile.ativo ? profile.role : 'inativo') : null;
-  const claritySlug = clarityId ? unidade?.slug : null;
   useEffect(() => { if (clarityId) identificarNoClarity(clarityId); }, [clarityId]);
   useEffect(() => { marcarNoClarity('papel', clarityPapel); }, [clarityPapel]);
-  useEffect(() => { marcarNoClarity('unidade', claritySlug); }, [claritySlug]);
+  useEffect(() => { marcarNoClarity('environment', import.meta.env.DEV ? 'development' : 'production'); }, []);
   useEffect(() => { marcarNoClarity('versao', import.meta.env.VITE_APP_VERSION || 'v0.1-dev'); }, []);
   const chaveLista = `${chavePerfil}:${unidadeConsulta?.id ?? ''}:${revisao}`;
   useEffect(() => {

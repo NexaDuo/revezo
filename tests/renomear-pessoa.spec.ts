@@ -84,7 +84,7 @@ test('renomear em Equipe mantém regras, busca pelo nome novo e geração da gra
   await expect(modal).toHaveCount(0);
   expect(linhas.equipe[0].nome_curto).toBe('Aurora Nova');
   await page.goto('/regras');
-  await page.getByRole('tab', { name: /Restrições/i }).click();
+  await page.getByRole('tab', { name: 'Proibições por sítio' }).click();
   const proibicoes = page.locator('section').filter({ has: page.getByRole('heading', { name: /^Proibições por sítio/ }) });
   await proibicoes.getByRole('textbox', { name: 'Buscar Proibições por sítio' }).fill('Aurora Nova');
   await expect(proibicoes.getByRole('cell', { name: 'Aurora Nova', exact: true })).toBeVisible();

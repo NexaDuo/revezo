@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { RegrasManager } from './RegrasManager';
 import { RestricoesManager } from './RestricoesManager';
 
+export type AbaRegras = 'regras' | 'proibicoes' | 'duplas' | 'fixas';
+
 export function RegrasView() {
-  const [ativa, setAba] = useState<'regras' | 'restricoes'>('regras');
+  const [ativa, setAba] = useState<AbaRegras>('regras');
   
   return (
     <div className="space-y-6">
       <div className="flex justify-center">
-        <div role="tablist" aria-label="Regras e Conferência" className="flex shrink-0 gap-1 overflow-x-auto overflow-y-hidden border-b border-slate-200 px-4 [scrollbar-width:none]">
+        <div role="tablist" aria-label="Regras e Restrições" className="flex shrink-0 gap-1 overflow-x-auto overflow-y-hidden border-b border-slate-200 px-4 [scrollbar-width:none]">
           <button
             role="tab"
             aria-selected={ativa === 'regras'}
@@ -19,17 +21,33 @@ export function RegrasView() {
           </button>
           <button
             role="tab"
-            aria-selected={ativa === 'restricoes'}
-            className={'whitespace-nowrap border-b-2 px-4 py-2.5 text-sm ' + (ativa === 'restricoes' ? 'border-caneta-600 font-bold text-slate-900' : 'border-transparent font-medium text-slate-600 hover:text-slate-900 hover:border-slate-300')}
-            onClick={() => setAba('restricoes')}
+            aria-selected={ativa === 'proibicoes'}
+            className={'whitespace-nowrap border-b-2 px-4 py-2.5 text-sm ' + (ativa === 'proibicoes' ? 'border-caneta-600 font-bold text-slate-900' : 'border-transparent font-medium text-slate-600 hover:text-slate-900 hover:border-slate-300')}
+            onClick={() => setAba('proibicoes')}
           >
-            Restrições da Unidade
+            Proibições por sítio
+          </button>
+          <button
+            role="tab"
+            aria-selected={ativa === 'duplas'}
+            className={'whitespace-nowrap border-b-2 px-4 py-2.5 text-sm ' + (ativa === 'duplas' ? 'border-caneta-600 font-bold text-slate-900' : 'border-transparent font-medium text-slate-600 hover:text-slate-900 hover:border-slate-300')}
+            onClick={() => setAba('duplas')}
+          >
+            Duplas proibidas
+          </button>
+          <button
+            role="tab"
+            aria-selected={ativa === 'fixas'}
+            className={'whitespace-nowrap border-b-2 px-4 py-2.5 text-sm ' + (ativa === 'fixas' ? 'border-caneta-600 font-bold text-slate-900' : 'border-transparent font-medium text-slate-600 hover:text-slate-900 hover:border-slate-300')}
+            onClick={() => setAba('fixas')}
+          >
+            Colocações fixas
           </button>
         </div>
       </div>
       
       <div role="tabpanel" className="focus-visible:outline-none">
-        {ativa === 'regras' ? <RegrasManager /> : <RestricoesManager />}
+        {ativa === 'regras' ? <RegrasManager /> : <RestricoesManager aba={ativa} />}
       </div>
     </div>
   );

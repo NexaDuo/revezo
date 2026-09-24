@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Pencil, Plus, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Pencil, Plus, Search, X, RefreshCw, HelpCircle } from 'lucide-react';
 import { TAMANHO_PAGINA, type Pagina } from '../lib/paginacao';
 import { AVISO_NAO_SALVO, ModalSujoContext, useFecharAoClicarFora } from '../lib/modal';
 import { useDebounce } from '../lib/useDebounce';
@@ -128,10 +128,20 @@ function TableContent<T>({
     <section className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="min-w-0 space-y-1">
-          <h2 className="titulo-lista text-2xl font-extrabold tracking-tight text-slate-900">
-            {titulo} <span className="font-medium text-slate-500">({total})</span>
-          </h2>
-          {descricao && <p className="max-w-prose text-sm text-slate-600">{descricao}</p>}
+          <div className="flex items-center gap-2">
+            <h2 className="titulo-lista text-2xl font-extrabold tracking-tight text-slate-900">
+              {titulo} <span className="font-medium text-slate-500">({total})</span>
+            </h2>
+            {descricao && (
+              <div className="group relative inline-flex items-center mt-1">
+                <HelpCircle className="h-5 w-5 text-slate-400 hover:text-slate-600 transition-colors cursor-help" aria-hidden="true" />
+                <div role="tooltip" className="pointer-events-none absolute left-0 top-full mt-2 w-64 sm:w-80 rounded-md bg-slate-800 px-3 py-2.5 text-sm font-normal normal-case tracking-normal text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 z-50">
+                  {descricao}
+                  <div className="absolute bottom-full left-2 -mb-px border-4 border-transparent border-b-slate-800" />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         {(filtros || buscaPesquisavel || (podeEditar && podeCriar)) && (
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
@@ -148,6 +158,14 @@ function TableContent<T>({
                 />
               </div>
             )}
+            <button
+              onClick={() => query.refetch()}
+              title="Atualizar tabela"
+              aria-label="Atualizar tabela"
+              className="flex shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white p-2 text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors"
+            >
+              <RefreshCw className={`h-4 w-4 ${query.isFetching ? 'animate-spin text-caneta-600' : ''}`} />
+            </button>
             {podeEditar && podeCriar && (
               <button
                 onClick={() => editar(null)}

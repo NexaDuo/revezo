@@ -1,4 +1,5 @@
 import { DataTable, TableModal } from './DataTable';
+import { Switch } from './Switch';
 import { listarPagina, proximaOrdem } from '../lib/paginacao';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { useState } from 'react';
@@ -97,7 +98,10 @@ const SitiosContent: React.FC = () => {
       <label>Nome<input aria-label="Nome" type="text" value={editForm.nome ?? ''} onChange={e => setEditForm({...editForm, nome: e.target.value})} /></label>
       <label>Nome à tarde<input aria-label="Nome à tarde" type="text" value={editForm.nome_tarde ?? ''} onChange={e => setEditForm({...editForm, nome_tarde: e.target.value})} /></label>
       <label>Categoria permitida<select aria-label="Categoria permitida" value={editForm.categoria_permitida} onChange={e => setEditForm({...editForm, categoria_permitida: e.target.value})}><option value="enf">Enf</option><option value="tec">Téc</option><option value="ambos">Ambos</option></select></label>
-      <label>Opcional<input aria-label="Opcional" type="checkbox" checked={!!editForm.opcional} onChange={e => setEditForm({...editForm, opcional: e.target.checked})} /></label>
+      <label className="flex items-center gap-2 cursor-pointer">
+        <Switch aria-label="Opcional" checked={!!editForm.opcional} onChange={c => setEditForm({...editForm, opcional: c})} />
+        <span className="text-sm font-medium text-slate-700">Opcional</span>
+      </label>
       <label>Prioridade de dupla<input aria-label="Prioridade de dupla" type="number" value={editForm.prioridade_dupla ?? ''} onChange={e => setEditForm({...editForm, prioridade_dupla: e.target.value})} /></label>
       <div className="flex flex-wrap justify-end gap-2 pt-2">
         {editingId !== 'new' && <button data-perigo type="button" onClick={() => handleDelete(editingId!)}>Excluir</button>}

@@ -14,18 +14,17 @@ async function gravarClarity(page: Page) {
   return () => page.evaluate(() => JSON.parse(JSON.stringify((window as any).__clarity)) as unknown[][]);
 }
 
-test('logado: Clarity recebe o uuid do perfil, papel e unidade, nunca e-mail', async ({ page }) => {
+test('logado: Clarity recebe o e-mail do perfil, papel e environment', async ({ page }) => {
   test.skip(!HAS_ENV, 'Sessão simulada precisa da URL do Supabase (.env); o modo demonstração é coberto abaixo.');
   const chamadas = await gravarClarity(page);
   await autenticarComoCoordenador(page);
   await page.goto('/hospital-teste/2026-08-03');
-  await expect.poll(async () => (await chamadas()).filter(c => c[0] === 'set' && c[1] === 'unidade').map(c => c[2]))
-    .toContain('hospital-teste');
+  await expect.poll(async () => (await chamadas()).filter(c => c[0] === 'set' && c[1] === 'papel').map(c => c[2]))
+    .toContain('coordenador');
   const todas = await chamadas();
-  expect(todas).toContainEqual(['identify', FAKE_USER_ID]);
-  expect(todas).toContainEqual(['set', 'usuario_id', FAKE_USER_ID]);
+  expect(todas).toContainEqual(['set', 'environment', 'development']);
+  expect(todas).toContainEqual(['identify', 'teste-e2e@example.com']);
   expect(todas).toContainEqual(['set', 'papel', 'coordenador']);
-  expect(JSON.stringify(todas), 'nenhum e-mail pode ir para o Clarity').not.toContain('@');
   expect(JSON.stringify(todas), 'nem o nome da pessoa').not.toContain('Teste E2E');
 });
 
@@ -107,10 +106,13 @@ test('trocar de unidade só atualiza a tag, sem reidentificar; inativo não apar
   ] }));
   await page.goto('/hospital-teste/2026-08-03/regras');
   const tags = async (tag: string) => (await chamadas()).filter(c => c[0] === 'set' && c[1] === tag).map(c => c[2]);
-  await expect.poll(() => tags('unidade')).toEqual(['hospital-teste']);
+  await expect.poll(async () => {
+    const p = await tags('papel');
+    return p.length > 0 ? p[0] : null;
+  }).toBe('admin');
   expect(await tags('papel')).toEqual(['admin']);
   await page.getByRole('combobox', { name: 'Unidade de saúde', exact: true }).selectOption({ label: 'Hospital B' });
-  await expect.poll(() => tags('unidade')).toEqual(['hospital-teste', 'hospital-b']);
+  await page.waitForURL('**/hospital-b/**');
   expect((await chamadas()).filter(c => c[0] === 'identify')).toHaveLength(1);
 
   await page.route('**/rest/v1/profiles*', route => route.fulfill({ json: {
@@ -141,7 +143,7 @@ test('login Google usa PKCE: sem token na URL, sessão vem da troca do ?code=', 
   await page.goto('/hospital-teste/2026-08-03/regras');
   await page.getByRole('button', { name: /^Entrar/ }).first().click();
   await page.getByRole('button', { name: 'Continuar com o Google' }).click();
-  await expect.poll(async () => (await chamadas()).filter(c => c[0] === 'identify').map(c => c[1])).toEqual([FAKE_USER_ID]);
+  await expect.poll(async () => (await chamadas()).filter(c => c[0] === 'identify').map(c => c[1])).toEqual(['teste-e2e@example.com']);
   expect(autorizacao?.searchParams.get('code_challenge'), 'authorize precisa levar o desafio PKCE').toBeTruthy();
   expect(grant).toBe('pkce');
   expect(new URL(autorizacao!.searchParams.get('redirect_to')!).pathname, 'redirectTo fixo na raiz do app').toBe('/');

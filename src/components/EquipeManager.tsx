@@ -1,4 +1,5 @@
 import { DataTable, TableModal } from './DataTable';
+import { Switch } from './Switch';
 import { listarPagina, proximaOrdem } from '../lib/paginacao';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { useState } from 'react';
@@ -6,6 +7,15 @@ import { useWorkContext } from '../context/WorkContext';
 import { addEquipe, updateEquipe, deleteEquipe, getSitios } from '../lib/db';
 import { mensagemErroGravacao } from '../lib/errosGravacao';
 import { nomeDoSitio } from '../lib/referenciasSitio';
+import { getEquipes } from '../lib/db';
+
+const sugerirNomeCurto = (nomeCompleto: string) => {
+  const parts = nomeCompleto.trim().split(/\s+/);
+  if (parts.length === 0 || !parts[0]) return '';
+  if (parts.length === 1) return parts[0];
+  const lastPart = parts[parts.length - 1];
+  return `${parts[0]} ${lastPart[0].toUpperCase()}.`;
+};
 
 export const EquipeManager: React.FC = () => { const { unidadeId } = useWorkContext(); return <EquipeContent key={unidadeId} />; };
 const EquipeContent: React.FC = () => {
@@ -21,6 +31,15 @@ const EquipeContent: React.FC = () => {
   // sítio não deixa a pessoa apontando para um nome que não existe mais.
   const sitios = useQuery({ queryKey: ['sitios', unidadeId, 'opcoes'], queryFn: () => getSitios(unidadeId), enabled: !unidadeCarregando && !!unidadeId });
   const nomeSitio = (id: string | null) => nomeDoSitio(sitios, id);
+  const equipeCompleta = useQuery({ queryKey: ['equipe_todos', unidadeId], queryFn: () => getEquipes(unidadeId), enabled: !unidadeCarregando && !!unidadeId });
+
+  const handleNomeChange = (val: string) => {
+    const sug = sugerirNomeCurto(editForm.nome ?? '');
+    const novoNomeCurto = (editForm.nome_curto === sug) || !editForm.nome_curto 
+      ? sugerirNomeCurto(val) 
+      : editForm.nome_curto;
+    setEditForm({...editForm, nome: val, nome_curto: novoNomeCurto});
+  };
 
   const fetchData = () => client.invalidateQueries({ queryKey: ['equipe', unidadeId] });
   const handleAdd = async () => {
@@ -104,10 +123,14 @@ const EquipeContent: React.FC = () => {
     }
   };
 
+  const isDuplicate = !!editForm.nome_curto && (equipeCompleta.data ?? []).some((p: any) => p.nome_curto.toLowerCase() === editForm.nome_curto.toLowerCase() && p.id !== editingId);
+
   const renderEditCells = () => (
     <>
-      <label>Nome<input aria-label="Nome" type="text" value={editForm.nome ?? ''} onChange={e => setEditForm({...editForm, nome: e.target.value})} /></label>
-      <label>Nome curto<input aria-label="Nome curto" type="text" value={editForm.nome_curto ?? ''} onChange={e => setEditForm({...editForm, nome_curto: e.target.value})} /></label>
+      <label>Nome<input aria-label="Nome" type="text" value={editForm.nome ?? ''} onChange={e => handleNomeChange(e.target.value)} /></label>
+      <label>Nome curto<input aria-label="Nome curto" type="text" value={editForm.nome_curto ?? ''} onChange={e => setEditForm({...editForm, nome_curto: e.target.value})} />
+        {isDuplicate && <span className="text-xs text-amber-600 block mt-1 font-bold">⚠️ Esse nome curto já existe na unidade.</span>}
+      </label>
       <label>Categoria<select aria-label="Categoria" value={editForm.categoria} onChange={e => setEditForm({...editForm, categoria: e.target.value})}><option value="enf">Enfermeira</option><option value="tec">Técnica</option></select></label>
       <label>Turno base<select aria-label="Turno base" value={editForm.turno_base} onChange={e => setEditForm({...editForm, turno_base: e.target.value})}><option value="manha">Manhã</option><option value="tarde">Tarde</option><option value="noite">Noite</option><option value="ambos">Ambos</option></select></label>
       <label>Sítio fixo<select aria-label="Sítio fixo" value={editForm.fixo_sitio_id ?? ''} onChange={e => setEditForm({...editForm, fixo_sitio_id: e.target.value})}>
@@ -115,9 +138,15 @@ const EquipeContent: React.FC = () => {
         {(sitios.data ?? []).map((s: any) => <option key={s.id} value={s.id}>{s.nome}</option>)}
       </select></label>
       {sitios.isError && <p role="alert" className="text-sm text-red-900">Não foi possível carregar os sítios desta unidade para escolher o posto fixo.</p>}
-      <label>Isento de Ações<input aria-label="Isento de Ações" type="checkbox" checked={!!editForm.isento_acoes} onChange={e => setEditForm({...editForm, isento_acoes: e.target.checked})} /></label>
+      <label className="flex items-center gap-2 cursor-pointer">
+        <Switch aria-label="Isento de Ações" checked={!!editForm.isento_acoes} onChange={c => setEditForm({...editForm, isento_acoes: c})} />
+        <span className="text-sm font-medium text-slate-700">Isento de Ações</span>
+      </label>
       <label>Custo extra<input aria-label="Custo extra" type="number" step="any" value={editForm.custo_extra ?? ''} onChange={e => setEditForm({...editForm, custo_extra: e.target.value})} /></label>
-      <label>Ativo<input aria-label="Ativo" type="checkbox" checked={!!editForm.ativo} onChange={e => setEditForm({...editForm, ativo: e.target.checked})} /></label>
+      <label className="flex items-center gap-2 cursor-pointer">
+        <Switch aria-label="Ativo" checked={!!editForm.ativo} onChange={c => setEditForm({...editForm, ativo: c})} />
+        <span className="text-sm font-medium text-slate-700">Ativo</span>
+      </label>
       <label>Ordem<input aria-label="Ordem" type="number" value={editForm.ordem ?? ''} onChange={e => setEditForm({...editForm, ordem: e.target.value})} /></label>
       <div className="flex flex-wrap justify-end gap-2 pt-2">
         {editingId !== 'new' && <button data-perigo type="button" onClick={() => handleDelete(editingId!)}>Excluir</button>}

@@ -10,6 +10,7 @@ export interface UserProfile {
   ativo: boolean;
   created_at: string;
   updated_at: string;
+  last_sign_in_at?: string;
 }
 
 export interface AuthState {
@@ -31,4 +32,5 @@ export interface AuthContextType extends AuthState {
   updateUserRole: (userId: string, newRole: UserRole) => Promise<boolean>;
   toggleUserActive: (userId: string, currentStatus: boolean) => Promise<boolean>;
   isSupabaseConfigured: boolean;
+  onlineUsers: Set<string>;
 }

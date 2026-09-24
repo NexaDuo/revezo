@@ -31,8 +31,9 @@ test('duplas proibidas e colocações fixas são cadastradas pelo modal', async 
   const duplas = await tabela(page, 'duplas_proibidas', []);
   const fixas = await tabela(page, 'colocacoes_fixas', []);
   await page.goto('/regras');
-  await page.getByRole('tab', { name: /Restrições/i }).click();
 
+  // Duplas proibidas
+  await page.getByRole('tab', { name: 'Duplas proibidas' }).click();
   const secaoDuplas = page.locator('section').filter({ has: page.getByRole('heading', { name: /^Duplas proibidas/ }) });
   await secaoDuplas.getByRole('button', { name: 'Novo', exact: true }).click();
   let modal = page.getByRole('dialog', { name: 'Novo — Duplas proibidas' });
@@ -48,13 +49,15 @@ test('duplas proibidas e colocações fixas são cadastradas pelo modal', async 
   expect(duplas).toEqual([{ pessoa_a_id: 'p-1', pessoa_b_id: 'p-2', motivo: null, unidade_id: FAKE_UNIT_ID }]);
   await expect(secaoDuplas.getByRole('cell', { name: 'Bia F', exact: true })).toBeVisible();
 
+  // Colocações fixas
+  await page.getByRole('tab', { name: 'Colocações fixas' }).click();
   const secaoFixas = page.locator('section').filter({ has: page.getByRole('heading', { name: /^Colocações fixas/ }) });
   await secaoFixas.getByRole('button', { name: 'Novo', exact: true }).click();
   modal = page.getByRole('dialog', { name: 'Novo — Colocações fixas' });
   await modal.getByLabel('Pessoa', { exact: true }).selectOption({ label: 'Bia F' });
   await modal.getByLabel('Dia', { exact: true }).selectOption({ label: 'Quarta' });
   await modal.getByLabel('Colocação', { exact: true }).selectOption({ label: 'Fica fora das Ações' });
-  await modal.getByLabel('Depende do dia de plantão').check();
+  await modal.getByLabel('Depende do dia de plantão').click();
   await modal.getByRole('button', { name: 'Salvar', exact: true }).click();
   await expect(modal).toHaveCount(0);
   expect(fixas).toEqual([{
@@ -75,6 +78,8 @@ test('duplas proibidas e colocações fixas são cadastradas pelo modal', async 
   expect(fixas[1]).not.toHaveProperty('sitio_nome');
   await expect(secaoFixas.getByRole('cell', { name: 'Sala Fictícia' })).toBeVisible();
 
+  // Proibições por sítio
+  await page.getByRole('tab', { name: 'Proibições por sítio' }).click();
   const secaoProib = page.locator('section').filter({ has: page.getByRole('heading', { name: /^Proibições por sítio/ }) });
   await secaoProib.getByRole('button', { name: 'Novo', exact: true }).click();
   modal = page.getByRole('dialog', { name: 'Novo — Proibições por sítio' });
@@ -89,7 +94,7 @@ test('duplas proibidas e colocações fixas são cadastradas pelo modal', async 
 test('sem equipe cadastrada o formulário de restrição avisa na tela', async ({ page }) => {
   test.skip(HAS_ENV, 'Modo demonstração: a equipe da unidade começa vazia.');
   await page.goto('/regras');
-  await page.getByRole('tab', { name: /Restrições/i }).click();
+  await page.getByRole('tab', { name: 'Proibições por sítio' }).click();
   const secao = page.locator('section').filter({ has: page.getByRole('heading', { name: /^Proibições por sítio/ }) });
   await secao.getByRole('button', { name: 'Novo', exact: true }).click();
   await expect(page.getByRole('dialog').getByRole('alert')).toHaveText('Cadastre a equipe da unidade antes de criar restrições.');

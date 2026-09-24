@@ -8,6 +8,8 @@ export interface FiltroPagina {
   colunasPessoa?: string[];
   /** Critérios extras depois de `ordem`, antes do desempate final por id. */
   desempate?: { coluna: string; crescente: boolean }[];
+  /** Select para o PostgREST. Default: '*' */
+  select?: string;
 }
 const demo = new Map<string, any[]>();
 export function dadosDemo(tabela: string, unidadeId: string | null, iniciais: any[] = []) {
@@ -30,7 +32,7 @@ export async function listarPagina<T = any>(tabela: string, unidadeId: string | 
       colunasPessoa.includes(c) ? ids.includes(r[c]) : String(r[c] ?? '').toLocaleLowerCase().includes(filtro.busca.toLocaleLowerCase())));
     return paginarMemoria(filtrados, { ...filtro, busca: '' });
   }
-  let query = supabase.from(tabela).select('*', { count: 'exact' });
+  let query = supabase.from(tabela).select(filtro.select || '*', { count: 'exact' });
   if (escopo === 'unidade') query = query.eq('unidade_id', exigirUnidade(unidadeId));
   if (filtro.busca && filtro.colunasBusca?.length) {
     const termo = filtro.busca.replace(/\\/g, '\\\\').replace(/[%_]/g, '\\$&');

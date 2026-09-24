@@ -20,7 +20,7 @@ const SELECIONE: [string, string] = ['', 'Selecione'];
 /** Restrições que o solver lê por unidade (`loadConfig.ts`): quem não pode
  *  entrar em qual sítio, quem não trabalha junto e quem tem lugar fixo.
  *  Nome próprio aqui é dado da unidade, nunca código. */
-export function RestricoesManager() {
+export function RestricoesManager({ aba }: { aba: 'proibicoes' | 'duplas' | 'fixas' }) {
   const { unidadeId, podeGravar, isLoading } = useWorkContext();
   const client = useQueryClient();
   const habilitado = !isLoading && !!unidadeId;
@@ -47,6 +47,7 @@ export function RestricoesManager() {
 
   return (
     <div className="space-y-12">
+      {aba === 'proibicoes' && (
       <DataTable<any>
         titulo="Proibições por sítio"
         descricao="Quem nunca entra em determinado sítio. O solver respeita enquanto a regra Proibições por sítio estiver ligada."
@@ -77,7 +78,9 @@ export function RestricoesManager() {
           />
         </>}
       />
+      )}
 
+      {aba === 'duplas' && (
       <DataTable<any>
         titulo="Duplas proibidas"
         descricao="Duas pessoas que não devem ficar no mesmo sítio e turno."
@@ -109,7 +112,9 @@ export function RestricoesManager() {
           />
         </>}
       />
+      )}
 
+      {aba === 'fixas' && (
       <DataTable<any>
         titulo="Colocações fixas"
         descricao="Lugar garantido num dia e turno. Marque quando a colocação depende do dia de plantão da pessoa: se o plantão mudar, ela precisa ser revista."
@@ -154,6 +159,7 @@ export function RestricoesManager() {
           />
         </>}
       />
+      )}
     </div>
   );
 }

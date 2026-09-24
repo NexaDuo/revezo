@@ -5,6 +5,7 @@ import { addRegra, updateRegra, deleteRegra } from '../lib/db';
 import { listarPagina } from '../lib/paginacao';
 import { mensagemErroGravacao } from '../lib/errosGravacao';
 import { DataTable } from './DataTable';
+import { Switch } from './Switch';
 import { RecordForm } from './RecordForm';
 import { AlertTriangle, ShieldCheck } from 'lucide-react';
 export function RegrasManager() {
@@ -37,26 +38,16 @@ export function RegrasManager() {
                     {r.rigida ? <ShieldCheck className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
                     {r.rigida ? 'Rígida' : 'Alerta'}
                   </button>)},
- {key:'ativa', header:'Estado', render:r => (                  <button
-                    onClick={() => alternar(r, 'ativa')}
-                    disabled={!canEdit || salvando === r.id}
-                    aria-pressed={r.ativa}
-                    data-testid={`regra-toggle-${r.chave}`}
-                    className={`relative align-middle w-11 h-6 rounded-full transition-colors disabled:cursor-not-allowed ${
-                      r.ativa ? 'bg-caneta-600' : 'bg-slate-300'
-                    }`}
-                  >
-                    {/* `left-0.5` fixa a posição de repouso dentro da trilha —
-                        sem ela, o span parte do centro do botão (conteúdo
-                        vazio, sem largura própria) e o translate-x-5 (20px)
-                        empurra o polegar para fora da trilha de 44px. */}
-                    <span
-                      data-testid={`regra-toggle-knob-${r.chave}`}
-                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        r.ativa ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>)}
+ {key:'ativa', header:'Estado', render:r => (
+  <div data-testid={`regra-toggle-${r.chave}`}>
+    <Switch 
+      checked={r.ativa} 
+      onChange={() => alternar(r, 'ativa')} 
+      disabled={!canEdit || salvando === r.id} 
+      data-testid={`regra-toggle-knob-${r.chave}`}
+    />
+  </div>
+)}
  ]}
  renderForm={(r, fechar) => <RecordForm inicial={r ?? { chave:'', nome:'', descricao:'', ativa:true, rigida:true, ordem:1 }} fechar={fechar}
  fields={[{key:'chave',label:'Chave',required:true,disabled:!!r},{key:'nome',label:'Nome',required:true},{key:'descricao',label:'Descrição'},{key:'ativa',label:'Ativa',type:'checkbox'},{key:'rigida',label:'Rígida',type:'checkbox'},{key:'ordem',label:'Ordem',type:'number',required:true}]}
