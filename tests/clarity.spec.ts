@@ -23,7 +23,7 @@ test('logado: Clarity recebe o e-mail do perfil, papel e environment', async ({ 
     .toContain('coordenador');
   const todas = await chamadas();
   expect(todas).toContainEqual(['set', 'environment', 'development']);
-  expect(todas).toContainEqual(['identify', 'teste-e2e@example.com']);
+  expect(todas).toContainEqual(['identify', FAKE_USER_ID]);
   expect(todas).toContainEqual(['set', 'papel', 'coordenador']);
   expect(JSON.stringify(todas), 'nem o nome da pessoa').not.toContain('Teste E2E');
 });
@@ -143,7 +143,7 @@ test('login Google usa PKCE: sem token na URL, sessão vem da troca do ?code=', 
   await page.goto('/hospital-teste/2026-08-03/regras');
   await page.getByRole('button', { name: /^Entrar/ }).first().click();
   await page.getByRole('button', { name: 'Continuar com o Google' }).click();
-  await expect.poll(async () => (await chamadas()).filter(c => c[0] === 'identify').map(c => c[1])).toEqual(['teste-e2e@example.com']);
+  await expect.poll(async () => (await chamadas()).filter(c => c[0] === 'identify').map(c => c[1])).toEqual([FAKE_USER_ID]);
   expect(autorizacao?.searchParams.get('code_challenge'), 'authorize precisa levar o desafio PKCE').toBeTruthy();
   expect(grant).toBe('pkce');
   expect(new URL(autorizacao!.searchParams.get('redirect_to')!).pathname, 'redirectTo fixo na raiz do app').toBe('/');

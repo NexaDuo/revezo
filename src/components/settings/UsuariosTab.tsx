@@ -209,9 +209,7 @@ export function UsuariosTab() {
    },
    {key:'email',header:'E-mail',searchable:true,className:'hidden sm:table-cell',render:u=><CopyableEmail email={u.email} />},
    {key:'role',header:'Papel',className:'hidden lg:table-cell',render:u=>PAPEIS[u.role] ?? u.role},
-   {key:'last_sign_in_at',header:'Último Acesso',className:'hidden md:table-cell',render:u=>
-     onlineUsers.has(u.id) ? <span className="text-green-600 font-medium text-sm">Agora</span> : <span className="text-slate-500 text-sm">{u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Nunca'}</span>
-   },
+
    {key:'ativo',header:'Ativo',className:'hidden sm:table-cell',render:u=>(
     <Switch 
       checked={u.ativo} 

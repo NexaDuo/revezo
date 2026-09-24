@@ -267,12 +267,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    if (!user || !isSupabaseConfigured || !profile?.unidade_id) {
+    if (!user || !isSupabaseConfigured) {
       setOnlineUsers(new Set(user ? [user.id] : []));
       return;
     }
 
-    const channel = supabase.channel(`system-presence:${profile.unidade_id}`, {
+    const channel = supabase.channel(`system-presence:global`, {
       config: {
         presence: { key: user.id },
       },
@@ -295,7 +295,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, isSupabaseConfigured, profile?.unidade_id]);
+  }, [user, isSupabaseConfigured]);
 
   const isAdmin = !!profile?.ativo && role === 'admin';
   const isCoordenador = !!profile?.ativo && (role === 'admin' || role === 'coordenador');
