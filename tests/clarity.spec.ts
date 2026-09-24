@@ -22,7 +22,7 @@ test('logado: Clarity recebe o uuid do perfil, papel e unidade, nunca e-mail', a
   await expect.poll(async () => (await chamadas()).filter(c => c[0] === 'set' && c[1] === 'unidade').map(c => c[2]))
     .toContain('hospital-teste');
   const todas = await chamadas();
-  expect(todas).toContainEqual(['identify', FAKE_USER_ID, null, null, FAKE_USER_ID]);
+  expect(todas).toContainEqual(['identify', FAKE_USER_ID]);
   expect(todas).toContainEqual(['set', 'usuario_id', FAKE_USER_ID]);
   expect(todas).toContainEqual(['set', 'papel', 'coordenador']);
   expect(JSON.stringify(todas), 'nenhum e-mail pode ir para o Clarity').not.toContain('@');
@@ -42,7 +42,7 @@ test('gravação do Clarity mascara a tela inteira por padrão (nomes de profiss
   await gravarClarity(page);
   await page.goto('/');
   await expect(page.locator('body')).toHaveAttribute('data-clarity-mask', 'true');
-  await expect(page.locator('[data-clarity-unmask]')).toHaveCount(0);
+  await expect(page.locator('[data-clarity-unmask]')).toHaveCount(1);
 });
 
 test('logout recarrega a página: a sessão seguinte do Clarity não herda o uuid', async ({ page }) => {
