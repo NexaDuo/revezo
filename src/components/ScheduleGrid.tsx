@@ -133,7 +133,7 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, linhasOrfas,
                                 novaEscala[turno][s][d] = novaEscala[turno][s][d].filter((n: string) => n !== nome);
                                 onUpdateEscala(novaEscala);
                               }}
-                              className="hidden group-hover:flex items-center justify-center w-3.5 h-3.5 rounded-full bg-red-100 text-red-600 hover:bg-red-200"
+                              className="hidden group-hover:flex items-center justify-center w-3.5 h-3.5 rounded-full text-slate-500 hover:bg-black/10 hover:text-red-700"
                               title="Remover"
                             >
                               <X className="w-2.5 h-2.5" />
