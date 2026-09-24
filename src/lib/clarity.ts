@@ -38,6 +38,6 @@ export function identificarNoClarity(usuarioId: string) {
 }
 
 /** Tags que mudam durante a sessão (papel, unidade); valor ausente não é enviado. */
-export function marcarNoClarity(tag: 'papel' | 'unidade', valor: string | null | undefined) {
+export function marcarNoClarity(tag: 'papel' | 'unidade' | 'versao', valor: string | null | undefined) {
   if (valor) chamar('set', tag, valor);
 }

@@ -92,6 +92,7 @@ export const WorkProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => { if (clarityId) identificarNoClarity(clarityId); }, [clarityId]);
   useEffect(() => { marcarNoClarity('papel', clarityPapel); }, [clarityPapel]);
   useEffect(() => { marcarNoClarity('unidade', claritySlug); }, [claritySlug]);
+  useEffect(() => { marcarNoClarity('versao', import.meta.env.VITE_APP_VERSION || 'v0.1-dev'); }, []);
   const chaveLista = `${chavePerfil}:${unidadeConsulta?.id ?? ''}:${revisao}`;
   useEffect(() => {
     if (!unidadeConsulta) return;

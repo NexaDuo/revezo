@@ -193,6 +193,11 @@ export const Sidebar: React.FC = () => {
           })}
         </nav>
 
+        
+        <div className={`text-center px-2 py-1 text-[10px] font-mono text-slate-400 select-all ${collapsed ? 'hidden' : 'block'}`} title="Versão do sistema" data-clarity-unmask="true">
+          {import.meta.env.VITE_APP_VERSION || 'v0.1-dev'}
+        </div>
+
         {/* Colapsar/expandir — só faz sentido em telas md+, onde a sidebar
             fica em fluxo (não off-canvas). */}
         <button
