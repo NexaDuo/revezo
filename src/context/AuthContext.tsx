@@ -268,7 +268,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (!user || !isSupabaseConfigured || !profile?.unidade_id) {
-      setOnlineUsers(new Set());
+      setOnlineUsers(new Set(user ? [user.id] : []));
       return;
     }
 
@@ -281,11 +281,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
+        console.log('Realtime Presence Sync:', state);
         setOnlineUsers(new Set(Object.keys(state)));
       })
-      .subscribe(async (status) => {
+      .subscribe(async (status, err) => {
+        console.log('Realtime Status:', status, err);
         if (status === 'SUBSCRIBED') {
-          await channel.track({ online_at: new Date().toISOString() });
+          const res = await channel.track({ online_at: new Date().toISOString() });
+          console.log('Realtime Track Response:', res);
         }
       });
 

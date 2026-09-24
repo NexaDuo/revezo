@@ -10,6 +10,7 @@ export interface Column<T> {
   header: string;
   render?: (item: T) => React.ReactNode;
   searchable?: boolean;
+  className?: string;
 }
 
 const FOCAVEIS = 'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]';
@@ -194,7 +195,7 @@ function TableContent<T>({
             <table className="w-full text-left text-[15px] text-slate-800">
               <thead className="border-b border-slate-300 text-sm text-slate-600">
                 <tr>
-                  {columns.map(c => <th key={c.key} className="whitespace-nowrap px-3 py-2.5 font-bold">{c.header}</th>)}
+                  {columns.map(c => <th key={c.key} className={`whitespace-nowrap px-3 py-2.5 font-bold ${c.className ?? ''}`}>{c.header}</th>)}
                   {temAcoes && <th className="px-3 py-2.5"><span className="sr-only">Ações</span></th>}
                 </tr>
               </thead>
@@ -209,7 +210,7 @@ function TableContent<T>({
                     }}
                   >
                     {columns.map(c => (
-                      <td key={c.key} className="px-3 py-2.5">
+                      <td key={c.key} className={`px-3 py-2.5 ${c.className ?? ''}`}>
                         {c.render ? c.render(r) : String((r as any)[c.key] ?? '—')}
                       </td>
                     ))}

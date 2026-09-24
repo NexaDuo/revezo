@@ -89,7 +89,7 @@ function UsuarioForm({ u, fechar, isAdmin, onSubmit }: {
             type="button"
             title="Copiar ID do Usuário (Clarity)"
             onClick={() => { navigator.clipboard.writeText(u.id); toast.success('ID copiado!'); }}
-            className="p-2 text-slate-400 hover:text-caneta-600 hover:bg-caneta-50 rounded-md transition-colors"
+            className="hidden sm:block p-2 text-slate-400 hover:text-caneta-600 hover:bg-caneta-50 rounded-md transition-colors"
           >
             <Copy className="w-4 h-4" />
           </button>
@@ -168,7 +168,7 @@ export function UsuariosTab() {
  const unidade = isAdmin ? unidadeId : profile?.unidade_id ?? null;
  const podeEditar = (u: UserProfile) => u.id !== profile?.id && (isAdmin || (u.unidade_id === profile?.unidade_id && u.role === 'visualizador'));
  if (!isSupabaseConfigured) dadosDemo('profiles', unidade, [
-   {id:'demo-usuario-1',nome:'Pessoa Fictícia Alfa',email:'alfa@example.com',role:'visualizador',ativo:true,unidade_id:unidade},
+   {id:'demo-user-1',nome:'Pessoa Fictícia Alfa',email:'alfa@example.com',role:'visualizador',ativo:true,unidade_id:unidade},
    {id:'demo-usuario-2',nome:'Pessoa Fictícia Beta',email:'beta@example.com',role:'visualizador',ativo:true,unidade_id:unidade},
  ]);
  
@@ -200,19 +200,19 @@ export function UsuariosTab() {
  columns={[
    {key:'nome',header:'Nome',searchable:true,render:u=>
      <div className="flex items-center gap-2">
-       <div className="relative">
-         {u.avatar_url ? <img src={u.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" /> : <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs text-slate-500 shrink-0 font-medium">{u.nome?.charAt(0).toUpperCase() || '?'}</div>}
-         {onlineUsers.has(u.id) && <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 ring-2 ring-white" title="Online" />}
+       <div className="relative shrink-0 flex items-center justify-center">
+         {u.avatar_url ? <img src={u.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" /> : <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-sm text-slate-500 shrink-0 font-medium">{u.nome?.charAt(0).toUpperCase() || '?'}</div>}
+         {onlineUsers.has(u.id) && <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 ring-2 ring-white" title="Online" />}
        </div>
-       <span>{u.nome}</span>
+       <span className="font-medium whitespace-normal break-words">{u.nome}</span>
      </div>
    },
-   {key:'email',header:'E-mail',searchable:true,render:u=><CopyableEmail email={u.email} />},
-   {key:'role',header:'Papel',render:u=>PAPEIS[u.role] ?? u.role},
-   {key:'last_sign_in_at',header:'Último Acesso',render:u=>
+   {key:'email',header:'E-mail',searchable:true,className:'hidden sm:table-cell',render:u=><CopyableEmail email={u.email} />},
+   {key:'role',header:'Papel',className:'hidden lg:table-cell',render:u=>PAPEIS[u.role] ?? u.role},
+   {key:'last_sign_in_at',header:'Último Acesso',className:'hidden md:table-cell',render:u=>
      onlineUsers.has(u.id) ? <span className="text-green-600 font-medium text-sm">Agora</span> : <span className="text-slate-500 text-sm">{u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Nunca'}</span>
    },
-   {key:'ativo',header:'Ativo',render:u=>(
+   {key:'ativo',header:'Ativo',className:'hidden sm:table-cell',render:u=>(
     <Switch 
       checked={u.ativo} 
       onChange={(_, e) => { e.stopPropagation(); void alternarAtivo(u); }} 
