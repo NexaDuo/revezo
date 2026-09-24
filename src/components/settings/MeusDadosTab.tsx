@@ -31,6 +31,18 @@ export function MeusDadosTab() {
       ? <img src={profile.avatar_url} alt="Seu avatar" className="w-16 h-16 rounded-full object-cover" />
       : <div aria-label="Seu avatar" className="w-16 h-16 rounded-full bg-caneta-100 text-caneta-800 font-bold flex items-center justify-center text-xl">{(profile.nome || profile.email)[0]?.toUpperCase()}</div>}
     <label className="block text-sm font-medium text-slate-700">E-mail<input className="mt-1 block w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700" readOnly value={profile.email} /></label>
+    <label className="block text-sm font-medium text-slate-700">Identificador Interno (UUID)
+      <div className="mt-1 flex rounded-md shadow-sm">
+        <input className="block w-full rounded-none rounded-l-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 font-mono" readOnly value={profile.id} />
+        <button
+          type="button"
+          onClick={() => { navigator.clipboard.writeText(profile.id); alert('UUID copiado!'); }}
+          className="relative -ml-px inline-flex items-center space-x-2 rounded-r-md border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:border-caneta-500 focus:outline-none focus:ring-1 focus:ring-caneta-500"
+        >
+          Copiar
+        </button>
+      </div>
+    </label>
     <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
       <dt className="font-medium text-slate-700">Papel</dt><dd><RoleBadge role={profile.role} /></dd>
       <dt className="font-medium text-slate-700">Unidade de saúde</dt><dd>{profile.unidade_id ? unidadesDisponiveis.find(u => u.id === profile.unidade_id)?.nome ?? 'Unidade indisponível' : 'Sem unidade vinculada'}</dd>
