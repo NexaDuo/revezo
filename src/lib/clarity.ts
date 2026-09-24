@@ -33,7 +33,7 @@ function chamar(comando: string, ...args: unknown[]) {
 
 /** Chamar só quando o uuid muda (login, restauração de sessão). */
 export function identificarNoClarity(usuarioId: string) {
-  chamar('identify', usuarioId, undefined, undefined, usuarioId);
+  chamar('identify', usuarioId);
   chamar('set', 'usuario_id', usuarioId);
 }
 
