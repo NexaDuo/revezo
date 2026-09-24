@@ -31,6 +31,7 @@ test('duplas proibidas e colocações fixas são cadastradas pelo modal', async 
   const duplas = await tabela(page, 'duplas_proibidas', []);
   const fixas = await tabela(page, 'colocacoes_fixas', []);
   await page.goto('/regras');
+  await page.getByRole('tab', { name: /Restrições/i }).click();
 
   const secaoDuplas = page.locator('section').filter({ has: page.getByRole('heading', { name: /^Duplas proibidas/ }) });
   await secaoDuplas.getByRole('button', { name: 'Novo', exact: true }).click();
@@ -88,6 +89,7 @@ test('duplas proibidas e colocações fixas são cadastradas pelo modal', async 
 test('sem equipe cadastrada o formulário de restrição avisa na tela', async ({ page }) => {
   test.skip(HAS_ENV, 'Modo demonstração: a equipe da unidade começa vazia.');
   await page.goto('/regras');
+  await page.getByRole('tab', { name: /Restrições/i }).click();
   const secao = page.locator('section').filter({ has: page.getByRole('heading', { name: /^Proibições por sítio/ }) });
   await secao.getByRole('button', { name: 'Novo', exact: true }).click();
   await expect(page.getByRole('dialog').getByRole('alert')).toHaveText('Cadastre a equipe da unidade antes de criar restrições.');

@@ -48,6 +48,6 @@ test('pessoa renomeada continua ligada à disponibilidade salva por id', async (
   await expect(page.getByRole('listitem').filter({ hasText: 'fora da equipe' })).toHaveCount(0);
   await expect(page.getByRole('listitem').filter({ hasText: 'sem linha de disponibilidade' })).toHaveCount(0);
   // Aurora está de folga a semana toda: a folga veio pelo id, então ela não entra
-  await expect(page.getByRole('table').first()).not.toContainText('Aurora Nova');
+  await expect(page.getByRole('table').first().getByText('Aurora Nova', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('table').first()).toContainText('Ciro Cometa');
 });

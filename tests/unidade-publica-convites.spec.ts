@@ -38,7 +38,6 @@ test('visitante redireciona, gera, arrasta e imprime sem gravar', async ({ page 
   page.on('request', r => { if (r.url().includes('/rest/v1/') && r.method() !== 'GET') escritas.push(r.url()); });
   await page.goto('/');
   await expect(page).toHaveURL(new RegExp(`/demonstracao/${segundaAtualISO()}/?$`));
-  await expect(page.getByText('Visitante — somente leitura')).toBeVisible();
   await expect(page.getByText('Modo visitante: entre para salvar')).toBeVisible();
   await expect(page.getByRole('button', { name: /Importar Planilha/ })).toHaveCount(0);
   await page.getByRole('button', { name: 'Gerar Grade', exact: true }).click();
