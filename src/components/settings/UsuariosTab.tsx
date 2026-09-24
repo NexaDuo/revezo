@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { Copy, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useWorkContext } from '../../context/WorkContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
@@ -7,6 +9,27 @@ import { DataTable } from '../DataTable';
 import { RecordForm } from '../RecordForm';
 import type { UserProfile } from '../../types/auth';
 const PAPEIS: Record<string, string> = { admin: 'Administrador', coordenador: 'Coordenador de Escala', visualizador: 'Visualizador' };
+function CopyableId({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-md" data-clarity-unmask="true">
+      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">ID (Rastreável no Clarity)</div>
+      <div 
+        className="flex items-center justify-between gap-2 text-sm font-mono text-slate-700 cursor-pointer hover:bg-slate-200 p-1.5 -mx-1.5 rounded transition-colors"
+        onClick={() => {
+          navigator.clipboard.writeText(id);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }}
+        title="Copiar ID"
+      >
+        <span className="truncate">{id}</span>
+        {copied ? <Check className="w-4 h-4 text-green-600 shrink-0" /> : <Copy className="w-4 h-4 text-slate-400 shrink-0" />}
+      </div>
+    </div>
+  );
+}
+
 export function UsuariosTab() {
  const { profile, isAdmin, isCoordenador, refreshProfile } = useAuth();
  const { unidadeId } = useWorkContext(); const client = useQueryClient();
@@ -33,6 +56,8 @@ export function UsuariosTab() {
      const {data,error} = await q.select('id'); if (error) throw error; if (!data?.length) throw new Error('Nenhum usuário atualizado. Verifique sua permissão.');
    } else Object.assign(dadosDemo('profiles',unidade).find(r=>r.id===u.id),payload);
    await client.invalidateQueries({queryKey:['profiles']}); await refreshProfile();
- }} />}
+ }}>
+   <CopyableId id={u.id} />
+ </RecordForm>}
  /></div>;
 }
