@@ -1,3 +1,4 @@
+import { toast } from "../../lib/toast";
 import { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -87,7 +88,7 @@ function UsuarioForm({ u, fechar, isAdmin, onSubmit }: {
           <button
             type="button"
             title="Copiar ID do Usuário (Clarity)"
-            onClick={() => { navigator.clipboard.writeText(u.id); alert('ID copiado!'); }}
+            onClick={() => { navigator.clipboard.writeText(u.id); toast.success('ID copiado!'); }}
             className="p-2 text-slate-400 hover:text-caneta-600 hover:bg-caneta-50 rounded-md transition-colors"
           >
             <Copy className="w-4 h-4" />
@@ -188,7 +189,7 @@ export function UsuariosTab() {
     await refreshProfile();
   } catch (e) {
     console.error('Erro ao alternar status', e);
-    alert('Erro ao alterar status.');
+    toast.error('Erro ao alterar status.');
   } finally {
     setSalvando(null);
   }

@@ -1,3 +1,4 @@
+import { toast } from "../lib/toast";
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { queryClient } from '../lib/queryClient';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
@@ -236,7 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return true;
     } catch (err: any) {
       console.error('Erro ao atualizar papel do usuário:', err);
-      alert('Falha ao atualizar papel: ' + err.message);
+      toast.error('Falha ao atualizar papel: ' + err.message);
       return false;
     }
   };
@@ -260,7 +261,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return true;
     } catch (err: any) {
       console.error('Erro ao alternar status do usuário:', err);
-      alert('Falha ao alterar status: ' + err.message);
+      toast.error('Falha ao alterar status: ' + err.message);
       return false;
     }
   };

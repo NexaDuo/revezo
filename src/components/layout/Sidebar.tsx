@@ -162,7 +162,7 @@ export const Sidebar: React.FC = () => {
           bg-slate-50 border-r border-slate-200 shrink-0 print:hidden
           flex flex-col
           fixed top-28 md:top-16 bottom-0 left-0 z-50
-          md:sticky md:h-[calc(100vh-4rem)]
+          md:sticky md:self-start md:h-[calc(100dvh-4rem)]
           transition-[width,transform] duration-200
           ${collapsed ? 'w-16' : 'w-60'}
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} md:transform-none

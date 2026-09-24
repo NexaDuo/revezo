@@ -1,3 +1,4 @@
+import { Toaster } from "./components/ui/Toaster";
 import { DataTable } from './components/DataTable';
 import { listarPagina, paginarMemoria } from './lib/paginacao';
 import React, { useState } from 'react';
@@ -781,6 +782,8 @@ export const App: React.FC = () => {
         </>}
       </main>
       </div>
+
+      <Toaster />
 
       {/* Modais de Autenticação e Administração */}
 
