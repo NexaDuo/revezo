@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Pencil, Plus, Search, X } from 'lucide-react';
 import { TAMANHO_PAGINA, type Pagina } from '../lib/paginacao';
 import { AVISO_NAO_SALVO, ModalSujoContext, useFecharAoClicarFora } from '../lib/modal';
+import { useDebounce } from '../lib/useDebounce';
 
 export interface Column<T> {
   key: string;
@@ -104,11 +105,12 @@ function TableContent<T>({
 }: Props<T>) {
   const [pagina, setPagina] = useState(1);
   const [busca, setBusca] = useState('');
+  const buscaDebounced = useDebounce(busca, 300);
   const [editor, setEditor] = useState<{ registro: T | null } | null>(null);
 
   const query = useQuery({
-    queryKey: [...queryKey, pagina, busca],
-    queryFn: () => fetchPage({ pagina, busca, colunasBusca: columns.filter(c => c.searchable).map(c => c.key) }),
+    queryKey: [...queryKey, pagina, buscaDebounced],
+    queryFn: () => fetchPage({ pagina, busca: buscaDebounced, colunasBusca: columns.filter(c => c.searchable).map(c => c.key) }),
     enabled,
   });
   const total = query.data?.total ?? 0;
