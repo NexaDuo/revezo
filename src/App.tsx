@@ -30,8 +30,8 @@ import { ScheduleGrid } from './components/ScheduleGrid';
 import { ExcelImportModal } from './components/ExcelImportModal';
 import { EquipeManager } from './components/EquipeManager';
 import { SitiosManager } from './components/SitiosManager';
-import { RegrasManager } from './components/RegrasManager';
-import { RestricoesManager } from './components/RestricoesManager';
+import { RegrasView } from './components/RegrasView';
+
 import { DisponibilidadeManager } from './components/DisponibilidadeManager';
 import { Pessoa, StatusDisponibilidade } from './lib/solver/types';
 import { loadSchedules, salvarDisponibilidade, carregarDisponibilidade, carregarEscala, carregarEscalaPorId, listarVersoesSemana, salvarEscalaNova, atualizarEscala, ativarEscala, ordenarVersoes, EscalaSalva, getEquipes, getSitios } from './lib/db';
@@ -616,7 +616,7 @@ export const App: React.FC = () => {
             </div>
           } />
 
-          <Route path="regras" element={<div className="space-y-12"><RegrasManager /><RestricoesManager /></div>} />
+          <Route path="regras" element={<RegrasView />} />
           <Route path="equipe" element={<EquipeManager />} />
           <Route path="sitios" element={<SitiosManager />} />
           <Route path="disponibilidade" element={<DisponibilidadeManager />} />
