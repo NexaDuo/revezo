@@ -141,13 +141,22 @@ function construir(config: Config): Escala {
     }
   }
 
-  // 4.6 fechar a regra "1x por semana em Ações"
+  fecharAcoes(esc, config, pessoaMap, contaAcoes, put);
+  return esc;
+}
+
+/** 4.6 fechar a regra "1x por semana em Ações". A pessoa nunca vai para Ações
+ *  num turno em que já está em outro sítio (duplicidade é rígida): ou há um
+ *  dia livre, ou ela troca de lugar com alguém livre que cubra o sítio dela.
+ *  Sem nenhum dos dois, fica o alerta de acoesSemana na tela. */
+function fecharAcoes(esc: Escala, config: Config, pessoaMap: Record<string, Pessoa>,
+                     contaAcoes: (n: string) => number, put: (t: "manha"|"tarde", s: string, d: number, n: string) => void) {
   for (const p of config.equipe) {
     if (p.isentoAcoes || p.fixo) continue;
     if (contaAcoes(p.n) > 0) continue;
     const turno = p.t === "manha" ? "manha" : "tarde";
     if (!esc[turno][config.acoes]) continue;
-    
+
     const dias = config.dias.map((_, i) => i)
       .filter(d => !estaFora(config.disp, p.n, d) && podeTurno(pessoaMap, config.disp, p.n, d, turno))
       .filter(d => !(esc[turno][config.acoes][d] || []).includes(p.n))
@@ -155,10 +164,25 @@ function construir(config: Config): Escala {
       .filter(d => !(esc[turno][config.acoes][d - 1] || []).includes(p.n) && !(esc[turno][config.acoes][d + 1] || []).includes(p.n))
       .sort((a, b) => (ehPlantao(config.disp, p.n, b) ? 1 : 0) - (ehPlantao(config.disp, p.n, a) ? 1 : 0)
                  || esc[turno][config.acoes][a].length - esc[turno][config.acoes][b].length);
-    if (dias.length) put(turno, config.acoes, dias[0], p.n);
+    const livre = dias.find(d => !jaEstaNoDia(esc, config, p.n, d, turno));
+    if (livre !== undefined) { put(turno, config.acoes, livre, p.n); continue; }
+    for (const d of dias) {
+      const onde = ondeEsteve(esc, config, p.n, d, turno);
+      // Colocação fixa e posto de mais de um sítio não se desfazem aqui.
+      if (onde.length !== 1 || config.fixas.some(f => f.p === p.n && f.d === d && f.t === turno)) continue;
+      const sitio = onde[0];
+      const cel = esc[turno][sitio][d];
+      cel.splice(cel.indexOf(p.n), 1);
+      const substituto = cel.length > 0 ? null : config.equipe.find(q => q.n !== p.n && !q.fixo && q.t !== "noite"
+        && podeColocar(esc, config, pessoaMap, q.n, turno, sitio, d));
+      if (cel.length > 0 || substituto) {
+        if (substituto) put(turno, sitio, d, substituto.n);
+        put(turno, config.acoes, d, p.n);
+        break;
+      }
+      cel.push(p.n);
+    }
   }
-  
-  return esc;
 }
 
 function pontuar(config: Config, esc: Escala): number {

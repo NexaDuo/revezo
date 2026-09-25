@@ -13,8 +13,10 @@ test('paginação, busca, modal e cache durante a navegação', async ({ page })
       Object.assign(linhas.find(r=>r.id===id)!,req.postDataJSON());
       return route.fulfill({json:[{id}]});
     }
+    // A Equipe também lê a lista inteira (sem paginação) para barrar nome
+    // curto repetido; só as leituras da tabela contam e têm de ser paginadas.
+    if (!req.headers()['prefer']?.includes('count=exact')) return responderPagina(route,linhas);
     leituras++;
-    expect(req.headers()['prefer']).toContain('count=exact');
     expect(new URL(req.url()).searchParams.get('limit')).toBe('10');
     return responderPagina(route,linhas);
   });

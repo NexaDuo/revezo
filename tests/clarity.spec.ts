@@ -14,7 +14,7 @@ async function gravarClarity(page: Page) {
   return () => page.evaluate(() => JSON.parse(JSON.stringify((window as any).__clarity)) as unknown[][]);
 }
 
-test('logado: Clarity recebe o e-mail do perfil, papel e environment', async ({ page }) => {
+test('logado: Clarity recebe o UUID do perfil, papel e environment, nunca e-mail', async ({ page }) => {
   test.skip(!HAS_ENV, 'Sessão simulada precisa da URL do Supabase (.env); o modo demonstração é coberto abaixo.');
   const chamadas = await gravarClarity(page);
   await autenticarComoCoordenador(page);
@@ -25,6 +25,7 @@ test('logado: Clarity recebe o e-mail do perfil, papel e environment', async ({ 
   expect(todas).toContainEqual(['set', 'environment', 'development']);
   expect(todas).toContainEqual(['identify', FAKE_USER_ID]);
   expect(todas).toContainEqual(['set', 'papel', 'coordenador']);
+  expect(JSON.stringify(todas), 'nenhum e-mail pode ir para o Clarity').not.toContain('@');
   expect(JSON.stringify(todas), 'nem o nome da pessoa').not.toContain('Teste E2E');
 });
 
@@ -42,6 +43,7 @@ test('gravação do Clarity mascara a tela inteira por padrão (nomes de profiss
   await page.goto('/');
   await expect(page.locator('body')).toHaveAttribute('data-clarity-mask', 'true');
   await expect(page.locator('[data-clarity-unmask]')).toHaveCount(1);
+  await expect(page.getByTitle('Versão do sistema')).toHaveAttribute('data-clarity-unmask', 'true');
 });
 
 test('logout recarrega a página: a sessão seguinte do Clarity não herda o uuid', async ({ page }) => {

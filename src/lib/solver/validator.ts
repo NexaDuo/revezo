@@ -11,6 +11,19 @@ export function validar(config: Config, escala: Escala): Violacao[] {
   const diasLength = config.dias.length;
 
   for (const turno of ["manha", "tarde"] as ("manha" | "tarde")[]) {
+    // Duplicidade vale sempre (não é regra de painel), inclusive nas linhas
+    // preservadas do histórico. É alerta: a escala real tem casos intencionais
+    // (ex.: Acolhimento + Ações no mesmo turno), a coordenação decide.
+    for (const [sitio, dias] of Object.entries(escala[turno] || {})) {
+      for (let d = 0; d < diasLength; d++) {
+        for (const n of new Set(dias[d] || [])) {
+          for (const [outro, outras] of Object.entries(escala[turno] || {})) {
+            if (outro !== sitio && (outras[d] || []).includes(n))
+              add(false, "duplicidade", turno, sitio, d, `${n} também está em ${canon(outro)} neste turno`);
+          }
+        }
+      }
+    }
     for (const s of config.sitios[turno]) {
       for (let d = 0; d < diasLength; d++) {
         const nomes = celula(escala, turno, s.n, d);

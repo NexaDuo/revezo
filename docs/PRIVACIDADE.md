@@ -15,7 +15,8 @@ A integração com o Microsoft Clarity serve exclusivamente para fins de melhori
 
 ## 3. Isolamento Multi-Tenant (Múltiplas Unidades)
 O Revezo é uma aplicação multi-tenant. Dados de uma unidade hospitalar nunca devem transbordar para outra. Isso se estende à **presença online**:
-- A indicação de quem está online via *Realtime Presence* é restrita aos canais específicos de cada unidade. Coordenadores de uma unidade não têm acesso (visual ou no tráfego de rede) para saber quais profissionais de outras unidades estão conectados.
+- A presença é visível apenas para coordenadores da mesma unidade e administradores, por prerrogativa de função. O usuário comum anuncia sua presença, mas não vê a de ninguém.
+- Os dados trafegados são o UUID do perfil e o horário de entrada. O isolamento é garantido no servidor por RLS no Realtime, com canal privado por unidade. Coordenadores não recebem a presença de outras unidades; administradores podem acompanhar as unidades às quais têm acesso.
 
 ## 4. Consentimento e Finalidade
 Os dados de telemetria anonimizada não são utilizados para vigilância ou avaliação de desempenho individual, sendo vedada a criação de "perfis comportamentais" rastreáveis. A finalidade é unicamente a manutenção da estabilidade técnica e segurança da plataforma.

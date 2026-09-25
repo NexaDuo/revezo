@@ -16,11 +16,13 @@ function CopyableEmail({ email }: { email: string }) {
     <div className="flex items-center gap-1.5 group">
       <span className="truncate">{email}</span>
       <button 
-        onClick={(e) => {
+        onClick={async (e) => {
           e.stopPropagation();
-          navigator.clipboard.writeText(email);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
+          try {
+            await navigator.clipboard.writeText(email);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          } catch { toast.error('Não foi possível copiar o e-mail.'); }
         }}
         className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-slate-400 hover:text-slate-600 rounded"
         title="Copiar E-mail"
@@ -88,7 +90,10 @@ function UsuarioForm({ u, fechar, isAdmin, onSubmit }: {
           <button
             type="button"
             title="Copiar ID do Usuário (Clarity)"
-            onClick={() => { navigator.clipboard.writeText(u.id); toast.success('ID copiado!'); }}
+            onClick={async () => {
+            try { await navigator.clipboard.writeText(u.id); toast.success('ID copiado!'); }
+            catch { toast.error('Não foi possível copiar o identificador.'); }
+          }}
             className="hidden sm:block p-2 text-slate-400 hover:text-caneta-600 hover:bg-caneta-50 rounded-md transition-colors"
           >
             <Copy className="w-4 h-4" />
@@ -160,10 +165,10 @@ function UsuarioForm({ u, fechar, isAdmin, onSubmit }: {
 }
 
 export function UsuariosTab() {
- const { profile, isAdmin, isCoordenador, refreshProfile, onlineUsers } = useAuth();
+ const { profile, isAdmin, isCoordenador, refreshProfile, onlineUsers, presencaIndisponivel } = useAuth();
  const { unidadeId } = useWorkContext(); const client = useQueryClient();
- if (!isCoordenador) return null;
  const [salvando, setSalvando] = useState<string | null>(null);
+ if (!isCoordenador && !isAdmin) return null;
  const escopo = isAdmin ? 'global' : 'unidade';
  const unidade = isAdmin ? unidadeId : profile?.unidade_id ?? null;
  const podeEditar = (u: UserProfile) => u.id !== profile?.id && (isAdmin || (u.unidade_id === profile?.unidade_id && u.role === 'visualizador'));
@@ -180,7 +185,7 @@ export function UsuariosTab() {
     if (isSupabaseConfigured) {
       let q = supabase.from('profiles').update(payload).eq('id',u.id);
       if (!isAdmin) q = q.eq('unidade_id',profile!.unidade_id!).eq('role','visualizador');
-      const {error} = await q.select('id'); if (error) throw error;
+      const {data,error} = await q.select('id'); if (error) throw error; if (data?.length !== 1) throw new Error('Nenhum usuário atualizado. Verifique sua permissão.');
     } else {
       const demoUser = dadosDemo('profiles',unidade).find(r=>r.id===u.id);
       if (demoUser) Object.assign(demoUser,payload);
@@ -195,14 +200,16 @@ export function UsuariosTab() {
   }
  };
 
- return <div className="space-y-3"><DataTable<UserProfile> titulo="Usuários" descricao="Apenas administradores podem promover ou revogar coordenadores." queryKey={['profiles', unidade]} podeCriar={false}
+ return <div className="space-y-3">
+ {(isCoordenador || isAdmin) && presencaIndisponivel && <p role="status" data-print-hide="true" className="text-xs text-slate-600">presença indisponível</p>}
+ <DataTable<UserProfile> titulo="Usuários" descricao="Apenas administradores podem promover ou revogar coordenadores." queryKey={['profiles', unidade]} podeCriar={false}
  fetchPage={f => listarPagina('profiles', unidade, {...f, ordem:'created_at',crescente:false}, escopo)} getRowId={u => u.id} podeEditar={podeEditar}
  columns={[
    {key:'nome',header:'Nome',searchable:true,render:u=>
      <div className="flex items-center gap-2">
        <div className="relative shrink-0 flex items-center justify-center">
          {u.avatar_url ? <img src={u.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" /> : <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-sm text-slate-500 shrink-0 font-medium">{u.nome?.charAt(0).toUpperCase() || '?'}</div>}
-         {onlineUsers.has(u.id) && <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 ring-2 ring-white" title="Online" />}
+         {(isCoordenador || isAdmin) && !presencaIndisponivel && onlineUsers.has(u.id) && <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 ring-2 ring-white" title="Online" />}
        </div>
        <span className="font-medium whitespace-normal break-words">{u.nome}</span>
      </div>
@@ -225,7 +232,7 @@ export function UsuariosTab() {
    if (isSupabaseConfigured) {
      let q = supabase.from('profiles').update(payload).eq('id',u.id);
      if (!isAdmin) q = q.eq('unidade_id',profile!.unidade_id!).eq('role','visualizador');
-     const {data,error} = await q.select('id'); if (error) throw error; if (!data?.length) throw new Error('Nenhum usuário atualizado. Verifique sua permissão.');
+     const {data,error} = await q.select('id'); if (error) throw error; if (data?.length !== 1) throw new Error('Nenhum usuário atualizado. Verifique sua permissão.');
    } else Object.assign(dadosDemo('profiles',unidade).find(r=>r.id===u.id),payload);
    await client.invalidateQueries({queryKey:['profiles']}); await refreshProfile();
  }} />}

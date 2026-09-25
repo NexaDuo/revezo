@@ -1,12 +1,21 @@
-import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { RegrasManager } from './RegrasManager';
 import { RestricoesManager } from './RestricoesManager';
 
 export type AbaRegras = 'regras' | 'proibicoes' | 'duplas' | 'fixas';
+const ABAS: AbaRegras[] = ['regras', 'proibicoes', 'duplas', 'fixas'];
 
 export function RegrasView() {
-  const [ativa, setAba] = useState<AbaRegras>('regras');
-  
+  // A aba mora na URL: a tela é remontada quando a sessão/unidade termina de
+  // carregar, e um useState local voltava para "Regras" depois do clique.
+  const [params, setParams] = useSearchParams();
+  const ativa = ABAS.find(a => a === params.get('aba')) ?? 'regras';
+  const setAba = (aba: AbaRegras) => setParams(p => {
+    const n = new URLSearchParams(p);
+    if (aba === 'regras') n.delete('aba'); else n.set('aba', aba);
+    return n;
+  }, { replace: true });
+
   return (
     <div className="space-y-6">
       <div className="flex justify-center">

@@ -39,12 +39,12 @@ export function RegrasManager() {
                     {r.rigida ? 'Rígida' : 'Alerta'}
                   </button>)},
  {key:'ativa', header:'Estado', render:r => (
-  <div data-testid={`regra-toggle-${r.chave}`}>
+  <div>
     <Switch 
       checked={r.ativa} 
       onChange={() => alternar(r, 'ativa')} 
       disabled={!canEdit || salvando === r.id} 
-      data-testid={`regra-toggle-knob-${r.chave}`}
+      data-testid={`regra-toggle-${r.chave}`}
     />
   </div>
 )}
