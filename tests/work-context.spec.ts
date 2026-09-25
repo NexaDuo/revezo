@@ -118,6 +118,10 @@ test.describe('WorkContext — semana e unidade dirigem o que a tela carrega', (
       const caixaPolegar = await polegar.boundingBox();
       expect(caixaBotao, `botão de ${chave} precisa ter geometria`).not.toBeNull();
       expect(caixaPolegar, `polegar de ${chave} precisa ter geometria`).not.toBeNull();
+      expect(caixaBotao!.width, 'trilha deve ser mais larga que o polegar').toBeGreaterThan(caixaPolegar!.width);
+      expect(caixaPolegar!.y).toBeGreaterThanOrEqual(caixaBotao!.y);
+      expect(caixaPolegar!.y + caixaPolegar!.height).toBeLessThanOrEqual(caixaBotao!.y + caixaBotao!.height);
+
 
       expect(caixaPolegar!.x, `polegar de ${chave} não pode começar antes da trilha`).toBeGreaterThanOrEqual(caixaBotao!.x);
       expect(

@@ -16,9 +16,9 @@ export function Toaster() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
+    <div data-print-hide="true" role="status" aria-live="polite" className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
       {toasts.map(t => (
-        <div key={t.id} className={`px-4 py-3 rounded-md shadow-lg text-sm font-medium transition-all transform pointer-events-auto flex items-center gap-2 ${t.type === 'error' ? 'bg-red-600 text-white' : t.type === 'success' ? 'bg-green-600 text-white' : 'bg-slate-800 text-white'}`}>
+        <div key={t.id} role={t.type === 'error' ? 'alert' : undefined} className={`px-4 py-3 rounded-md shadow-lg text-sm font-medium transition-all transform pointer-events-auto flex items-center gap-2 ${t.type === 'error' ? 'bg-red-600 text-white' : t.type === 'success' ? 'bg-green-600 text-white' : 'bg-slate-800 text-white'}`}>
           {t.message}
         </div>
       ))}

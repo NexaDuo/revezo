@@ -92,7 +92,8 @@ Definição de pronto:
    ```bash
    npx playwright test && mv .env .env.bak && npx playwright test; mv .env.bak .env
    ```
-3. Migração de schema vai por `supabase/migrations/` (`supabase-migrations.yml`), nunca
+3. Migração de schema vai por `supabase/migrations/` (job `migrate` do `deploy.yml`,
+   que roda `supabase db push` antes do deploy, só em `main`), nunca
    por alteração manual no painel.
 4. Smoke na URL pública após o deploy.
 

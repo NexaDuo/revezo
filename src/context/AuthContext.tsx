@@ -33,6 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [role, setRole] = useState<UserRole>('visualizador');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [presencaIndisponivel, setPresencaIndisponivel] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
 
   const fetchProfile = async (userId: string, retries = 3, delay = 500): Promise<UserProfile | null> => {
@@ -267,35 +268,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    if (!user || !isSupabaseConfigured) {
+    setPresencaIndisponivel(false);
+    if (!isSupabaseConfigured) {
       setOnlineUsers(new Set(user ? [user.id] : []));
       return;
     }
+    setOnlineUsers(new Set());
+    if (!user || !profile?.ativo) return;
 
-    const channel = supabase.channel(`system-presence:global`, {
-      config: {
-        presence: { key: user.id },
-      },
-    });
-
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        console.log('Realtime Presence Sync:', state);
-        setOnlineUsers(new Set(Object.keys(state)));
-      })
-      .subscribe(async (status, err) => {
-        console.log('Realtime Status:', status, err);
+    const unidadeId = profile.unidade_id;
+    const recebe = role === 'coordenador' || role === 'admin';
+    const canais: ReturnType<typeof supabase.channel>[] = [];
+    const falhas = new Set<string>();
+    const prontos = new Set<string>();
+    let encerrado = false;
+    const atualizar = () => {
+      if (encerrado || !recebe) return;
+      setOnlineUsers(new Set(canais.filter(c => prontos.has(c.topic))
+        .flatMap(c => Object.keys(c.presenceState()))));
+      setPresencaIndisponivel(falhas.size > 0);
+    };
+    const assinar = (id: string, anunciar: boolean) => {
+      const canal = supabase.channel(`presence:unidade:${id}`, {
+        config: { private: true, presence: { key: user.id } },
+      });
+      canais.push(canal);
+      if (recebe) canal.on('presence', { event: 'sync' }, atualizar);
+      canal.subscribe(async status => {
+        if (encerrado) return;
         if (status === 'SUBSCRIBED') {
-          const res = await channel.track({ online_at: new Date().toISOString() });
-          console.log('Realtime Track Response:', res);
+          prontos.add(canal.topic);
+          falhas.delete(canal.topic);
+          atualizar();
+          if (anunciar) {
+            try {
+              const resultado = await canal.track({ online_at: new Date().toISOString() });
+              if (resultado !== 'ok') throw new Error('track');
+            } catch {
+              if (encerrado) return;
+              console.warn('Presença indisponível.');
+              falhas.add(canal.topic);
+              atualizar();
+            }
+          }
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          console.warn('Presença indisponível.');
+          prontos.delete(canal.topic);
+          falhas.add(canal.topic);
+          atualizar();
         }
       });
-
-    return () => {
-      supabase.removeChannel(channel);
     };
-  }, [user, isSupabaseConfigured]);
+    if (unidadeId) assinar(unidadeId, true);
+    if (role === 'admin') {
+      void (async () => {
+        try {
+          const { data, error } = await supabase.from('unidades').select('id, nome, slug, publica').order('nome');
+          if (encerrado) return;
+          if (error || !data) throw error || new Error('Unidades indisponíveis');
+          for (const unidade of data) if (unidade.id !== unidadeId) assinar(unidade.id, false);
+        } catch {
+          if (encerrado) return;
+          console.warn('Presença indisponível.');
+          falhas.add('unidades');
+          atualizar();
+        }
+      })();
+    }
+    return () => {
+      encerrado = true;
+      for (const canal of canais) void supabase.removeChannel(canal);
+    };
+  }, [user, profile?.unidade_id, profile?.ativo, role]);
 
   const isAdmin = !!profile?.ativo && role === 'admin';
   const isCoordenador = !!profile?.ativo && (role === 'admin' || role === 'coordenador');
@@ -318,6 +362,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toggleUserActive,
         isSupabaseConfigured,
         onlineUsers,
+        presencaIndisponivel,
       }}
     >
       {children}

@@ -37,7 +37,10 @@ export function MeusDadosTab() {
         <input className="block w-full rounded-none rounded-l-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 font-mono" readOnly value={profile.id} />
         <button
           type="button"
-          onClick={() => { navigator.clipboard.writeText(profile.id); toast.success('UUID copiado!'); }}
+          onClick={async () => {
+            try { await navigator.clipboard.writeText(profile.id); toast.success('UUID copiado!'); }
+            catch { toast.error('Não foi possível copiar o identificador.'); }
+          }}
           className="relative -ml-px inline-flex items-center space-x-2 rounded-r-md border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:border-caneta-500 focus:outline-none focus:ring-1 focus:ring-caneta-500"
         >
           Copiar

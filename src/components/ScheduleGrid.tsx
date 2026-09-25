@@ -3,7 +3,7 @@ import { Escala, Violacao } from '../lib/solver/types';
 import { canon } from '../lib/solver/utils';
 import { useWorkContext } from '../context/WorkContext';
 import { X } from 'lucide-react';
-import { estaFora } from '../lib/solver/utils';
+import { validar } from '../lib/solver/validator';
 
 interface ScheduleGridProps {
   escala: Escala;
@@ -23,6 +23,37 @@ interface ScheduleGridProps {
 export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, linhasOrfas, violacoes, dias, onUpdateEscala, onSalvar, textoSalvar = 'Salvar e Publicar', bloqueio = null, config }) => {
   const [soltarEm, setSoltarEm] = useState<string | null>(null);
   const { podeGravar, visitante } = useWorkContext();
+  const [candidatos, setCandidatos] = useState<{
+    alvo: string; escala: Escala; config: ScheduleGridProps['config'];
+    opcoes: { nome: string; rotulo: string; motivos: string; ordem: number }[];
+  } | null>(null);
+  const prepararCandidatos = (turno: 'manha' | 'tarde', sitio: string, d: number) => {
+    const alvo = `${turno}|${sitio}|${d}`;
+    if (!config || (candidatos?.alvo === alvo && candidatos.escala === escala && candidatos.config === config)) return;
+    // O App entrega as violações da escala atual, já conferida a cada edição.
+    const chave = (v: Violacao) => JSON.stringify([v.regra, v.turno, v.sitio, v.d, v.msg]);
+    const atuais = new Set(violacoes.map(chave));
+    const naCelula = escala[turno]?.[sitio]?.[d] || [];
+    const opcoes = config.equipe.filter(p => !naCelula.includes(p.n)).map(p => {
+      const simulada = structuredClone(escala);
+      const linha = ((simulada[turno] ||= {})[sitio] ||= []);
+      (linha[d] ||= []).push(p.n);
+      const novas = validar(config, simulada).filter(v => !atuais.has(chave(v)) &&
+        (v.msg.includes(p.n) || (v.turno === turno && v.sitio === sitio && v.d === d)));
+      // O motivo mostrado é o da célula onde a pessoa vai entrar; o espelho em
+      // outra célula (ex.: duplicidade na origem) só entra na contagem.
+      const aqui = (v: Violacao) => v.turno === turno && canon(v.sitio) === canon(sitio) && v.d === d;
+      const primeira = novas.find(v => v.hard && aqui(v)) || novas.find(v => v.hard) || novas.find(aqui) || novas[0];
+      return {
+        nome: p.n,
+        rotulo: primeira ? `${p.n} — ${primeira.msg}${novas.length > 1 ? ` (+${novas.length - 1})` : ''}` : p.n,
+        motivos: [...new Set(novas.map(v => v.msg))].join('\n'),
+        ordem: novas.some(v => v.hard) ? 2 : novas.length ? 1 : 0,
+      };
+    }).sort((a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome));
+    setCandidatos({ alvo, escala, config, opcoes });
+  };
+
   const getViolacoes = (turno: string, sitio: string, d: number) => {
     return violacoes.filter(v => v.turno === turno && canon(v.sitio) === canon(sitio) && v.d === d);
   };
@@ -145,6 +176,9 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, linhasOrfas,
                         <div className="mt-1" data-print-hide="true">
                           <select
                             className="text-xs bg-transparent hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded px-1 py-0.5 text-slate-500 hover:text-slate-700 w-full cursor-pointer focus:outline-none focus:ring-1 focus:ring-caneta-500 transition-colors"
+                            aria-label={`Adicionar em ${s}, ${turno}, ${dias[d]}`}
+                            onFocus={() => prepararCandidatos(turno, s, d)}
+                            onMouseDown={() => prepararCandidatos(turno, s, d)}
                             value=""
                             onChange={(e) => {
                               if (!e.target.value || !onUpdateEscala) return;
@@ -160,27 +194,11 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({ escala, linhasOrfas,
                             }}
                           >
                             <option value="">+ Adicionar</option>
-                            {config.equipe
-                               .map(p => {
-                                 const noTurno = Object.values(escala[turno] || {}).some(dias => (dias[d] || []).includes(p.n));
-                                 const outroTurno = turno === 'manha' ? 'tarde' : 'manha';
-                                 const noOutro = Object.values(escala[outroTurno] || {}).some(dias => (dias[d] || []).includes(p.n));
-                                 const indisp = estaFora(config.disp, p.n, d);
-                                 
-                                 let status = '';
-                                 let ordem = 0;
-                                 if (indisp) { status = ' (folga/indisp)'; ordem = 3; }
-                                 else if (noTurno) { status = ' (já neste turno)'; ordem = 2; }
-                                 else if (noOutro) { status = ' (no outro turno)'; ordem = 1; }
-                                 else { status = ' (ocioso)'; ordem = 0; }
-                                 
-                                 return { nome: p.n, status, ordem };
-                               })
-                               .sort((a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome))
-                               .map(p => (
-                                 <option key={p.nome} value={p.nome}>{p.nome}{p.status}</option>
-                               ))
-                            }
+                            {candidatos?.alvo === alvo && candidatos.escala === escala && candidatos.config === config &&
+                              candidatos.opcoes.map(p => (
+                                <option key={p.nome} value={p.nome} title={p.motivos || undefined}>{p.rotulo}</option>
+                              ))}
+
                           </select>
                         </div>
                       )}

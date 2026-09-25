@@ -122,8 +122,16 @@ export const WorkProvider: React.FC<{ children: React.ReactNode }> = ({ children
       : !semanaValida(semanaInicio) ? 'Semana inválida: informe uma segunda-feira no formato YYYY-MM-DD.' : 'Tela inexistente.'
     : null);
   useEffect(() => {
-    if (antiga && unidade && !isLoading && !erro) navigate(caminho(unidade.slug, semanaPadrao, tela), { replace: true });
-  }, [antiga, unidade, isLoading, erro, semanaPadrao, tela, navigate]);
+    // Mantém só a query do próprio app (?aba=, ?escala=): o que a pessoa
+    // escolheu enquanto a unidade carregava não pode sumir no redirecionamento.
+    // Nunca repassar o resto (o ?code= do login PKCE não pode voltar à URL).
+    if (!antiga || !unidade || isLoading || erro) return;
+    const atuais = new URLSearchParams(location.search);
+    const mantidos = new URLSearchParams();
+    for (const chave of ['aba', 'escala']) { const v = atuais.get(chave); if (v) mantidos.set(chave, v); }
+    const query = mantidos.toString();
+    navigate(caminho(unidade.slug, semanaPadrao, tela) + (query ? `?${query}` : ''), { replace: true });
+  }, [antiga, unidade, isLoading, erro, semanaPadrao, tela, navigate, location.search]);
   const caminhoTela = (destino: string) => unidade && !contextoInvalido ? caminho(unidade.slug, semanaInicio, destino.replace(/^\//, '')) : destino || '/';
   return <WorkContext.Provider value={{
     unidadeId: contextoInvalido ? null : unidade?.id ?? null,

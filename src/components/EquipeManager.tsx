@@ -41,7 +41,10 @@ const EquipeContent: React.FC = () => {
     setEditForm({...editForm, nome: val, nome_curto: novoNomeCurto});
   };
 
-  const fetchData = () => client.invalidateQueries({ queryKey: ['equipe', unidadeId] });
+  const fetchData = () => Promise.all([
+    client.invalidateQueries({ queryKey: ['equipe', unidadeId] }),
+    client.invalidateQueries({ queryKey: ['equipe_todos', unidadeId] }),
+  ]);
   const handleAdd = async () => {
     setErro(null);
     let ordem = 1;

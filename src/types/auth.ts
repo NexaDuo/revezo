@@ -33,4 +33,5 @@ export interface AuthContextType extends AuthState {
   toggleUserActive: (userId: string, currentStatus: boolean) => Promise<boolean>;
   isSupabaseConfigured: boolean;
   onlineUsers: Set<string>;
+  presencaIndisponivel: boolean;
 }
